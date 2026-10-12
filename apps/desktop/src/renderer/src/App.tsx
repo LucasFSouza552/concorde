@@ -1,5 +1,6 @@
 import { HashRouter } from "react-router-dom";
 
+import UpdateBanner from "../components/UpdateBanner/UpdateBanner";
 import { ActiveCallProvider } from "../contexts/ActiveCallProvider";
 import { AuthProvider } from "../contexts/AuthContext";
 import { CallInviteProvider } from "../contexts/CallInviteProvider";
@@ -17,6 +18,7 @@ export default function App() {
             <ActiveCallProvider>
               <CallInviteProvider>
                 <AppRouter />
+                <UpdateBanner />
               </CallInviteProvider>
             </ActiveCallProvider>
           </UserSocketProvider>

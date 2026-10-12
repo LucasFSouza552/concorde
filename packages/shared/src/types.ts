@@ -1,4 +1,3 @@
-import type { Message } from "./messages";
 
 export interface User {
     id: string;

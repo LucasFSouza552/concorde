@@ -105,6 +105,9 @@ export default function Friends({ activeChannelId, onActiveChannel, onSelectFrie
                     onCall={handleCall} />}
 
             </div>
+            {error && <div>
+                <p>{error}</p>
+            </div>}
         </section>
     )
 }

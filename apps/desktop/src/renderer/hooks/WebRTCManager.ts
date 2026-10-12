@@ -172,9 +172,33 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         });
     }
 
-    function addScreenTrack(track: MediaStreamTrack, stream: MediaStream) {
+    function screenMaxBitrate(height: number): number {
+        if (height >= 1080) return 10_000_000;
+        if (height >= 720) return 5_000_000;
+        return 2_500_000;
+    }
+
+    async function applyScreenSendParams(connection: RTCPeerConnection, track: MediaStreamTrack, height: number) {
+        const sender = connection.getSenders().find((s) => s.track === track);
+        if (!sender) return;
+        try {
+            const params = sender.getParameters();
+            if (!params.encodings || params.encodings.length === 0) {
+                params.encodings = [{}];
+            }
+            params.encodings[0].maxBitrate = screenMaxBitrate(height);
+            (params as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference = "maintain-resolution";
+            await sender.setParameters(params);
+        } catch (err) {
+            console.warn("[ScreenShare] Falha ao aplicar bitrate:", err);
+        }
+    }
+
+    function addScreenTrack(track: MediaStreamTrack, stream: MediaStream, height?: number) {
+        const sendHeight = height ?? track.getSettings().height ?? 720;
         for (const [peerId, connection] of connections) {
             connection.addTrack(track, stream);
+            void applyScreenSendParams(connection, track, sendHeight);
             startOffer(peerId);
         }
     }

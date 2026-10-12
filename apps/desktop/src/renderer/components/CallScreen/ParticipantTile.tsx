@@ -38,7 +38,7 @@ export default function ParticipantTile({ name, muted, deafened = false, isLocal
             } : {})}
         >
             {screenStream ? (
-                <ScreenVideo stream={screenStream} />
+                <ScreenVideo stream={screenStream} muted={isLocal} />
             ) : (<>
                 <div className={styles.media}>
                     <div className={`${styles.avatar} ${muted ? styles.avatarMuted : ""} ${ringing ? styles.ringing : ""}`}>

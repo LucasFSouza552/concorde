@@ -46,7 +46,7 @@
 
 .createCard {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 14px;
 
     padding: 18px;
@@ -55,35 +55,65 @@
 
     background: var(--color-surface);
     color: var(--color-text);
-
-    font-family: var(--font-sans);
-    text-align: left;
-    cursor: pointer;
-    transition: background-color 0.15s ease;
-}
-
-.createCard:hover {
-    background: var(--color-surface-hover);
 }
 
 .createCardIcon {
     flex-shrink: 0;
+    margin-top: 2px;
     color: var(--color-primary);
 }
 
-.createCardText {
+.createForm {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 10px;
+    flex: 1;
     min-width: 0;
-
-    color: var(--color-text-muted);
-    font-size: 13px;
 }
 
 .createCardTitle {
     color: var(--color-text);
     font-size: 15px;
+}
+
+.stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-sm);
+}
+
+.statCard {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    padding: 14px 16px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+
+    background: var(--color-surface);
+}
+
+.statCard > div {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.statIcon {
+    flex-shrink: 0;
+    color: var(--color-primary);
+}
+
+.statNumber {
+    color: var(--color-text);
+    font-size: 18px;
+    line-height: 1.2;
+}
+
+.statLabel {
+    color: var(--color-text-muted);
+    font-size: 12px;
 }
 
 .joinCard {
@@ -177,4 +207,68 @@
 
     color: var(--color-text-muted);
     font-size: 13px;
+}
+
+.listRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    padding: 10px 12px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+
+    background: var(--color-surface);
+}
+
+.listAvatar {
+    display: grid;
+    place-items: center;
+    flex: none;
+
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+
+    background: var(--gradient-brand);
+    color: var(--color-primary-ink);
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+.listText {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.listName {
+    color: var(--color-text);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.listSub {
+    color: var(--color-text-muted);
+    font-size: 12px;
+}
+
+.roleBadge {
+    margin-left: auto;
+    flex: none;
+
+    padding: 3px 10px;
+    border-radius: 999px;
+
+    background: var(--color-surface-active);
+    color: var(--color-text-muted);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }

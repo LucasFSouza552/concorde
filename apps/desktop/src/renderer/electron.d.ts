@@ -9,6 +9,12 @@ interface DesktopSource {
 }
 
 declare global {
+    interface UpdateStatus {
+        state: "idle" | "available" | "downloading" | "ready"
+        version?: string
+        percent?: number
+    }
+
     interface Window {
         concorde: {
             version: string
@@ -19,6 +25,13 @@ declare global {
             }
             screenShare: {
                 getDesktopSources: () => Promise<DesktopSource[]>
+            }
+            updates: {
+                onStatus: (callback: (status: UpdateStatus) => void) => () => void
+                quitAndInstall: () => Promise<void>
+            }
+            app: {
+                getVersion: () => Promise<string>
             }
         }
     }

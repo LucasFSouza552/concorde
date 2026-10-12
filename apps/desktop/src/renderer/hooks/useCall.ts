@@ -235,7 +235,7 @@ export function useCall(groupId: string | null): UseCallResult {
 
         screenStreamRef.current = stream;
         setScreenStream(stream);
-        webrtc.addScreenTrack(videoTrack, stream);
+        webrtc.addScreenTrack(videoTrack, stream, quality?.height);
         send({ type: "screen-share", sharing: true });
 
     }

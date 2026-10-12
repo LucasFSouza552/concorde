@@ -19,7 +19,11 @@ export { UserSession };
 const app = new Hono<{ Bindings: Env }>();
 
 app.use("*", cors({
-	origin: ["http://localhost:5173", "http://localhost:5174"]
+    origin: (origin) => {
+        if (!origin || origin === "null") return "null";
+        if (origin.startsWith("http://localhost:")) return origin;
+        return null;
+    }
 }));
 
 app.onError((err, c) => {
@@ -33,7 +37,6 @@ app.onError((err, c) => {
 			400
 		);
 	}
-
 	console.error(err);
 
 	return c.json({ message: "Erro interno do servidor." }, 500);

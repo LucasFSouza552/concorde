@@ -3,7 +3,7 @@ import axios from "axios";
 import type { ApiError } from "@concorde/shared";
 import { getStoredToken } from "./session";
 
-export const API_BASE_URL = "http://localhost:8787";
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
 export const WS_BASE_URL = API_BASE_URL.replace(/^http/, "ws");
 
 export const api = axios.create({
@@ -22,7 +22,9 @@ api.interceptors.request.use((config) => {
 
 export function getErrorMessage(error: unknown): string {
     if (axios.isAxiosError<ApiError>(error)) {
-        console.log("error", error);
+        if (error.response) {
+            console.log("error", error);
+        }
         return error.response?.data?.message ?? "Não foi possível completar a requisição";
     }
     return "Erro inesperado";

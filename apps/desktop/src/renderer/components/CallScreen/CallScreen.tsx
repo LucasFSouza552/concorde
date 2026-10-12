@@ -7,6 +7,8 @@ import { useActiveCall } from "../../contexts/ActiveCallProvider";
 import { useAuth } from "../../contexts/AuthContext";
 import { useCallInviteState } from "../../contexts/CallInviteProvider";
 
+import { useSpeakingIndicators } from "../../hooks/useSpeakingIndicators";
+
 import styles from "./CallScreen.module.css";
 
 interface CallScreenProps {
@@ -27,6 +29,8 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
     const { user } = useAuth();
     const [focusedId, setFocusedId] = useState<string | null>(null);
     const dismissedSharer = useRef<string | null>(null);
+    const { localStream, remoteStreams } = useActiveCall();
+    const speakingMap = useSpeakingIndicators(localStream, remoteStreams);
 
     const sharerId = screenStream
         ? LOCAL_ID
@@ -76,6 +80,7 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
                     muted={micMuted || deafened}
                     deafened={deafened}
                     isLocal
+                    speaking={!!speakingMap[LOCAL_ID]}
                     screenStream={screenStream}
                     focused={focusedId === LOCAL_ID}
                     onToggleFocus={() => toggleFocus(LOCAL_ID)}
@@ -88,6 +93,7 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
                 <ParticipantTile
                     key={peer.userId}
                     name={peer.username}
+                    speaking={!!speakingMap[peer.userId]}
                     muted={peerMuted[peer.userId]?.muted ?? false}
                     deafened={peerMuted[peer.userId]?.deafened ?? false}
                     screenStream={peerSharing[peer.userId] ? (remoteScreenStreams[peer.userId] ?? null) : null}

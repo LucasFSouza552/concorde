@@ -1,29 +1,24 @@
-import {
-	env,
-	createExecutionContext,
-	waitOnExecutionContext,
-	SELF,
-} from "cloudflare:test";
+import { SELF } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
-import worker from "../src/index";
 
-// For now, you'll need to do something like this to get a correctly-typed
-// `Request` to pass to `worker.fetch()`.
-const IncomingRequest = Request<unknown, IncomingRequestCfProperties>;
-
-describe("Hello World worker", () => {
-	it("responds with Hello World! (unit style)", async () => {
-		const request = new IncomingRequest("http://example.com");
-		// Create an empty context to pass to `worker.fetch()`.
-		const ctx = createExecutionContext();
-		const response = await worker.fetch(request, env, ctx);
-		// Wait for all `Promise`s passed to `ctx.waitUntil()` to settle before running test assertions
-		await waitOnExecutionContext(ctx);
-		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
+describe("Concorde API", () => {
+	it("responde 404 em rota inexistente", async () => {
+		const response = await SELF.fetch("https://example.com/rota-que-nao-existe");
+		expect(response.status).toBe(404);
 	});
 
-	it("responds with Hello World! (integration style)", async () => {
-		const response = await SELF.fetch("https://example.com");
-		expect(await response.text()).toMatchInlineSnapshot(`"Hello World!"`);
+	it("exige token em rota protegida", async () => {
+		const response = await SELF.fetch("https://example.com/friends");
+		expect(response.status).toBe(401);
+
+		const body = await response.json<{ message: string }>();
+		expect(body.message).toBe("Token de acesso não foi enviado.");
+	});
+
+	it("rejeita formato de token inválido", async () => {
+		const response = await SELF.fetch("https://example.com/friends", {
+			headers: { Authorization: "Token abc123" },
+		});
+		expect(response.status).toBe(401);
 	});
 });

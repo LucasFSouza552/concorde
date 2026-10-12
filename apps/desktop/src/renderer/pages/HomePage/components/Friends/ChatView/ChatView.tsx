@@ -20,7 +20,7 @@ interface ChatViewProps {
 }
 
 export default function ChatView({ channelId, friend, onBack, showHeader = true }: ChatViewProps) {
-    const { messages, loading, error: errorMessages, send } = useChannelMessages(channelId);
+    const { messages, loading, error: errorMessages, send, sending, cooling } = useChannelMessages(channelId);
     const [sendError, setSendError] = useState<string | null>(null);
     const { dial } = useCallInviteState();
     const { user } = useAuth();
@@ -30,12 +30,14 @@ export default function ChatView({ channelId, friend, onBack, showHeader = true 
 
     async function handleSend() {
         setSendError(null);
-        if (!draft.trim()) return;
+        const text = draft.trim();
+        if (!text || sending || cooling) return;
 
+        setDraft("");
         try {
-            await send(draft);
-            setDraft("");
+            await send(text);
         } catch (error) {
+            setDraft(text);
             setSendError(getErrorMessage(error));
         }
     }
@@ -80,14 +82,14 @@ export default function ChatView({ channelId, friend, onBack, showHeader = true 
             {(sendError || errorMessages) && <p>{errorMessages || sendError}</p>}
 
             <div ref={listRef} className={styles.chatMessages}>
-                {[...messages].reverse().map((message) => {
+                {[...messages].map((message) => {
                     const isMine = message.userId === user?.id;
                     const displayName = isMine
                         ? (user?.displayName ?? "?")
                         : friend.displayName;
 
                     return (
-                        <div key={message.id} className={styles.messageRow}>
+                        <div key={message.id} className={`${styles.messageRow} ${message.pending ? styles.messagePending : ""}`}>
                             <span className={styles.messageAvatar}>
                                 {displayName.trim().charAt(0).toUpperCase() || "?"}
                             </span>
@@ -110,7 +112,7 @@ export default function ChatView({ channelId, friend, onBack, showHeader = true 
                             void handleSend();
                         }
                     }} />
-                <button type="button" className={styles.sendBtn} onClick={() => void handleSend()}>Enviar</button>
+                <button type="button" className={styles.sendBtn} disabled={sending || cooling} onClick={() => void handleSend()}>Enviar</button>
             </div>
 
         </section>

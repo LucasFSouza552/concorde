@@ -2,7 +2,7 @@
     position: absolute;
     width: 100%;
     height: 100%;
-
+    z-index: 200;
     top: 0;
     left: 0;
     background-color: #0000007a;
@@ -14,30 +14,69 @@
 
 .header {
     display: flex;
-    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.headerTitle {
+    margin: 0;
+    font-size: 16px;
+}
+
+.closeBtn {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.closeBtn:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+}
+
+.closeBtn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
 }
 
 .modal {
     display: flex;
-
     flex-direction: column;
-    background-color: var(--color-border);
+    width: 560px;
+    max-width: calc(100% - 32px);
+    max-height: calc(100% - 32px);
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
 }
 
 .nav {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-xs);
-    min-width: 190px;
-    padding: var(--spacing-sm);
+    gap: 2px;
+    min-width: 168px;
+    padding: 12px 8px 12px 12px;
     border-right: 1px solid var(--color-border-subtle);
 }
 
 .navBtn {
     display: flex;
     align-items: center;
+    gap: 10px;
     width: 100%;
-    padding: 10px 12px;
+    padding: 9px 12px;
     border: 1px solid transparent;
     border-radius: var(--radius-sm);
     background: transparent;
@@ -65,7 +104,120 @@
     outline-offset: 2px;
 }
 
-.content { 
+.navSelected {
+    background: var(--color-surface-active);
+    color: var(--color-text);
+}
+
+.content {
     display: flex;
     flex-direction: row;
+    min-height: 0;
+}
+
+.panel {
+    flex: 1;
+    min-width: 0;
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.panelTitle {
+    margin: 0 0 4px;
+    font-size: 15px;
+}
+
+.panelDesc {
+    margin: 0 0 16px;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.profileRow {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 12px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--color-background);
+}
+
+.profileAvatar {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--gradient-brand);
+    color: var(--color-primary-ink);
+    font-size: 18px;
+    font-weight: 700;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+.profileName {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.profileUser {
+    margin: 2px 0 0;
+    color: var(--color-text-muted);
+    font-size: 12px;
+}
+
+.settingRow {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 0;
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+.settingLabel {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.settingHint {
+    margin: 4px 0 0;
+    color: var(--color-text-muted);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.dangerBtn {
+    padding: 9px 16px;
+    border: 1px solid var(--color-danger);
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-danger);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.dangerBtn:hover {
+    background: var(--color-danger);
+    color: #ffffff;
+}
+
+.emptyState {
+    margin: 0;
+    padding: 24px 0;
+    color: var(--color-text-muted);
+    font-size: 13px;
+    text-align: center;
 }

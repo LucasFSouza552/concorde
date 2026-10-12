@@ -100,7 +100,11 @@
 }
 
 .messageRow:hover {
-  background: var(--color-surface-hover);
+    background: var(--color-surface-hover);
+}
+
+.messagePending {
+    opacity: 0.55;
 }
 
 .messageAvatar {
@@ -184,5 +188,14 @@
 }
 
 .sendBtn:hover {
-  filter: brightness(1.1);
+    filter: brightness(1.1);
+}
+
+.sendBtn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.sendBtn:disabled:hover {
+    filter: none;
 }

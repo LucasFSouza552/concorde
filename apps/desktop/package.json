@@ -1,7 +1,7 @@
 {
   "name": "@concorde/desktop",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "main": "./out/main/index.js",
   "build": {
@@ -13,8 +13,8 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "SEU-USUARIO",
-      "repo": "SEU-REPO"
+      "owner": "LucasFSouza552",
+      "repo": "concorde"
     }
   },
   "scripts": {
