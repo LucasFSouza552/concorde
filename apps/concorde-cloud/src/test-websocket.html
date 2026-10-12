@@ -1,0 +1,808 @@
+<!DOCTYPE html>
+
+<html>
+
+<head>
+	<meta charset="UTF-8">
+	<title>WebSocket Test</title>
+</head>
+
+<body>
+
+	<h1>WebSocket Test</h1>
+
+	<p id="code-name">></p>
+	<input id="username" placeholder="Seu nome">
+
+
+	<button id="connect">
+		Conectar
+	</button>
+
+	<br><br>
+
+	<input id="targetUserId" placeholder="ID do usuário destino">
+
+	<button id="testOffer">
+		Criar Offer
+	</button>
+
+	<br><br>
+
+	<input id="message" placeholder="Digite uma mensagem">
+
+	<button id="send">
+		Enviar mensagem
+	</button>
+
+	<pre id="output"></pre>
+	<audio id="remoteAudio" autoplay></audio>
+
+	<script>
+
+		// =========================
+		// ELEMENTOS DA PÁGINA
+		// =========================
+
+		const output =
+			document.getElementById("output");
+
+		const connectButton =
+			document.getElementById("connect");
+
+		const sendButton =
+			document.getElementById("send");
+
+		const testOfferButton =
+			document.getElementById("testOffer");
+
+
+		const codeName = document.getElementById("code-name");
+
+		// =========================
+		// ESTADO
+		// =========================
+
+		let socket;
+		let userId;
+
+
+		window.onload = () => {
+			console.log("ATUALIZAR NOME:")
+			userId = `user-${Math.floor(
+				Math.random() * 500
+			)}`;
+
+			codeName.innerHTML = userId;
+		}
+
+		let remoteUserId;
+
+		let peerConnection;
+		let dataChannel;
+		let localStream;
+
+		let pendingIceCandidates = [];
+
+		const RTC_CONFIG = {
+			iceServers: [
+				{ urls: "stun:stun.l.google.com:19302" },
+				{ urls: "stun:stun1.l.google.com:19302" }
+			]
+		};
+
+
+		// =========================
+		// WEBRTC
+		// =========================
+
+		async function createPeerConnection() {
+
+			peerConnection =
+				new RTCPeerConnection(RTC_CONFIG);
+
+
+			peerConnection.ontrack = (event) => {
+				console.log("Track recebida:", event.track.kind);
+
+				const remoteAudio = document.getElementById("remoteAudio");
+
+				remoteAudio.srcObject = event.streams[0];
+			};
+
+
+			// =========================
+			// ESTADO ICE
+			// =========================
+
+			peerConnection.oniceconnectionstatechange = () => {
+
+				console.log(
+					"ICE connection state:",
+					peerConnection.iceConnectionState
+				);
+
+			};
+
+
+			// =========================
+			// ESTADO DA CONEXÃO
+			// =========================
+
+			peerConnection.onconnectionstatechange = () => {
+
+				console.log(
+					"Connection state:",
+					peerConnection.connectionState
+				);
+
+			};
+
+
+			// =========================
+			// ICE GATHERING
+			// =========================
+
+			peerConnection.onicegatheringstatechange = () => {
+
+				console.log(
+					"ICE gathering state:",
+					peerConnection.iceGatheringState
+				);
+
+			};
+
+
+			// =========================
+			// SIGNALING
+			// =========================
+
+			peerConnection.onsignalingstatechange = () => {
+
+				console.log(
+					"Signaling state:",
+					peerConnection.signalingState
+				);
+
+			};
+
+
+			// =========================
+			// DATACHANNEL RECEBIDO
+			// =========================
+
+			peerConnection.ondatachannel = (event) => {
+
+				console.log(
+					"DataChannel recebido!"
+				);
+
+
+				dataChannel =
+					event.channel;
+
+
+				dataChannel.onopen = () => {
+
+					console.log(
+						"DataChannel recebido e aberto!"
+					);
+
+				};
+
+
+				dataChannel.onmessage = (event) => {
+
+					console.log(
+						"Mensagem recebida:",
+						event.data
+					);
+
+					output.textContent +=
+						`Mensagem recebida: ${event.data}\n`;
+
+				};
+
+
+				dataChannel.onclose = () => {
+
+					console.log(
+						"DataChannel fechado."
+					);
+
+				};
+
+			};
+			await startAudio();
+
+
+		}
+
+		async function startAudio() {
+			localStream = await navigator.mediaDevices.getUserMedia({
+				audio: true,
+				video: false
+			});
+
+			console.log("Microfone capturado!");
+
+			localStream.getAudioTracks().forEach(track => {
+				peerConnection.addTrack(track, localStream);
+			});
+		}
+		// Criar a conexão WebRTC
+		createPeerConnection();
+
+
+		// =========================
+		// WEBSOCKET
+		// =========================
+
+		connectButton.addEventListener(
+			"click",
+			() => {
+
+				const usernameInput =
+					document.getElementById(
+						"username"
+					);
+
+
+				console.log(
+					"Meu userId:",
+					userId
+				);
+
+
+				// Conectar ao Worker
+				socket = new WebSocket("ws://placement-supply-reflect-bronze.trycloudflare.com/call/teste")
+
+				// =========================
+				// WEBSOCKET ABERTO
+				// =========================
+
+				socket.addEventListener(
+					"open",
+					() => {
+
+						output.textContent +=
+							"Conectado!\n";
+
+
+						socket.send(
+							JSON.stringify({
+
+								type: "join",
+
+								userId:
+									userId,
+
+								username:
+									usernameInput.value
+
+							})
+						);
+
+					}
+				);
+
+
+				// =========================
+				// MENSAGEM RECEBIDA
+				// =========================
+
+				socket.addEventListener(
+					"message",
+					async (event) => {
+
+						console.log(
+							"MENSAGEM RECEBIDA:",
+							event.data
+						);
+
+
+						const message =
+							JSON.parse(
+								event.data
+							);
+
+
+						output.textContent +=
+							`Recebido: ${JSON.stringify(message)}\n`;
+
+
+						// =========================
+						// OFFER
+						// =========================
+
+						if (
+							message.type ===
+							"offer"
+						) {
+
+							console.log(
+								"Offer recebida!"
+							);
+
+
+							// Guardar quem enviou
+							remoteUserId =
+								message.from;
+
+
+							// Definir Offer como
+							// descrição remota
+							await peerConnection
+								.setRemoteDescription({
+
+									type: "offer",
+
+									sdp:
+										message.sdp
+
+								});
+
+
+							console.log(
+								"Offer definida como descrição remota."
+							);
+
+
+							// Adicionar ICE candidates
+							// que chegaram antes da Offer
+
+							for (
+								const candidate
+								of pendingIceCandidates
+							) {
+
+								await peerConnection
+									.addIceCandidate(
+										candidate
+									);
+
+
+								console.log(
+									"ICE candidate pendente adicionado!"
+								);
+
+							}
+
+
+							pendingIceCandidates =
+								[];
+
+
+							// Criar Answer
+							const answer =
+								await peerConnection
+									.createAnswer();
+
+
+							console.log(
+								"Answer criada:",
+								answer
+							);
+
+
+							// Definir Answer local
+							await peerConnection
+								.setLocalDescription(
+									answer
+								);
+
+
+							console.log(
+								"Answer definida como descrição local."
+							);
+
+
+							// Enviar Answer
+							socket.send(
+								JSON.stringify({
+
+									type:
+										"answer",
+
+									to:
+										message.from,
+
+									sdp:
+										answer.sdp
+
+								})
+							);
+
+						}
+
+
+						// =========================
+						// ANSWER
+						// =========================
+
+						if (
+							message.type ===
+							"answer"
+						) {
+
+							console.log(
+								"Answer recebida!"
+							);
+
+
+							await peerConnection
+								.setRemoteDescription({
+
+									type:
+										"answer",
+
+									sdp:
+										message.sdp
+
+								});
+
+
+							console.log(
+								"Answer definida como descrição remota."
+							);
+
+
+							// Adicionar ICE candidates
+							// que chegaram antes da Answer
+
+							for (
+								const candidate
+								of pendingIceCandidates
+							) {
+
+								await peerConnection
+									.addIceCandidate(
+										candidate
+									);
+
+
+								console.log(
+									"ICE candidate pendente adicionado!"
+								);
+
+							}
+
+
+							pendingIceCandidates =
+								[];
+
+						}
+
+
+						// =========================
+						// ICE CANDIDATE
+						// =========================
+
+						if (
+							message.type ===
+							"ice-candidate"
+						) {
+
+							console.log(
+								"ICE candidate recebido!"
+							);
+
+
+							// Se ainda não temos
+							// descrição remota,
+							// guardamos o candidate
+
+							if (
+								!peerConnection
+									.remoteDescription
+							) {
+
+								pendingIceCandidates.push(
+									message.candidate
+								);
+
+
+								console.log(
+									"ICE candidate aguardando a Offer."
+								);
+
+
+								return;
+
+							}
+
+
+							// Caso já tenhamos
+							// descrição remota,
+							// adicionamos imediatamente
+
+							await peerConnection
+								.addIceCandidate(
+									message.candidate
+								);
+
+
+							console.log(
+								"ICE candidate adicionado!"
+							);
+
+						}
+
+					}
+				);
+
+
+				// =========================
+				// WEBSOCKET FECHADO
+				// =========================
+
+				socket.addEventListener(
+					"close",
+					() => {
+
+						output.textContent +=
+							"Conexão encerrada.\n";
+
+					}
+				);
+
+			}
+		);
+
+
+		// =========================
+		// DATACHANNEL
+		// =========================
+
+		sendButton.addEventListener(
+			"click",
+			() => {
+
+				if (!dataChannel) {
+
+					console.log(
+						"DataChannel ainda não existe."
+					);
+
+					return;
+
+				}
+
+
+				console.log(
+					"DataChannel:",
+					dataChannel.readyState
+				);
+
+
+				if (
+					dataChannel.readyState ===
+					"open"
+				) {
+
+					const messageInput =
+						document.getElementById(
+							"message"
+						);
+
+
+					const message =
+						messageInput.value;
+
+
+					dataChannel.send(
+						message
+					);
+
+
+					console.log(
+						"Mensagem enviada:",
+						message
+					);
+
+
+					output.textContent +=
+						`Você: ${message}\n`;
+
+
+					messageInput.value =
+						"";
+
+				} else {
+
+					console.log(
+						"DataChannel ainda não está aberto."
+					);
+
+				}
+
+			}
+		);
+
+
+		// =========================
+		// OFFER
+		// =========================
+
+		testOfferButton.addEventListener(
+			"click",
+			async () => {
+
+				const targetUserId =
+					document.getElementById(
+						"targetUserId"
+					).value;
+
+
+				// =========================
+				// VALIDAR WEBSOCKET
+				// =========================
+
+				if (!socket) {
+
+					console.log(
+						"Conecte ao WebSocket primeiro."
+					);
+
+					return;
+
+				}
+
+
+				// =========================
+				// VALIDAR DESTINO
+				// =========================
+
+				if (!targetUserId) {
+
+					console.log(
+						"Informe o ID do usuário destino."
+					);
+
+					return;
+
+				}
+
+
+				// Guardar usuário remoto
+				remoteUserId =
+					targetUserId;
+
+
+				// =========================
+				// CRIAR DATACHANNEL
+				// =========================
+
+				dataChannel =
+					peerConnection
+						.createDataChannel(
+							"test"
+						);
+
+
+				dataChannel.onopen = () => {
+
+					console.log(
+						"DataChannel aberto!"
+					);
+
+				};
+
+
+				dataChannel.onmessage = (event) => {
+
+					console.log(
+						"Mensagem recebida:",
+						event.data
+					);
+
+
+					output.textContent +=
+						`Mensagem recebida: ${event.data}\n`;
+
+				};
+
+
+				dataChannel.onclose = () => {
+
+					console.log(
+						"DataChannel fechado."
+					);
+
+				};
+
+
+				// =========================
+				// CRIAR OFFER
+				// =========================
+
+				const offer =
+					await peerConnection
+						.createOffer();
+
+
+				// =========================
+				// DEFINIR OFFER LOCAL
+				// =========================
+
+				await peerConnection
+					.setLocalDescription(
+						offer
+					);
+
+
+				// =========================
+				// ENVIAR OFFER
+				// =========================
+
+				socket.send(
+					JSON.stringify({
+
+						type:
+							"offer",
+
+						to:
+							targetUserId,
+
+						sdp:
+							offer.sdp
+
+					})
+				);
+
+
+				console.log(
+					"Offer enviada para:",
+					targetUserId
+				);
+
+			}
+		);
+
+
+		// =========================
+		// ICE CANDIDATE
+		// =========================
+
+		peerConnection.onicecandidate =
+			(event) => {
+
+				if (
+					!event.candidate ||
+					!socket ||
+					!remoteUserId
+				) {
+
+					return;
+
+				}
+
+
+				socket.send(
+					JSON.stringify({
+
+						type:
+							"ice-candidate",
+
+						to:
+							remoteUserId,
+
+						candidate:
+							event.candidate.toJSON()
+
+					})
+				);
+
+
+				console.log(
+					"ICE candidate enviado para:",
+					remoteUserId
+				);
+
+			};
+
+	</script>
+
+</body>
+
+</html>

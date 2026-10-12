@@ -1,0 +1,56 @@
+:root {
+    --color-background: #121218;
+
+    /* Superfícies */
+    --color-surface: #1b1b24;
+    --color-surface-hover: #252530;
+    --color-surface-active: #302f42;
+
+    /* Bordas */
+    --color-border-subtle: rgba(255, 255, 255, 0.06);
+    --color-border: #30283f;
+
+    /* Texto */
+    --color-text: #ffffff;
+    --color-text-muted: #aaa7c0;
+    --color-label: #c8c4da;
+
+    /* Identidade */
+    --color-primary: #ff1493;
+    --color-primary-hover: #ff007f;
+    --color-primary-ink: #ffffff;
+
+    /* Status */
+    --color-success: #00ff66;
+    --color-danger: #ff3b5c;
+    --color-danger-hover: #d92648;
+    --color-warning: #ffb020;
+
+    /* Gradientes */
+    --gradient-brand: linear-gradient(135deg,
+            #ff2e93 0%,
+            #ee1485 48%,
+            #6b21ff 100%);
+
+    --gradient-button: linear-gradient(135deg,
+            #c93b8e 0%,
+            #9a4bd6 100%);
+
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 18px;
+    --radius-card: 16px;
+    --radius-pill: 999px;
+
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
+    --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
+    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.55);
+
+    --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 12px;
+    --spacing-lg: 16px;
+}

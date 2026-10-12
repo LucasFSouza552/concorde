@@ -1,0 +1,108 @@
+.inputWrap {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+
+    width: 100%;
+
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+
+    background: var(--color-surface);
+
+    transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        background-color 0.2s ease;
+}
+
+.inputWrap:focus-within {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(255, 20, 147, 0.15);
+}
+
+.inputIcon {
+    margin-left: 12px;
+    color: var(--color-label);
+
+    transition: color 0.2s ease;
+}
+
+.inputWrap:focus-within .inputIcon {
+    color: var(--color-primary);
+}
+
+.field {
+    width: 100%;
+
+    padding: 14px 12px;
+
+    border: none;
+    outline: none;
+
+    background: transparent;
+    color: var(--color-text);
+
+    font-size: 14px;
+}
+
+.label {
+    position: absolute;
+    top: 50%;
+    left: 42px;
+    transform: translateY(-50%);
+
+    color: var(--color-label);
+    font-size: 14px;
+
+    pointer-events: none;
+
+    transition:
+        top 0.2s ease,
+        left 0.2s ease,
+        font-size 0.2s ease,
+        color 0.2s ease,
+        background-color 0.2s ease;
+}
+
+.floating {
+    top: -7px;
+    left: 38px;
+
+    transform: none; 
+    padding: 0 5px;
+
+    background: var(--color-surface);
+
+    color: var(--color-primary);
+    font-size: 11px;
+}
+
+
+.passwordButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+
+    width: 34px;
+    height: 34px;
+    margin-right: 6px;
+
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-sm);
+
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.passwordButton:hover {
+    color: var(--color-primary);
+    background: var(--color-surface-hover);
+}

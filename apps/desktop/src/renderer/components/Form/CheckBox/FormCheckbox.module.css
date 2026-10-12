@@ -1,0 +1,52 @@
+.container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.checkBox {
+    display: block;
+
+    width: 20px;
+    height: 20px;
+
+    border: 2px solid var(--color-primary-ink);
+    border-radius: 6px;
+
+    position: relative;
+    overflow: hidden;
+
+    cursor: pointer;
+
+    transition: border-color 0.2s ease;
+}
+
+.checkInput {
+    position: absolute;
+
+    width: 1px;
+    height: 1px;
+
+    opacity: 0;
+}
+
+.transition {
+    position: absolute;
+
+    width: 40px;
+    height: 40px;
+
+    top: -35px;
+    left: -35px;
+
+    background: var(--color-primary);
+
+    transform: rotate(45deg);
+
+    transition: 300ms ease;
+}
+
+.checkBox .checkInput:checked + .transition {
+    top: -7px;
+    left: -7px;
+}

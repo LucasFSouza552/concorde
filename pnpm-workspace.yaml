@@ -1,0 +1,9 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+allowBuilds:
+  esbuild: false
+  electron: truerm -rf node_modules
+  workerd: true
+  argon2: true
+  electron-winstaller: true

@@ -1,0 +1,65 @@
+.titleBar {
+    display: flex;
+    height: 32px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0px;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-background);
+    -webkit-app-region: drag;
+    user-select: none;
+    padding: 0px 0px 0px 8px;
+}
+
+.title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    letter-spacing: 0.02em;
+}
+
+.title::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--gradient-brand);
+}
+
+.windowControls {
+    height: 100%;
+    display: flex;
+    gap: 2px;
+    -webkit-app-region: no-drag;
+}
+
+.windowBtn {
+    width: 32px;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.windowBtn:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+}
+
+.windowBtnClose:hover {
+    background: var(--color-danger);
+    color: #fff;
+}
+
+.windowBtn svg {
+    stroke: currentColor;
+    stroke-width: 1.5;
+    fill: none;
+}

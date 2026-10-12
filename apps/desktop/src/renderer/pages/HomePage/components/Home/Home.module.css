@@ -1,0 +1,180 @@
+.container {
+    flex: 1;
+    height: 100%;
+    overflow-y: auto;
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+
+    padding: 40px 44px;
+
+    background-color: var(--color-background);
+    color: var(--color-text);
+}
+
+.content {
+    width: 100%;
+    max-width: 880px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 36px;
+}
+
+.headerTitle {
+    margin: 0;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+.headerSubtitle {
+    margin: 6px 0 0;
+
+    color: var(--color-text-muted);
+    font-size: 14px;
+}
+
+/* Ações */
+
+.actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-lg);
+}
+
+.createCard {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+
+    padding: 18px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+
+    background: var(--color-surface);
+    color: var(--color-text);
+
+    font-family: var(--font-sans);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.createCard:hover {
+    background: var(--color-surface-hover);
+}
+
+.createCardIcon {
+    flex-shrink: 0;
+    color: var(--color-primary);
+}
+
+.createCardText {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+
+    color: var(--color-text-muted);
+    font-size: 13px;
+}
+
+.createCardTitle {
+    color: var(--color-text);
+    font-size: 15px;
+}
+
+.joinCard {
+    padding: 18px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+
+    background: var(--color-surface);
+}
+
+.joinLabel {
+    display: block;
+    margin-bottom: 10px;
+
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.joinRow {
+    display: flex;
+    gap: var(--spacing-sm);
+}
+
+.joinField {
+    flex: 1;
+    min-width: 0;
+
+    padding: 10px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+
+    background: var(--color-background);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    outline: none;
+}
+
+.joinField::placeholder {
+    color: var(--color-text-muted);
+}
+
+.joinField:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.joinBtn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: var(--radius-sm);
+
+    background: var(--color-primary);
+    color: var(--color-primary-ink);
+
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.joinBtn:hover {
+    background: var(--color-primary-hover);
+}
+
+/* Seções */
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.sectionTitle {
+    margin: 0;
+
+    color: var(--color-label);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.empty {
+    margin: 0;
+
+    color: var(--color-text-muted);
+    font-size: 13px;
+}

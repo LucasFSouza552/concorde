@@ -1,0 +1,36 @@
+.content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    width: 32px;
+    height: 32px;
+
+    padding: 0;
+
+    border: none;
+    border-radius: var(--radius-sm);
+
+    background: transparent;
+    color: var(--color-text-muted);
+
+    cursor: pointer;
+
+    transition:
+        background-color 0.2s ease,
+        color 0.2s ease;
+}
+
+.content:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+}
+
+.content:active {
+    background: var(--color-surface-active);
+}
+
+.content:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}

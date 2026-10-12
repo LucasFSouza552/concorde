@@ -1,0 +1,442 @@
+.container {
+    width: 100%;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 24px;
+    padding: 48px;
+    background-color: var(--color-background);
+    color: var(--color-text);
+    overflow-y: auto;
+}
+
+.header {
+    width: 100%;
+    flex-direction: row;
+    display: flex;
+}
+
+.panelHeader {
+    width: 100%;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    margin-bottom: 12px;
+}
+
+.button {
+    display: inline-grid;
+    width: 32px;
+    height: 32px;
+    flex: 0 0 auto;
+    place-items: center;
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+    background-color: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.button:hover {
+    background-color: var(--color-surface-hover);
+    color: var(--color-text);
+}
+
+.button:active {
+    transform: scale(0.94);
+}
+
+.button svg {
+    width: 16px;
+    height: 16px;
+}
+
+.count {
+    margin-left: 8px;
+    padding: 2px 8px;
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-active);
+    font-size: 12px;
+}
+
+.avatar {
+    display: grid;
+    width: 36px;
+    height: 36px;
+    flex: 0 0 auto;
+    place-items: center;
+    border-radius: 50%;
+    background: var(--gradient-brand);
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.identity {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.identity strong,
+.identity small {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.identity small {
+    color: var(--color-text-muted);
+    font-size: 12px;
+}
+
+
+
+.iconButton {
+    display: grid;
+    width: 32px;
+    height: 32px;
+    place-items: center;
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.iconButton:hover {
+    background: var(--color-surface-hover);
+}
+
+.iconButton:active {
+    transform: scale(0.94);
+}
+
+.iconButton svg {
+    width: 16px;
+    height: 16px;
+}
+
+.iconButton:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.card {
+    flex: 1;
+    padding: 18px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+
+    background: var(--color-surface);
+
+    label {
+        display: block;
+        margin-bottom: 10px;
+
+        color: var(--color-text-muted);
+        font-size: 12px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+    }
+}
+
+.tabNav {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    gap: var(--spacing-xs);
+
+    padding: 6px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface);
+}
+
+.tabBtn {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-pill);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.tabBtn:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+}
+
+.tabBtn:disabled {
+    background: var(--color-surface-active);
+    color: var(--color-text);
+}
+
+.tabBtn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.inviteRow {
+    display: flex;
+    gap: var(--spacing-sm);
+
+    input {
+        flex: 1;
+        min-width: 0;
+
+        padding: 10px 12px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--radius-sm);
+
+        background: var(--color-background);
+        color: var(--color-text);
+        font-family: var(--font-sans);
+        font-size: 14px;
+        outline: none;
+
+        &::placeholder {
+            color: var(--color-text-muted);
+        }
+
+        &:focus-visible {
+            outline: 2px solid var(--color-primary);
+            outline-offset: 2px;
+        }
+    }
+}
+
+.card {
+    box-shadow: var(--shadow-md);
+}
+
+.lists {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    flex: 1;
+    align-items: center;
+    gap: var(--spacing-lg);
+}
+
+.panel {
+    width: 100%;
+    height: 100%;
+    padding: 18px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
+}
+
+.panelTitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.inviteBtn {
+    padding: 10px 16px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: var(--color-primary);
+    color: var(--color-primary-ink);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, filter 0.15s ease;
+}
+
+.inviteBtn {
+    background: var(--gradient-button);
+}
+
+.inviteBtn:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+
+.inviteBtn:disabled {
+    opacity: 0.55;
+    cursor: wait;
+}
+
+.success {
+    color: var(--color-success);
+}
+
+.error {
+    color: var(--color-danger);
+}
+
+.chatRow {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 12px 4px;
+
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 12px 4px;
+    border-top: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    transition: background-color 0.15s ease;
+}
+
+.row:first-of-type {
+    border-top: none;
+}
+
+.row:hover {
+    background: var(--color-surface-hover);
+}
+
+.name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.actions {
+    display: flex;
+    gap: var(--spacing-xs);
+}
+
+.rowAction {
+    display: inline-grid;
+    min-width: 32px;
+    height: 32px;
+    place-items: center;
+    padding: 0 8px;
+    border-radius: var(--radius-pill);
+    cursor: pointer;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.rowAction:active {
+    transform: scale(0.94);
+}
+
+.actions svg {
+    width: 16px;
+    height: 16px;
+}
+
+.accept {
+    border: 1px solid var(--color-border);
+
+    background: transparent;
+    color: var(--color-success);
+
+    &:hover {
+        background: var(--color-success);
+        color: #06130b;
+    }
+}
+
+.remove {
+    border: 1px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text);
+
+    &:hover {
+        border-color: var(--color-danger);
+        color: var(--color-danger);
+    }
+}
+
+.iconAction {
+    display: grid;
+    place-items: center;
+    width: 32px;
+    height: 32px;
+    border: 1px solid transparent;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, transform 0.15s ease;
+}
+
+.iconAction:hover {
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+
+.iconAction:active {
+    transform: scale(0.92);
+}
+
+.iconAction:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.iconAction svg {
+    width: 16px;
+    height: 16px;
+}
+
+.callBtn:hover {
+    background: var(--color-success);
+    color: #06130b;
+}
+
+
+.rowActions {
+    position: relative;
+}
+
+.menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 4px);
+    z-index: 10;
+    min-width: 180px;
+    padding: 4px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    box-shadow: var(--shadow-md);
+}
+
+.menuItem {
+    display: flex;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text);
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.menuItem:hover {
+    background: var(--color-surface-hover);
+}
