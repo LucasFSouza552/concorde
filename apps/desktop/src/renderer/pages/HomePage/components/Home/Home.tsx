@@ -1,9 +1,13 @@
 import { useState } from "react";
 import { MessageSquare, Plus, Users, UsersRound } from "lucide-react";
 
+import InlineError from "../../../../components/InlineError/InlineError";
+import Page from "../../../../components/Page/Page";
+import Section from "../../../../components/Section/Section";
 import type { CreateGroupInput } from "@concorde/shared";
 import { useActiveCall } from "../../../../contexts/ActiveCallProvider";
 import { useAuth } from "../../../../contexts/AuthContext";
+import { useToast } from "../../../../contexts/ToastProvider";
 
 import { api, getErrorMessage } from "../../../../api/api";
 import { useChannels } from "../../../../hooks/useChannels";
@@ -18,33 +22,33 @@ const roleLabels: Record<string, string> = {
     member: "Membro",
 };
 
-export default function Home() {
+export default function Home({ hidden = false }: { hidden?: boolean }) {
     const { user } = useAuth();
     const [groupId, setGroupId] = useState("");
     const { join } = useActiveCall();
     const { groups, loading: loadingGroups, error: errorGroups, load: reloadGroups } = useGroupsList();
-    const { friends, loading: loadingFriends, error: errorFriends } = useFriendsList();
+    const { friends, loading: loadingFriends, error: errorFriends, load: reloadFriends } = useFriendsList();
     const { channels } = useChannels();
     const [name, setName] = useState("");
-    const [error, setError] = useState<string | null>(null);
+
+    const { push } = useToast();
 
     const dmCount = channels.filter((channel) => channel.kind === "dm").length;
 
     async function handleCreate() {
         try {
-            setError(null);
             if (!name.trim()) return;
 
             await api.post("/groups", { name: name.trim() } satisfies CreateGroupInput);
             setName("");
             await reloadGroups();
         } catch (error) {
-            setError(getErrorMessage(error));
+            push(getErrorMessage(error), "error");
         }
     }
 
     return (
-        <section className={styles.container}>
+        <Page hidden={hidden}>
             <div className={styles.content}>
                 <header className={styles.header}>
                     <h1 className={styles.headerTitle}>Olá, {user?.displayName}</h1>
@@ -101,16 +105,12 @@ export default function Home() {
                             <input className={styles.joinField} id="invite" placeholder="código de convite" value={groupId} onChange={(e) => setGroupId(e.target.value)} />
                             <button className={styles.joinBtn} onClick={() => join(groupId)}>Entrar</button>
                         </div>
-                        {error && (
-                            <p>{error}</p>
-                        )}
                     </div>
                 </div>
 
-                <section className={styles.section}>
-                    <h2 className={styles.sectionTitle}>Seus grupos</h2>
+                <Section title="Seus Grupos">
                     {loadingGroups && <p className={styles.empty}>Carregando...</p>}
-                    {!loadingGroups && errorGroups && <p className={styles.empty}>{errorGroups}</p>}
+                    {!loadingGroups && errorGroups && <InlineError message={errorGroups} onRetry={reloadGroups} />}
                     {!loadingGroups && !errorGroups && groups.length === 0 && (
                         <p className={styles.empty}>Você ainda não está em nenhum grupo. Crie um acima.</p>
                     )}
@@ -123,12 +123,11 @@ export default function Home() {
                             <span className={styles.roleBadge}>{roleLabels[group.role] ?? group.role}</span>
                         </div>
                     ))}
-                </section>
+                </Section>
 
-                <section className={styles.section}>
-                    <h2 className={styles.sectionTitle}>Amigos</h2>
+                <Section title="Seus Amigos">
                     {loadingFriends && <p className={styles.empty}>Carregando...</p>}
-                    {!loadingFriends && errorFriends && <p className={styles.empty}>{errorFriends}</p>}
+                    {!loadingFriends && errorFriends && <InlineError message={errorFriends} onRetry={reloadFriends} />}
                     {!loadingFriends && !errorFriends && friends.length === 0 && (
                         <p className={styles.empty}>Adicione amigos pela aba Amigos para vê-los aqui.</p>
                     )}
@@ -143,9 +142,9 @@ export default function Home() {
                             </div>
                         </div>
                     ))}
-                </section>
+                </Section>
 
             </div>
-        </section>
+        </Page>
     )
 }

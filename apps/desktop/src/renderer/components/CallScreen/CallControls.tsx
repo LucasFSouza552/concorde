@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { HeadphoneOff, Headphones, MessageSquareOff, MessageSquareText, Mic, MicOff, Monitor, MonitorOff, PhoneOff } from "lucide-react";
+import { HeadphoneOff, Headphones, MessageSquareOff, MessageSquareText, Mic, MicOff, Monitor, MonitorOff, PhoneOff, Volume2, VolumeX } from "lucide-react";
 
 import SourceModal from "./SourceModal";
 import { useActiveCall } from "../../contexts/ActiveCallProvider";
@@ -16,11 +16,12 @@ interface CallControlsProps {
 }
 
 export default function CallControls({ chatAvailable = false, chatOpen = false, onToggleChat }: CallControlsProps) {
-    const { micMuted, deafened, toggleMic, toggleDeafen, startScreenShare, stopScreenShare, screenStream } = useActiveCall();
+    const { micMuted, deafened, toggleMic, toggleDeafen, startScreenShare, stopScreenShare, screenStream, screenAudioMuted, toggleScreenAudioMute, remoteScreenAudioStreams } = useActiveCall();
     const { hangUp } = useCallInviteState();
     const [shareError, setShareError] = useState<string | null>(null)
     const [showSource, setShowSource] = useState(false);
     const effectiveMicMuted = micMuted || deafened;
+    const hasScreenAudio = Object.keys(remoteScreenAudioStreams).length > 0;
 
     async function handleShare() {
         try {
@@ -81,6 +82,17 @@ export default function CallControls({ chatAvailable = false, chatOpen = false, 
             >
                 {screenStream ? <MonitorOff size={18} /> : <Monitor size={18} />}
             </button>
+            {hasScreenAudio && (
+                <button
+                    type="button"
+                    className={styles.controlBtn}
+                    aria-label={screenAudioMuted ? "Ativar som do compartilhamento" : "Silenciar som do compartilhamento"}
+                    title={screenAudioMuted ? "Ativar som do compartilhamento" : "Silenciar som do compartilhamento"}
+                    onClick={toggleScreenAudioMute}
+                >
+                    {screenAudioMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+                </button>
+            )}
             <button
                 type="button"
                 aria-label="Sair da chamada"

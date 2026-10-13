@@ -1,11 +1,13 @@
 import { useState } from "react";
 
+import Page from "../../../../components/Page/Page";
 import type { Friend } from "@concorde/shared";
 import AcceptedFriendsList from "./AcceptedFriendsListProps";
 import AddFriendCard from "./AddFriendCard";
 import ChatView from "./ChatView/ChatView";
 import IncomingRequestsList from "./IncomingRequestsList";
 import { useCallInviteState } from "../../../../contexts/CallInviteProvider";
+import { useToast } from "../../../../contexts/ToastProvider";
 
 import { api, getErrorMessage } from "../../../../api/api";
 import { useFriendRequest } from "../../../../hooks/useFriend";
@@ -19,15 +21,19 @@ interface FriendsProps {
     onActiveChannel: (activeChannelId: string | null) => void;
     onSelectFriend: (selectedFriend: Friend | null) => void;
     selectedFriend: Friend | null;
+    hidden: boolean;
 }
 
-export default function Friends({ activeChannelId, onActiveChannel, onSelectFriend, selectedFriend }: FriendsProps) {
-    const [error, setError] = useState<string | null>(null);
+export default function Friends({ activeChannelId, onActiveChannel, onSelectFriend, selectedFriend, hidden = false }: FriendsProps) {
     const { friends, loading, load, remove, error: errorFriendsList } = useFriendsList();
     const { query, add, setQuery, state } = useFriendRequest();
     const { accept, decline, requests, loadRequests, loading: loadingRequests, error: errorRequests } = useIncomingRequests();
     const [tab, setTab] = useState<"requests" | "friends">("friends");
     const { dial } = useCallInviteState();
+
+    const isChatOpen = Boolean(activeChannelId && selectedFriend);
+
+    const { push } = useToast();
 
     async function handleAccept(friendId: string) {
         await accept(friendId);
@@ -44,7 +50,7 @@ export default function Friends({ activeChannelId, onActiveChannel, onSelectFrie
             onSelectFriend(friend);
             onActiveChannel(data.channel.id);
         } catch (error) {
-            setError(getErrorMessage(error));
+            push(getErrorMessage(error), "error");
         }
     }
 
@@ -57,57 +63,84 @@ export default function Friends({ activeChannelId, onActiveChannel, onSelectFrie
         try {
             await dial(friend);
         } catch (error) {
-            setError(getErrorMessage(error));
+            push(getErrorMessage(error), "error");
         }
     }
 
-    if (activeChannelId && selectedFriend) {
-        return (
-            <ChatView
-                channelId={activeChannelId}
-                friend={selectedFriend}
-                onBack={handleCloseChat}
-            />
-        );
+    async function handleAdd() {
+        try {
+            const username = await add();
+            if (!username) return;
+            push(`Pedido enviado para @${username}!`, "success");
+            setQuery("");
+        } catch (error) {
+            push(getErrorMessage(error), "error");
+        }
     }
 
     return (
-        <section className={styles.container}>
+        <>
+            <Page hidden={hidden || isChatOpen}>
+                <AddFriendCard
+                    query={query}
+                    state={state}
+                    onQueryChange={setQuery}
+                    onAdd={handleAdd}
+                />
 
-            <AddFriendCard
-                query={query}
-                state={state}
-                onQueryChange={setQuery}
-                onAdd={add}
-            />
-            <div className={styles.lists}>
-                <div className={styles.tabNav}>
-                    <button type="button" className={styles.tabBtn} disabled={tab === "friends"} onClick={() => setTab("friends")}>Amigos</button>
-                    <button type="button" className={styles.tabBtn} disabled={tab === "requests"} onClick={() => setTab("requests")}>Pendente</button>
+                <div className={styles.lists}>
+                    <div className={styles.tabNav}>
+                        <button
+                            type="button"
+                            className={styles.tabBtn}
+                            disabled={tab === "friends"}
+                            onClick={() => setTab("friends")}
+                        >
+                            Amigos
+                        </button>
+
+                        <button
+                            type="button"
+                            className={styles.tabBtn}
+                            disabled={tab === "requests"}
+                            onClick={() => setTab("requests")}
+                        >
+                            Pendentes
+                        </button>
+                    </div>
+
+                    {tab === "friends" && (
+                        <AcceptedFriendsList
+                            friends={friends}
+                            loading={loading}
+                            error={errorFriendsList}
+                            onReload={load}
+                            onRemove={remove}
+                            onChat={handleOpenChat}
+                            onCall={handleCall}
+                        />
+                    )}
+
+                    {tab === "requests" && (
+                        <IncomingRequestsList
+                            requests={requests}
+                            loading={loadingRequests}
+                            error={errorRequests}
+                            onAccept={handleAccept}
+                            onDecline={decline}
+                            onReload={loadRequests}
+                        />
+                    )}
                 </div>
+            </Page>
 
-                {tab === "requests" && <IncomingRequestsList
-                    requests={requests}
-                    loading={loadingRequests}
-                    error={errorRequests}
-                    onAccept={handleAccept}
-                    onDecline={decline}
-                    onReload={loadRequests}
-                />}
-
-                {tab === "friends" && <AcceptedFriendsList
-                    friends={friends}
-                    loading={loading}
-                    error={errorFriendsList}
-                    onReload={load}
-                    onRemove={remove}
-                    onChat={handleOpenChat}
-                    onCall={handleCall} />}
-
-            </div>
-            {error && <div>
-                <p>{error}</p>
-            </div>}
-        </section>
-    )
+            {isChatOpen && !hidden && activeChannelId && selectedFriend && (
+                <ChatView
+                    channelId={activeChannelId}
+                    friend={selectedFriend}
+                    onBack={handleCloseChat}
+                />
+            )}
+        </>
+    );
 }

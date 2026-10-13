@@ -23,7 +23,7 @@ export default function ParticipantTile({ name, muted, deafened = false, isLocal
 
     return (
         <div
-            className={`${styles.tile} ${speaking ? styles.speaking : ""} ${focused ? styles.focused : ""} ${clickable ? styles.tileClickable : ""}`}
+            className={`${styles.tile} ${speaking ? styles.speaking : ""} ${clickable ? styles.tileClickable : ""}`}
             {...(clickable ? {
                 role: "button",
                 tabIndex: 0,

@@ -1,17 +1,4 @@
-.container {
-    flex: 1;
-    height: 100%;
-    overflow-y: auto;
 
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-
-    padding: 40px 44px;
-
-    background-color: var(--color-background);
-    color: var(--color-text);
-}
 
 .content {
     width: 100%;
@@ -182,24 +169,6 @@
 
 .joinBtn:hover {
     background: var(--color-primary-hover);
-}
-
-/* Seções */
-
-.section {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.sectionTitle {
-    margin: 0;
-
-    color: var(--color-label);
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
 }
 
 .empty {

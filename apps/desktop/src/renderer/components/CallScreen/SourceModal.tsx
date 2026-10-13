@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { AppWindow, Monitor, ScreenShare, X } from "lucide-react";
 
 import type { DesktopSource, ScreenQuality } from "@concorde/shared";
@@ -23,7 +24,7 @@ export default function SourceModal({ onClose, onStart }: SourceModalProps) {
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState<"screens" | "windows">("screens");
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [shareAudio, setShareAudio] = useState(false);
+    const [shareAudio] = useState(false);
 
     const [selectedRes, setSelectedRes] = useState(1);
     const [selectedFps, setSelectedFps] = useState(1);
@@ -65,6 +66,8 @@ export default function SourceModal({ onClose, onStart }: SourceModalProps) {
     }, [onClose]);
 
     const visible = sources.filter((s) =>
+        !(s.name ?? "").toLowerCase().includes("concorde")
+    ).filter((s) =>
         tab === "screens" ? s.isScreen : !s.isScreen
     );
 
@@ -72,10 +75,6 @@ export default function SourceModal({ onClose, onStart }: SourceModalProps) {
 
     function handleSelect(sourceId: string) {
         setSelectedId(sourceId);
-
-        if (!sourceId.startsWith("window:")) {
-            setShareAudio(false);
-        }
     }
 
     function handleStart() {
@@ -91,7 +90,7 @@ export default function SourceModal({ onClose, onStart }: SourceModalProps) {
         onClose();
     }
 
-    return (
+    return createPortal(
         <div className={styles.overlay} onClick={onClose}>
             <div className={styles.modal} onClick={(event) => event.stopPropagation()}>
                 <header className={styles.header}>
@@ -140,25 +139,25 @@ export default function SourceModal({ onClose, onStart }: SourceModalProps) {
                     ))}
                 </div>
 
-                <label
-                    className={`${styles.audioCard} ${shareAudio ? styles.audioCardOn : ""}`}
-                    title={selectedIsWindow ? "Transmite o som da janela" : "Som disponível apenas para janelas"}
-                >
-                    <input
-                        type="checkbox"
-                        checked={shareAudio}
-                        disabled={!selectedIsWindow}
-                        onChange={(event) => setShareAudio(event.target.checked)}
-                    />
-                    <span>
-                        <span className={styles.audioTitle}>Compartilhar som</span>
-                        <span className={styles.audioSub}>
-                            {selectedIsWindow
-                                ? "Som da janela selecionada"
-                                : "Disponível apenas para janelas"}
-                        </span>
-                    </span>
-                </label>
+                {tab === "windows" && (
+                    <>
+                        <label
+                            className={`${styles.audioCard} ${shareAudio ? styles.audioCardOn : ""}`}
+                            title="Compartilhamento com áudio temporariamente desabilitado"
+                        >
+                            <input
+                                type="checkbox"
+                                checked={false}
+                                disabled
+                                onChange={() => { }}
+                            />
+                            <span>
+                                <span className={styles.audioTitle}>Compartilhar som</span>
+                                <span className={styles.audioSub}>Temporariamente desabilitado</span>
+                            </span>
+                        </label>
+                    </>
+                )}
 
                 <div>
                     <span className={styles.sectionLabel}>Resolução</span>
@@ -205,6 +204,7 @@ export default function SourceModal({ onClose, onStart }: SourceModalProps) {
                 </div>
 
             </div>
-        </div>
+        </div>,
+        document.body
     )
 }

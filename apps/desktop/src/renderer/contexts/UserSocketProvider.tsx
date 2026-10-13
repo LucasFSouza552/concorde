@@ -6,14 +6,17 @@ import { useUserSocket } from '../hooks/useUserSocket';
 
 const UserSocketContext = createContext<UserSocketServerMessage | null>(null);
 const UserSocketStatusContext = createContext(false);
+const UserSocketSendContext = createContext<(message: unknown) => void>(() => { });
 
 export function UserSocketProvider({ children }: { children: ReactNode }) {
-    const { lastEvent, connected } = useUserSocket();
+    const { lastEvent, connected, send } = useUserSocket();
 
     return (
         <UserSocketContext.Provider value={lastEvent}>
             <UserSocketStatusContext.Provider value={connected}>
-                {children}
+                <UserSocketSendContext.Provider value={send}>
+                    {children}
+                </UserSocketSendContext.Provider>
             </UserSocketStatusContext.Provider>
         </UserSocketContext.Provider>
     )
@@ -31,4 +34,8 @@ export function useUserSocketEvent() {
 
 export function useUserSocketConnected() {
     return useContext(UserSocketStatusContext);
+}
+
+export function useUserSocketSend() {
+    return useContext(UserSocketSendContext);
 }

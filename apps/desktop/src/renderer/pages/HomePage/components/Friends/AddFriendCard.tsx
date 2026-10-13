@@ -13,14 +13,6 @@ export default function AddFriendCard({ query, state, onQueryChange, onAdd }: Ad
 
     const busy = state.status === "sending";
 
-    function renderContent() {
-        switch (state.status) {
-            case "sent":
-                return <p>Pedido enviado para @{state.username}!</p>
-            case "error":
-                return <p>{state.message}</p>;
-        }
-    }
     return (
         <header className={styles.header}>
             <div className={styles.card}>
@@ -40,7 +32,6 @@ export default function AddFriendCard({ query, state, onQueryChange, onAdd }: Ad
                         Adicionar
                     </button>
                 </div>
-                {renderContent()}
             </div>
         </header>);
 }

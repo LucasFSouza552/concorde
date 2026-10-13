@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react"
+import { PanelLeftOpen } from "lucide-react";
 
-import CallScreen from "../../components/CallScreen/CallScreen";
-import DirectChat from "../../components/CallScreen/DirectChat";
 import SideBar from "../../components/SideBar/SideBar"
 import Friends from './components/Friends/Friends';
 import Home from './components/Home/Home';
@@ -12,9 +11,9 @@ import { useCallInviteState } from "../../contexts/CallInviteProvider";
 import { api } from "../../api/api";
 import { GlobalRemoteAudio } from '../../hooks/GlobalRemoteAudio';
 
-import styles from "./HomePage.module.css"
+import styles from "./HomePage.module.css";
 
-export type SectionType = "home" | "friends" | "room";
+export type SectionType = "home" | "friends";
 
 export default function HomePage() {
     const [Section, setSection] = useState<SectionType>("home");
@@ -22,33 +21,10 @@ export default function HomePage() {
     const { outgoing } = useCallInviteState();
     const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
     const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
-    const [chatOpen, setChatOpen] = useState(true);
     const [sidebarOpen, setSidebarOpen] = useState(true);
-    const previousSection = useRef<Exclude<SectionType, "room">>("home");
     const lastCallPeer = useRef<{ userId: string; displayName: string } | null>(null);
 
-    useEffect(() => {
-        if (groupId) {
-            if (peers.length === 1) {
-                lastCallPeer.current = {
-                    userId: peers[0].userId,
-                    displayName: peers[0].username
-                }
-            } else if (outgoing.status === "dialing") {
-                lastCallPeer.current = {
-                    userId: outgoing.toUserId,
-                    displayName: outgoing.toDisplayName
-                }
-            } else {
-                lastCallPeer.current = null;
-            }
-            return;
-        }
-        const peer = lastCallPeer.current;
-        lastCallPeer.current = null;
-
-        if (!peer) return;
-
+    function openDirectMessage(peer: { userId: string; displayName: string }) {
         let cancelled = false;
 
         api.post<{ channel: { id: string } }>("/channels/dm", { toUserId: peer.userId })
@@ -67,54 +43,54 @@ export default function HomePage() {
         return () => {
             cancelled = true;
         };
-
-    }, [groupId, peers, outgoing]);
+    }
 
     useEffect(() => {
         if (groupId) {
-            setSection((current) => {
-                if (current !== "room") {
-                    previousSection.current = current;
-                }
-                return "room";
-            });
-        } else {
-            setSection(previousSection.current);
+            if (peers.length === 1) {
+                const peer = {
+                    userId: peers[0].userId,
+                    displayName: peers[0].username
+                };
+                lastCallPeer.current = peer;
+                return openDirectMessage(peer);
+            } else if (outgoing.status === "dialing") {
+                const peer = {
+                    userId: outgoing.toUserId,
+                    displayName: outgoing.toDisplayName
+                };
+                lastCallPeer.current = peer;
+                return openDirectMessage(peer);
+            } else {
+                lastCallPeer.current = null;
+            }
+            return;
         }
-    }, [groupId]);
+        const peer = lastCallPeer.current;
+        lastCallPeer.current = null;
+
+        if (!peer) return;
+
+        return openDirectMessage(peer);
+
+    }, [groupId, peers, outgoing]);
 
     return (
         <main className={styles.container}>
-            {(sidebarOpen || Section !== "room") && <SideBar section={Section} setSection={setSection} />}
-            {Section === "home" && <Home />}
-            {Section === "friends" && <Friends activeChannelId={activeChannelId} onActiveChannel={setActiveChannelId} onSelectFriend={setSelectedFriend} selectedFriend={selectedFriend} />}
-            {Section === "room" && groupId && (
-                <div className={styles.callLayout}>
-                    <CallScreen
-                        layout="full"
-                        chatAvailable={peers.length === 1 || outgoing.status === "dialing"}
-                        chatOpen={chatOpen}
-                        onToggleChat={() => setChatOpen((open) => !open)}
-                        sidebarOpen={sidebarOpen}
-                        onToggleSidebar={() => setSidebarOpen((open) => !open)}
-                    />
-                    {chatOpen && (peers.length === 1 ? (
-                        <div className={styles.callChat}>
-                            <DirectChat
-                                userId={peers[0].userId}
-                                displayName={peers[0].username}
-                            />
-                        </div>
-                    ) : outgoing.status === "dialing" ? (
-                        <div className={styles.callChat}>
-                            <DirectChat
-                                userId={outgoing.toUserId}
-                                displayName={outgoing.toDisplayName}
-                            />
-                        </div>
-                    ) : null)}
-                </div>
+            {sidebarOpen && <SideBar section={Section} setSection={setSection} sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen((open) => !open)} />}
+            {!sidebarOpen && (
+                <button
+                    type="button"
+                    className={styles.expandBtn}
+                    aria-label="Mostrar barra lateral"
+                    title="Mostrar barra lateral"
+                    onClick={() => setSidebarOpen(true)}
+                >
+                    <PanelLeftOpen size={14} />
+                </button>
             )}
+            <Home hidden={Section !== "home"} />
+            <Friends hidden={Section !== "friends"} activeChannelId={activeChannelId} onActiveChannel={setActiveChannelId} onSelectFriend={setSelectedFriend} selectedFriend={selectedFriend} />
             <GlobalRemoteAudio />
         </main>
     )

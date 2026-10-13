@@ -20,7 +20,7 @@ function setupAutoUpdater() {
   if (!app.isPackaged) return;
 
   autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = false;
+  autoUpdater.autoInstallOnAppQuit = true;
 
   autoUpdater.on("update-available", (info) => {
     sendUpdateStatus({ state: "available", version: info.version });
@@ -47,6 +47,10 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.checkForUpdates().catch(() => { });
+
+  setInterval(() => {
+    autoUpdater.checkForUpdates().catch(() => { });
+  }, 6 * 60 * 60 * 1000);
 }
 
 function createWindow() {
@@ -72,9 +76,7 @@ function createWindow() {
     );
   }
 
-  if (process.env.ELECTRON_RENDERER_URL) {
     window.webContents.openDevTools();
-  }
 
   mainWindow = window;
   window.on("closed", () => {

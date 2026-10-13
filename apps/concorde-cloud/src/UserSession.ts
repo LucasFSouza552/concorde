@@ -1,5 +1,6 @@
 import { UserSocketClientMessage, UserSocketServerMessage } from "@concorde/shared";
 import { Env } from "./types/Env";
+import { findFriendsByStatus } from "./features/friends/friends.repository";
 
 import { verifyToken } from "./utils/JWT";
 
@@ -8,6 +9,7 @@ interface SocketAttachment {
 	userId: string | null;
 	authenticated: boolean;
 	connectedAt: number;
+	callGroupId: string | null;
 }
 
 export class UserSession {
@@ -21,7 +23,7 @@ export class UserSession {
 		}
 
 		if (url.pathname.endsWith("/presence")) {
-			return Response.json({ online: this.isOnline() });
+			return Response.json(this.presence());
 		}
 
 		if (request.headers.get("Upgrade") !== "websocket") {
@@ -38,7 +40,8 @@ export class UserSession {
 			expectedUserId: expectedUserId,
 			userId: null,
 			authenticated: false,
-			connectedAt: Date.now()
+			connectedAt: Date.now(),
+			callGroupId: null
 		} satisfies SocketAttachment);
 
 		this.ctx.acceptWebSocket(server);
@@ -79,15 +82,75 @@ export class UserSession {
 					authenticated: true
 				});
 
-				socket.send(JSON.stringify({
-					type: "user-connected",
-					userId
-				} satisfies UserSocketServerMessage));
-			} catch {
-				socket.close(4401, "Token inválido.");
-			}
+			socket.send(JSON.stringify({
+				type: "user-connected",
+				userId
+			} satisfies UserSocketServerMessage));
+		} catch {
+			socket.close(4401, "Token inválido.");
+		}
 
+		return;
+	}
+
+	if (parsed.type !== "call-state") {
+		return;
+	}
+
+	const previousGroupId = attachment.callGroupId;
+
+	socket.serializeAttachment({
+		...attachment,
+		callGroupId: parsed.groupId
+	});
+
+	if (previousGroupId !== parsed.groupId && attachment.userId) {
+		await this.notifyCallState(attachment.userId, parsed.groupId);
+	}
+	}
+
+	private presence(): { online: boolean; inCall: boolean; groupId: string | null } {
+		let groupId: string | null = null;
+
+		for (const socket of this.ctx.getWebSockets()) {
+			const attachment = socket.deserializeAttachment() as SocketAttachment;
+
+			if (!attachment.authenticated) continue;
+
+			if (attachment.callGroupId) {
+				groupId = attachment.callGroupId;
+				break;
+			}
+		}
+
+		return { online: this.isOnline(), inCall: groupId !== null, groupId };
+	}
+
+	private async notifyCallState(userId: string, groupId: string | null): Promise<void> {
+		let friends = [];
+
+		try {
+			friends = await findFriendsByStatus(this.env.concorde_users, userId, "accepted");
+		} catch {
 			return;
+		}
+
+		const message = JSON.stringify({
+			type: "peer-call-state",
+			userId,
+			groupId
+		} satisfies UserSocketServerMessage);
+
+		for (const friend of friends) {
+			try {
+				const stub = this.env.USER_SESSIONS.get(this.env.USER_SESSIONS.idFromName(friend.id));
+				await stub.fetch("https://user-session/deliver", {
+					method: "POST",
+					body: message
+				});
+			} catch {
+
+			}
 		}
 	}
 

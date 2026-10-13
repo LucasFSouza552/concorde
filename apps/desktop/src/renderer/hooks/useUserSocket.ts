@@ -40,7 +40,7 @@ export function useUserSocket() {
                 }
                 attempt = 0;
                 setConnected(true);
-                ws.send(JSON.stringify({ type: "auth", token: token }));
+                ws.send(JSON.stringify({ type: "auth", token }));
             });
 
             ws.addEventListener("message", (event) => {
@@ -66,10 +66,13 @@ export function useUserSocket() {
             stopped = true;
             if (retryTimer) clearTimeout(retryTimer);
             socketRef.current = null;
-            try {
-                socket?.close();
-            } catch {
-
+            const current = socket;
+            socket = null;
+            if (!current) return;
+            if (current.readyState === WebSocket.OPEN) {
+                current.close();
+            } else if (current.readyState === WebSocket.CONNECTING) {
+                current.addEventListener("open", () => current.close(), { once: true });
             }
         }
     }, [user]);
@@ -77,5 +80,10 @@ export function useUserSocket() {
     return {
         lastEvent,
         connected,
+        send: (message: unknown) => {
+            const socket = socketRef.current;
+            if (!socket || socket.readyState !== WebSocket.OPEN) return;
+            socket.send(JSON.stringify(message));
+        },
     };
 }

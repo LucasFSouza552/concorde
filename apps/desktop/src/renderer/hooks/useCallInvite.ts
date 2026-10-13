@@ -58,6 +58,14 @@ export function useCallInvite() {
 
         switch (lastEvent.type) {
             case "call-invite":
+                if (groupId) {
+                    void api.post(`/calls/${lastEvent.invite.callId}/redirect`, {
+                        callerId: lastEvent.invite.fromUserId,
+                        groupId,
+                    }).catch(() => { });
+                    break;
+                }
+
                 setIncoming(lastEvent.invite);
                 break;
             case "call-accepted":
@@ -71,6 +79,17 @@ export function useCallInvite() {
                 break;
             case "call-cancelled":
                 setIncoming(null);
+                break;
+            case "call-redirect":
+                if (outgoing.status === "dialing" && outgoing.callId === lastEvent.callId) {
+                    clearTimer();
+                    void api.post(`/calls/${outgoing.callId}/cancel`, {
+                        toUserId: outgoing.toUserId
+                    }).catch(() => { });
+                    leave();
+                    setOutgoing({ status: "idle" });
+                    join(lastEvent.groupId);
+                }
                 break;
         }
     }, [lastEvent, leave, clearTimer]);

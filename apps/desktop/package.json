@@ -1,15 +1,19 @@
 {
   "name": "@concorde/desktop",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "main": "./out/main/index.js",
   "build": {
     "appId": "com.concorde.app",
     "productName": "Concorde",
-    "files": ["out/**/*"],
+    "files": [
+      "out/**/*"
+    ],
     "win": {
-      "target": ["nsis"]
+      "target": [
+        "nsis"
+      ]
     },
     "publish": {
       "provider": "github",
@@ -19,6 +23,7 @@
   },
   "scripts": {
     "dev": "electron-vite dev",
+    "dev:online": "cross-env VITE_API_URL=https://concorde-cloud.lucasfelipe552.workers.dev electron-vite dev",
     "build": "tsc -b && electron-vite build && electron-builder --win",
     "dist": "pnpm build && electron-builder --win",
     "lint": "eslint .",
@@ -40,6 +45,7 @@
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
+    "cross-env": "^10.1.0",
     "electron": "^44.4.4",
     "electron-builder": "^26.15.3",
     "electron-vite": "^5.0.0",

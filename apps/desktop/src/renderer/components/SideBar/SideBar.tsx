@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Headphones, HeadphoneOff, House, Mic, MicOff, Settings, Users } from "lucide-react";
+import { Headphones, HeadphoneOff, House, Mic, MicOff, PanelLeftClose, PanelLeftOpen, Settings, Users } from "lucide-react";
 
 import IconBtn from "../../components/IconBtn/IconBtn";
 import type { SectionType } from "../../pages/HomePage";
@@ -14,9 +14,11 @@ import styles from "./SideBar.module.css";
 interface SideBarProps {
     section: SectionType;
     setSection: (section: SectionType) => void;
+    sidebarOpen?: boolean;
+    onToggleSidebar?: () => void;
 }
 
-export default function SideBar({ section, setSection }: SideBarProps) {
+export default function SideBar({ section, setSection, sidebarOpen = true, onToggleSidebar }: SideBarProps) {
     const { groupId, micMuted, deafened, toggleMic, toggleDeafen } = useActiveCall();
     const { user } = useAuth();
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -38,7 +40,7 @@ export default function SideBar({ section, setSection }: SideBarProps) {
                         <h4 className={styles.voiceLabel}>Chamada</h4>
                         <div
                             className={styles.voiceSlot}
-                            onClick={() => setSection("room")}
+                            onClick={() => setSection("friends")}
                             title="Voltar para a chamada"
                         >
                             <VoiceList />
@@ -64,6 +66,14 @@ export default function SideBar({ section, setSection }: SideBarProps) {
                         icon={deafened ? HeadphoneOff : Headphones}
                         handleClick={toggleDeafen}
                     />
+                    {onToggleSidebar && (
+                        <IconBtn
+                            id="sidebar"
+                            name={sidebarOpen ? "Ocultar barra lateral" : "Mostrar barra lateral"}
+                            icon={sidebarOpen ? PanelLeftClose : PanelLeftOpen}
+                            handleClick={onToggleSidebar}
+                        />
+                    )}
                     <IconBtn id="config" name="Configurações" icon={Settings} handleClick={() => setSettingsOpen(true)} />
                 </div>
             </footer>

@@ -1,7 +1,7 @@
 .overlay {
     position: fixed;
     inset: 0;
-    z-index: 40;
+    z-index: 300;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -10,8 +10,9 @@
 }
 
 .modal {
-    min-width: 640px;
-    max-width: 100%;
+    width: min(680px, 100%);
+    max-height: calc(100dvh - 48px);
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: var(--spacing-lg);
@@ -19,7 +20,6 @@
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-lg);
     background: var(--color-surface);
-    box-shadow: var(--shadow-xl);
 }
 
 .header {
@@ -114,8 +114,14 @@
 
 .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(170px, 100%), 1fr));
     gap: var(--spacing-sm);
+    min-height: 0;
+    max-height: 320px;
+    overflow-y: auto;
+    padding-right: 4px;
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-surface-active) transparent;
 }
 
 .source {
@@ -193,6 +199,7 @@
 
 .options {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--spacing-xs);
 }
 

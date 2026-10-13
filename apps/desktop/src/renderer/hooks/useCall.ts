@@ -20,6 +20,7 @@ interface UseCallResult {
     switchMicrophone: (next: MediaStream) => void;
 
     remoteScreenStreams: Record<string, MediaStream>;
+    remoteScreenAudioStreams: Record<string, MediaStream>;
 
     screenStream: MediaStream | null;
     startScreenShare: (sourceId?: string, quality?: ScreenQuality, includeAudio?: boolean) => Promise<void>;
@@ -41,7 +42,9 @@ export function useCall(groupId: string | null): UseCallResult {
 
     const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
     const screenStreamRef = useRef<MediaStream | null>(null);
+    const startingShareRef = useRef(false);
     const [remoteScreenStreams, setRemoteScreenStreams] = useState<Record<string, MediaStream>>({});
+    const [remoteScreenAudioStreams, setRemoteScreenAudioStreams] = useState<Record<string, MediaStream>>({});
 
     if (!managerRef.current) {
         const session = getSession();
@@ -53,6 +56,8 @@ export function useCall(groupId: string | null): UseCallResult {
             getLocalStream: () => localMedia.getStream(),
             onRemoteScreenStream: (peerId, stream) =>
                 setRemoteScreenStreams((current) => ({ ...current, [peerId]: stream })),
+            onRemoteScreenAudio: (peerId, stream) =>
+                setRemoteScreenAudioStreams((current) => ({ ...current, [peerId]: stream })),
             getScreenStream: () => screenStreamRef.current,
             shouldOffer: (peerId) => (session?.user.id ?? "") < peerId,
         });
@@ -121,6 +126,12 @@ export function useCall(groupId: string | null): UseCallResult {
                     delete next[peerId];
                     return next;
                 });
+
+                setRemoteScreenAudioStreams((current) => {
+                    const next = { ...current };
+                    delete next[peerId];
+                    return next;
+                });
             },
             onDirect: function (message: ForwardedDirectMessage): void {
                 const from = message.from;
@@ -148,12 +159,20 @@ export function useCall(groupId: string | null): UseCallResult {
                             ...current,
                             [message.from]: message.sharing
                         }));
+                        if (!message.sharing) {
+                            setRemoteScreenAudioStreams((current) => {
+                                const next = { ...current };
+                                delete next[message.from];
+                                return next;
+                            });
+                        }
                         break;
                 }
             }
         });
 
         return () => {
+            stopScreenShare();
             socketRef.current?.close();
             socketRef.current = null;
 
@@ -174,6 +193,20 @@ export function useCall(groupId: string | null): UseCallResult {
     }
 
     async function startScreenShare(sourceId?: string, quality?: ScreenQuality, includeAudio?: boolean) {
+        if (startingShareRef.current) return;
+        startingShareRef.current = true;
+
+        try {
+            if (screenStreamRef.current) {
+                stopScreenShare();
+            }
+        await doStartScreenShare(sourceId, quality, includeAudio);
+        } finally {
+            startingShareRef.current = false;
+        }
+    }
+
+    async function doStartScreenShare(sourceId?: string, quality?: ScreenQuality, includeAudio?: boolean) {
 
         let stream: MediaStream;
 
@@ -194,11 +227,8 @@ export function useCall(groupId: string | null): UseCallResult {
                         chromeMediaSource: "desktop",
                         chromeMediaSourceId: sourceId,
                         ...(quality ? {
-                            minWidth: quality.width,
                             maxWidth: quality.width,
-                            minHeight: quality.height,
                             maxHeight: quality.height,
-                            minFrameRate: quality.frameRate,
                             maxFrameRate: quality.frameRate
                         } : {})
                     }
@@ -215,8 +245,9 @@ export function useCall(groupId: string | null): UseCallResult {
                 audio: false
             });
         }
-        
+
         const [videoTrack] = stream.getVideoTracks();
+        const [audioTrack] = stream.getAudioTracks();
 
         if (!videoTrack) {
             stream.getTracks().forEach(track => track.stop());
@@ -235,19 +266,21 @@ export function useCall(groupId: string | null): UseCallResult {
 
         screenStreamRef.current = stream;
         setScreenStream(stream);
-        webrtc.addScreenTrack(videoTrack, stream, quality?.height);
+        webrtc.addScreenTrack(videoTrack, audioTrack ?? null, stream, quality?.height);
         send({ type: "screen-share", sharing: true });
 
     }
 
     function stopScreenShare() {
-        screenStreamRef.current?.getTracks().forEach((track) => track.stop());
+        if (!screenStreamRef.current) return;
+        const stream = screenStreamRef.current;
+        stream?.getTracks().forEach((track) => track.stop());
         screenStreamRef.current = null;
         setScreenStream(null);
-        webrtc.removeScreenTrack();
+        webrtc.removeScreenTrack(stream);
         send({ type: "screen-share", sharing: false });
     }
 
-    return { status, peers, send, localStream: localMedia.localStream, remoteStreams, switchMicrophone, peerMuted, peerSharing, remoteScreenStreams, screenStream, startScreenShare, stopScreenShare };
+    return { status, peers, send, localStream: localMedia.localStream, remoteStreams, switchMicrophone, peerMuted, peerSharing, remoteScreenStreams, remoteScreenAudioStreams, screenStream, startScreenShare, stopScreenShare };
 
 }

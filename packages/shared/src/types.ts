@@ -43,7 +43,8 @@ export interface Friendship {
 export type SendFriendRequestResult = "sent" | "already-friends" | "pending" | "self";
 
 export type UserSocketClientMessage =
-    | { type: "auth"; token: string };
+    | { type: "auth"; token: string }
+    | { type: "call-state"; groupId: string | null };
 
 export type UserSocketServerMessage =
     | { type: "user-connected"; userId: string }
@@ -51,7 +52,9 @@ export type UserSocketServerMessage =
     | { type: "call-invite"; invite: CallInvite }
     | { type: "call-accepted"; callId: string }
     | { type: "call-declined"; callId: string }
-    | { type: "call-cancelled"; callId: string };
+    | { type: "call-cancelled"; callId: string }
+    | { type: "call-redirect"; callId: string; groupId: string }
+    | { type: "peer-call-state"; userId: string; groupId: string | null };;
 
 // Group
 

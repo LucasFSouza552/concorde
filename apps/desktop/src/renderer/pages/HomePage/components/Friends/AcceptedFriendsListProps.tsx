@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { EllipsisVertical, MessageCircle, Phone, RotateCcw } from "lucide-react";
 
+import InlineError from "../../../../components/InlineError/InlineError";
 import type { Friend } from "@concorde/shared";
 import UserIdentity from "./UserIdentity";
 
@@ -46,7 +47,7 @@ export default function AcceptedFriendsList({ friends, loading, error, onRemove,
             </header>
 
             {loading && <span>Carregando...</span>}
-            {!loading && error && <p>{error}</p>}
+            {!loading && error && <InlineError message={error} />}
             {!loading && !error && friends.length === 0 && (
                 <p>Você ainda não tem amigos.</p>
             )}

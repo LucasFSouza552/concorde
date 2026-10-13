@@ -1,9 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { Peer, ScreenQuality } from "@concorde/shared";
 
 import type { CallStatus } from "../hooks/CallSocket";
 import { useCall } from "../hooks/useCall";
+import { useUserSocketConnected, useUserSocketSend } from "./UserSocketProvider";
 
 interface ActiveCallContextData {
     groupId: string | null;
@@ -21,9 +22,12 @@ interface ActiveCallContextData {
     deafened: boolean;
     toggleMic: () => void;
     toggleDeafen: () => void;
+    screenAudioMuted: boolean;
+    toggleScreenAudioMute: () => void;
 
     screenStream: MediaStream | null;
     remoteScreenStreams: Record<string, MediaStream>;
+    remoteScreenAudioStreams: Record<string, MediaStream>;
     startScreenShare: (sourceId?: string, quality?: ScreenQuality, includeAudio?: boolean) => Promise<void>;
     stopScreenShare: () => void;
 }
@@ -35,8 +39,22 @@ export function ActiveCallProvider({ children }: { children: ReactNode }) {
     const call = useCall(groupId);
     const [micMuted, setMicMuted] = useState(false);
     const [deafened, setDeafened] = useState(false);
+    const [screenAudioMuted, setScreenAudioMuted] = useState(false);
 
     const leave = useCallback(() => setGroupId(null), []);
+    const socketConnected = useUserSocketConnected();
+    const sendUserMessage = useUserSocketSend();
+    const announcedGroupId = useRef<string | null | undefined>(undefined);
+
+    useEffect(() => {
+        if (!socketConnected) {
+            announcedGroupId.current = undefined;
+            return;
+        }
+        if (announcedGroupId.current === groupId) return;
+        announcedGroupId.current = groupId;
+        sendUserMessage({ type: "call-state", groupId });
+    }, [groupId, socketConnected, sendUserMessage]);
 
     function toggleMic() {
         if (deafened) {
@@ -49,6 +67,10 @@ export function ActiveCallProvider({ children }: { children: ReactNode }) {
 
     function toggleDeafen() {
         setDeafened((current) => !current);
+    }
+
+    function toggleScreenAudioMute() {
+        setScreenAudioMuted((current) => !current);
     }
 
     const effectiveMicMuted = micMuted || deafened;
@@ -77,12 +99,14 @@ export function ActiveCallProvider({ children }: { children: ReactNode }) {
                 leave,
                 switchMicrophone: call.switchMicrophone,
 
-                micMuted, deafened, toggleMic, toggleDeafen,
-                peerMuted: call.peerMuted,
+    micMuted, deafened, toggleMic, toggleDeafen,
+    screenAudioMuted, toggleScreenAudioMute,
+    peerMuted: call.peerMuted,
                 peerSharing: call.peerSharing,
 
                 screenStream: call.screenStream,
                 remoteScreenStreams: call.remoteScreenStreams,
+                remoteScreenAudioStreams: call.remoteScreenAudioStreams,
                 startScreenShare: call.startScreenShare,
                 stopScreenShare: call.stopScreenShare,
             }}

@@ -12,16 +12,20 @@ export function useFriendRequest() {
     const [query, setQuery] = useState("");
     const [state, setState] = useState<AddState>({ status: "idle" });
 
-    const add = useCallback(async () => {
+    const add = useCallback(async (): Promise<string | null> => {
         const username = query.trim();
-        if (!username) return;
+        if (!username) return null;
 
         setState({ status: "sending" });
         try {
             await api.post("/friends/requests", { username });
             setState({ status: "sent", username });
+            return username
         } catch (error) {
-            setState({ status: "error", message: getErrorMessage(error) });
+            const message = getErrorMessage(error);
+            setState({ status: "error", message });
+            throw new Error(message);
+
         }
     }, [query]);
 

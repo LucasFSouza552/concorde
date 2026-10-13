@@ -13,16 +13,20 @@ interface WebRTCManagerOptions {
     getLocalStream: () => MediaStream | null;
 
     onRemoteScreenStream: (peerId: string, stream: MediaStream) => void;
+    onRemoteScreenAudio: (peerId: string, stream: MediaStream) => void;
     getScreenStream: () => MediaStream | null;
     shouldOffer: (peerId: string) => boolean;
 }
 
 export function createWebRTCManager(options: WebRTCManagerOptions) {
-    const { emit, onRemoteStream, getLocalStream, shouldOffer, getScreenStream, onRemoteScreenStream } = options;
+    const { emit, onRemoteStream, getLocalStream, shouldOffer, getScreenStream, onRemoteScreenStream, onRemoteScreenAudio } = options;
 
     const connections = new Map<string, RTCPeerConnection>();
     const pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
     const negotiating = new Set<string>();
+    const lastRestart = new Map<string, number>();
+
+    const ICE_RESTART_COOLDOWN_MS = 5000;
 
     function createConnection(peerId: string) {
         const connection = new RTCPeerConnection(RTC_CONFIG);
@@ -52,10 +56,27 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
             }
             if (event.track.kind === "video") {
                 onRemoteScreenStream(peerId, remote);
+            } else if (remote.getVideoTracks().length > 0) {
+                onRemoteScreenAudio(peerId, remote);
             } else {
                 onRemoteStream(peerId, remote);
             }
         }
+
+        connection.onconnectionstatechange = () => {
+            if (connection.connectionState === "failed") {
+                console.warn(`[WebRTC] Conexão com ${peerId} falhou. Tentando ICE restart…`);
+                void restartIce(peerId);
+            } else if (connection.connectionState === "closed") {
+                removePeer(peerId);
+            }
+        };
+
+        connection.oniceconnectionstatechange = () => {
+            if (connection.iceConnectionState === "failed") {
+                void restartIce(peerId);
+            }
+        };
 
         connection.onicecandidate = (event) => {
             if (!event.candidate) return;
@@ -155,6 +176,32 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         sendOffer(peerId);
     }
 
+    function restartIce(peerId: string) {
+        const connection = connections.get(peerId);
+        if (!connection || !beginNegotiation(peerId)) return;
+
+        const last = lastRestart.get(peerId) ?? 0;
+        if (Date.now() - last < ICE_RESTART_COOLDOWN_MS) {
+            negotiating.delete(peerId);
+            return;
+        }
+        lastRestart.set(peerId, Date.now());
+
+        connection.createOffer({ iceRestart: true })
+            .then((offer) => connection.setLocalDescription(offer))
+            .then(() => {
+                emit({
+                    type: "offer",
+                    to: peerId,
+                    sdp: connection.localDescription!.sdp
+                } satisfies ClientMessage)
+            })
+            .catch(console.error)
+            .finally(() => {
+                negotiating.delete(peerId);
+            });
+    }
+
     function removePeer(peerId: string) {
         connections.get(peerId)?.close();
         connections.delete(peerId);
@@ -194,19 +241,23 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         }
     }
 
-    function addScreenTrack(track: MediaStreamTrack, stream: MediaStream, height?: number) {
+    function addScreenTrack(track: MediaStreamTrack, audioTrack: MediaStreamTrack | null, stream: MediaStream, height?: number) {
         const sendHeight = height ?? track.getSettings().height ?? 720;
         for (const [peerId, connection] of connections) {
             connection.addTrack(track, stream);
+            if (audioTrack) {
+                connection.addTrack(audioTrack, stream);
+            }
             void applyScreenSendParams(connection, track, sendHeight);
             startOffer(peerId);
         }
     }
 
-    function removeScreenTrack() {
+    function removeScreenTrack(stream: MediaStream | null) {
+        const ids = new Set((stream?.getTracks() ?? []).map((track) => track.id));
         for (const [peerId, connection] of connections) {
             connection.getSenders().forEach((sender) => {
-                if (sender.track?.kind === "video") {
+                if (sender.track && ids.has(sender.track.id)) {
                     connection.removeTrack(sender);
                 }
             });

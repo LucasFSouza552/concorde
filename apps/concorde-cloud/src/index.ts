@@ -18,13 +18,21 @@ export { UserSession };
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.use("*", cors({
-    origin: (origin) => {
-        if (!origin || origin === "null") return "null";
-        if (origin.startsWith("http://localhost:")) return origin;
-        return null;
-    }
-}));
+const apiCors = cors({
+	origin: (origin) => {
+		if (!origin || origin === "null") return "null";
+		if (origin.startsWith("http://localhost:")) return origin;
+		return null;
+	}
+});
+
+app.use("*", async (c, next) => {
+	if (c.req.header("Upgrade")?.toLowerCase() === "websocket") {
+		await next();
+		return;
+	}
+	return apiCors(c, next);
+});
 
 app.onError((err, c) => {
 	if (err instanceof AppError || err instanceof HTTPException) {
@@ -62,6 +70,12 @@ app.get("/user/:userId/socket", async (c) => {
 	const id = c.env.USER_SESSIONS.idFromName(c.req.param("userId"));
 	const stub = c.env.USER_SESSIONS.get(id);
 	console.log("Conectado novo usuário", id);
+	return stub.fetch(c.req.raw);
+});
+
+app.get("/user/:userId/presence", async (c) => {
+	const id = c.env.USER_SESSIONS.idFromName(c.req.param("userId"));
+	const stub = c.env.USER_SESSIONS.get(id);
 	return stub.fetch(c.req.raw);
 });
 

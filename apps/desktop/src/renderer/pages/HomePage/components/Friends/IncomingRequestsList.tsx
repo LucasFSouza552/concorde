@@ -1,7 +1,7 @@
 import { Check, X, RotateCcw } from "lucide-react";
 
+import InlineError from "../../../../components/InlineError/InlineError";
 import type { Friend } from "@concorde/shared";
-
 import UserIdentity from "./UserIdentity";
 
 import styles from "./Friends.module.css";
@@ -29,7 +29,7 @@ export default function IncomingRequestsList({ requests, loading, error, onAccep
                 </button>
             </header>
             {loading && <span>Carregando...</span>}
-            {!loading && error && <p>{error}</p>}
+            {!loading && error && <InlineError message={error} />}
             {!loading && !error && requests.length === 0 && (
                 <p>Nenhuma solicitação pendente.</p>
             )}
