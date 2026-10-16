@@ -1,4 +1,4 @@
-import { createContext, useContext, type ReactNode } from "react";
+import { createContext, useContext, useMemo, type ReactNode } from "react";
 
 import { useAudioSettings } from "../hooks/useAudioSettings";
 
@@ -10,8 +10,8 @@ const SettingsContext = createContext<SettingsContextData | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
     const audio = useAudioSettings();
-
-    return (<SettingsContext.Provider value={{ audio }}>
+    const value = useMemo(() => ({ audio }), [audio]);
+    return (<SettingsContext.Provider value={value}>
         {children}
     </SettingsContext.Provider>);
 }

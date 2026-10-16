@@ -10,6 +10,7 @@ interface SocketAttachment {
 	authenticated: boolean;
 	connectedAt: number;
 	callGroupId: string | null;
+	callConcordeGroupId: string | null;
 }
 
 export class UserSession {
@@ -41,7 +42,8 @@ export class UserSession {
 			userId: null,
 			authenticated: false,
 			connectedAt: Date.now(),
-			callGroupId: null
+			callGroupId: null,
+			callConcordeGroupId: null
 		} satisfies SocketAttachment);
 
 		this.ctx.acceptWebSocket(server);
@@ -61,6 +63,11 @@ export class UserSession {
 		}
 
 		const attachment = socket.deserializeAttachment() as SocketAttachment;
+
+		if (parsed.type === "ping") {
+			socket.send(JSON.stringify({ type: "pong" } satisfies UserSocketServerMessage));
+			return;
+		}
 
 		if (!attachment.authenticated) {
 			if (parsed.type !== "auth") {
@@ -98,19 +105,22 @@ export class UserSession {
 	}
 
 	const previousGroupId = attachment.callGroupId;
+	const concordeGroupId = parsed.concordeGroupId ?? null;
 
 	socket.serializeAttachment({
 		...attachment,
-		callGroupId: parsed.groupId
+		callGroupId: parsed.groupId,
+		callConcordeGroupId: concordeGroupId
 	});
 
-	if (previousGroupId !== parsed.groupId && attachment.userId) {
-		await this.notifyCallState(attachment.userId, parsed.groupId);
+	if ((previousGroupId !== parsed.groupId || attachment.callConcordeGroupId !== concordeGroupId) && attachment.userId) {
+		await this.notifyCallState(attachment.userId, parsed.groupId, concordeGroupId);
 	}
 	}
 
-	private presence(): { online: boolean; inCall: boolean; groupId: string | null } {
+	private presence(): { online: boolean; inCall: boolean; groupId: string | null; concordeGroupId: string | null } {
 		let groupId: string | null = null;
+		let concordeGroupId: string | null = null;
 
 		for (const socket of this.ctx.getWebSockets()) {
 			const attachment = socket.deserializeAttachment() as SocketAttachment;
@@ -119,14 +129,15 @@ export class UserSession {
 
 			if (attachment.callGroupId) {
 				groupId = attachment.callGroupId;
+				concordeGroupId = attachment.callConcordeGroupId;
 				break;
 			}
 		}
 
-		return { online: this.isOnline(), inCall: groupId !== null, groupId };
+		return { online: this.isOnline(), inCall: groupId !== null, groupId, concordeGroupId };
 	}
 
-	private async notifyCallState(userId: string, groupId: string | null): Promise<void> {
+	private async notifyCallState(userId: string, groupId: string | null, concordeGroupId: string | null): Promise<void> {
 		let friends = [];
 
 		try {
@@ -138,7 +149,8 @@ export class UserSession {
 		const message = JSON.stringify({
 			type: "peer-call-state",
 			userId,
-			groupId
+			groupId,
+			concordeGroupId
 		} satisfies UserSocketServerMessage);
 
 		for (const friend of friends) {
@@ -152,6 +164,16 @@ export class UserSession {
 
 			}
 		}
+	}
+
+	async webSocketClose(socket: WebSocket) {
+		const attachment = socket.deserializeAttachment() as SocketAttachment;
+
+		socket.serializeAttachment({
+			...attachment,
+			callGroupId: null,
+			callConcordeGroupId: null
+		});
 	}
 
 	async alarm() {

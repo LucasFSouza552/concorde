@@ -4,6 +4,7 @@ import {
 	addGroupMemberController,
 	changeGroupMemberRoleController,
 	createGroupController,
+	listGroupMembersController,
 	listGroupsController,
 	removeGroupMemberController
 } from "./groups.controller";
@@ -19,5 +20,6 @@ groups.get("/", listGroupsController);
 groups.post("/:groupId/members", addGroupMemberController);
 groups.delete("/:groupId/members/:userId", removeGroupMemberController);
 groups.patch("/:groupId/members/:userId", changeGroupMemberRoleController);
+groups.get("/:groupId/members", listGroupMembersController);
 
 export default groups;

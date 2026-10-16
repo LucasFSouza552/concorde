@@ -1,11 +1,13 @@
 import { CallInvite, UserSocketServerMessage } from "@concorde/shared";
 import { Env } from "../../types/Env";
 import { getUserById } from "../auth/auth.repository";
-import { getFriendship } from "../friends/friends.repository";
+import { findFriendship } from "../friends/friends.repository";
+import { requireFriendship } from "../friends/friends.service";
 
 import { AppError } from "../../utils/AppError";
 
 export const CALL_INVITE_TTL_MS = 30_000;
+export const GROUP_CALL_MAX_MEMBERS = 6;
 
 async function deliverToUser(env: Env, userId: string, message: UserSocketServerMessage): Promise<void> {
 	const id = env.USER_SESSIONS.idFromName(userId);
@@ -17,12 +19,12 @@ async function deliverToUser(env: Env, userId: string, message: UserSocketServer
 	});
 }
 
-export async function redirectCall(env: Env, callerId: string, callId: string, groupId: string) {
+export async function redirectCall(env: Env, callerId: string, callId: string, groupId: string, concordeGroupId?: string | null) {
 	if (!callId || !groupId) {
 		throw AppError.badRequest("É nescessário informar a chamada e a sala.");
 	}
 
-	await relayCallEvent(env, callerId, { type: "call-redirect", callId, groupId });
+	await relayCallEvent(env, callerId, { type: "call-redirect", callId, groupId, concordeGroupId: concordeGroupId ?? null });
 }
 
 export async function createCallInvite(env: Env, fromUserId: string, toUserId: string) {
@@ -39,11 +41,8 @@ export async function createCallInvite(env: Env, fromUserId: string, toUserId: s
 
 	if (!toUser) throw AppError.notFound("Usuário não encontrado.");
 
-	const direct = await getFriendship(db, fromUserId, toUserId);
-	const reverse = await getFriendship(db, toUserId, fromUserId);
-
-	if (direct?.status !== "accepted" && reverse?.status !== "accepted") {
-		throw AppError.forbidden("Somente amigos podem ligar entre si.");
+	if (toUser.friendsOnly) {
+		await requireFriendship(db, fromUserId, toUserId);
 	}
 
 	const fromUser = await getUserById(db, fromUserId);
@@ -95,4 +94,55 @@ export async function cancelCall(env: Env, toUserId: string, callId: string): Pr
 	}
 
 	await relayCallEvent(env, toUserId, { type: "call-cancelled", callId });
+}
+
+export interface GroupCallInviteResult {
+	groupId: string;
+	invites: (CallInvite & { toUserId: string })[];
+}
+
+export async function createGroupCallInvite(env: Env, fromUserId: string, toUserId: string[], concordeGroupId?: string): Promise<GroupCallInviteResult> {
+	const targets = [...new Set(toUserId.filter(id => id && id !== fromUserId))];
+
+	if (targets.length === 0) {
+		throw AppError.badRequest("Informe ao menos um participante");
+	}
+
+	if (targets.length > GROUP_CALL_MAX_MEMBERS) {
+		throw AppError.badRequest(`Limite de ${GROUP_CALL_MAX_MEMBERS} participantes por chamada.`);
+	}
+
+	const db = env.concorde_users;
+	const fromUser = await getUserById(db, fromUserId);
+	if (!fromUser) throw AppError.notFound("Usuário não encontrado.");
+
+	for (const toUserId of targets) {
+		const toUser = await getUserById(db, toUserId);
+		if (!toUser) throw AppError.notFound("Usuário não encontrado.");
+
+		if (toUser.friendsOnly) {
+			await requireFriendship(db, fromUserId, toUserId, "Somente amigos podem participar da chamada.");
+		}
+	}
+
+	const now = Date.now();
+	const groupId = crypto.randomUUID();
+	const invites: GroupCallInviteResult["invites"] = [];
+
+	for (const toUserId of targets) {
+		const invite: CallInvite = {
+			callId: crypto.randomUUID(),
+			groupId,
+			fromUserId,
+			fromDisplayName: fromUser.displayName,
+			concordeGroupId,
+			createdAt: now,
+			expiresAt: now + CALL_INVITE_TTL_MS
+		};
+		invites.push({ ...invite, toUserId });
+		await deliverToUser(env, toUserId, { type: "call-invite", invite });
+	}
+
+	return { groupId, invites };
+
 }

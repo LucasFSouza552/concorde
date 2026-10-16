@@ -76,7 +76,7 @@ function createWindow() {
     );
   }
 
-    window.webContents.openDevTools();
+  window.webContents.openDevTools();
 
   mainWindow = window;
   window.on("closed", () => {

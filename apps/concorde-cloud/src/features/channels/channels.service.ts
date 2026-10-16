@@ -12,7 +12,9 @@ import {
 	listGroupChannelMembers
 } from "./channels.repository";
 import { Env } from "../../types/Env";
-import { getFriendship } from "../friends/friends.repository";
+import { getUserById } from "../auth/auth.repository";
+import { findFriendship } from "../friends/friends.repository";
+import { requireFriendship } from "../friends/friends.service";
 import { findGroupById, findGroupMember } from "../groups/groups.repository";
 
 import { AppError } from "../../utils/AppError";
@@ -22,11 +24,11 @@ export async function resolveDMChannel(db: D1Database, userIdA: string, userIdB:
 		throw AppError.badRequest("Você não pode criar uma conversa consigo mesmo");
 	}
 
-	const direct = await getFriendship(db, userIdA, userIdB);
-	const reverse = await getFriendship(db, userIdB, userIdA);
+	const recipient = await getUserById(db, userIdB);
+	if (!recipient) throw AppError.notFound("Usuário não encontrado.");
 
-	if (direct?.status !== "accepted" && reverse?.status !== "accepted") {
-		throw AppError.forbidden("Somente amigos podem conversar entre si.");
+	if (recipient.friendsOnly) {
+		await requireFriendship(db, userIdA, userIdB, "Somente amigos podem conversar entre si.");
 	}
 
 	const dmKey = [userIdA, userIdB].sort().join(":");
@@ -74,11 +76,11 @@ export async function sendMessage(env: Env, userId: string, channelId: string, c
 			throw AppError.forbidden("Conversa indisponível");
 		}
 
-		const direct = await getFriendship(db, userId, other.userId);
-		const reverse = await getFriendship(db, other.userId, userId);
+		const recipient = await getUserById(db, other.userId);
+		if (!recipient) throw AppError.notFound("Usuário não encontrado.");
 
-		if (direct?.status !== "accepted" && reverse?.status !== "accepted") {
-			throw AppError.forbidden("Vocês não são amigos");
+		if (recipient.friendsOnly) {
+			await requireFriendship(db, userId, other.userId, "Vocês não são amigos.");
 		}
 	}
 

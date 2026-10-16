@@ -17,9 +17,14 @@
     flex: 0 0 auto;
     place-items: center;
     border-radius: 50%;
+    border: 2px solid transparent;
     background: var(--gradient-brand);
     font-size: 12px;
     font-weight: 700;
+}
+
+.avatar.speaking {
+    border-color: var(--color-success);
 }
 
 .name {

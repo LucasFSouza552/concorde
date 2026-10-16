@@ -53,7 +53,8 @@
 .modal {
     display: flex;
     flex-direction: column;
-    width: 560px;
+    width: 640px;
+    min-height: 480px;
     max-width: calc(100% - 32px);
     max-height: calc(100% - 32px);
     overflow: hidden;
@@ -194,6 +195,151 @@
     color: var(--color-text-muted);
     font-size: 12px;
     line-height: 1.5;
+}
+
+.modeBtn {
+    flex: 1;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+
+    background: transparent;
+    color: var(--color-text-muted);
+
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.modeBtn:hover {
+    color: var(--color-text);
+    border-color: var(--color-text-muted);
+}
+
+.modeSelected {
+    border-color: transparent;
+    background: var(--color-surface-active);
+    color: var(--color-text);
+}
+
+.meterBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 12px 0;
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+.meterOverlay {
+    position: relative;
+    display: flex;
+    align-items: center;
+    min-height: 28px;
+}
+
+.meterOverlay .meterTrack {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.rangeOverlay {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    margin: 0;
+    background: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+    cursor: pointer;
+}
+
+.rangeOverlay::-webkit-slider-runnable-track {
+    height: 8px;
+    background: transparent;
+}
+
+.rangeOverlay::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    margin-top: -4px;
+    border-radius: 50%;
+    background: #ffffff;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+}
+
+.rangeOverlay::-moz-range-track {
+    height: 8px;
+    background: transparent;
+}
+
+.rangeOverlay::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: none;
+    border-radius: 50%;
+    background: #ffffff;
+}
+
+.rangeValue {
+    flex: none;
+    min-width: 28px;
+    text-align: right;
+    color: var(--color-text);
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+}
+
+.meterRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.meterBtn {
+    flex: none;
+    padding: 8px 14px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+
+    background: transparent;
+    color: var(--color-text);
+
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.meterBtn:hover {
+    background: var(--color-surface-hover);
+    border-color: var(--color-text-muted);
+}
+
+.meterTrack {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+    height: 8px;
+    border-radius: 999px;
+    background: var(--color-surface-active);
+    overflow: hidden;
+}
+
+.meterFill {
+    height: 100%;
+    border-radius: 999px;
+    background: var(--gradient-brand);
+    transition: width 100ms linear;
 }
 
 .dangerBtn {

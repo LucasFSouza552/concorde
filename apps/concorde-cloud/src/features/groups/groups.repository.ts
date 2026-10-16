@@ -112,3 +112,23 @@ export async function countGroups(db: D1Database, userId: string): Promise<numbe
 	const row = await db.prepare(`SELECT COUNT(*) AS total FROM groups WHERE ownerId = ?`).bind(userId).first<{ total: number }>();
 	return row?.total ?? 0;
 }
+
+export interface GroupMemberWithUser {
+	id: string;
+	username: string;
+	displayName: string;
+	role: GroupRole;
+	joinedAt: number;
+}
+
+export async function listGroupMembers(db: D1Database, groupId: string): Promise<GroupMemberWithUser[]> {
+	const result = await db.prepare(`SELECT m.userId AS id, u.username, u.displayName, m.role, m.joinedAt
+		FROM group_members m
+		JOIN users u ON u.id = m.userId
+		WHERE m.groupId = ?
+		ORDER BY m.joinedAt ASC`)
+		.bind(groupId)
+		.all<GroupMemberWithUser>();
+
+	return result.results;
+}

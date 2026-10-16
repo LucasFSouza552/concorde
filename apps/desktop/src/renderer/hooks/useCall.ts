@@ -192,7 +192,7 @@ export function useCall(groupId: string | null): UseCallResult {
         }
     }
 
-    async function startScreenShare(sourceId?: string, quality?: ScreenQuality, includeAudio?: boolean) {
+    async function startScreenShare(sourceId?: string, quality?: ScreenQuality, includeAudio?: boolean, isWindow?: boolean) {
         if (startingShareRef.current) return;
         startingShareRef.current = true;
 
@@ -200,26 +200,28 @@ export function useCall(groupId: string | null): UseCallResult {
             if (screenStreamRef.current) {
                 stopScreenShare();
             }
-        await doStartScreenShare(sourceId, quality, includeAudio);
+            await doStartScreenShare(sourceId, quality, includeAudio, isWindow);
         } finally {
             startingShareRef.current = false;
         }
     }
 
-    async function doStartScreenShare(sourceId?: string, quality?: ScreenQuality, includeAudio?: boolean) {
+    async function doStartScreenShare(sourceId?: string, quality?: ScreenQuality, includeAudio?: boolean, isWindow?: boolean) {
 
-        let stream: MediaStream;
+        if (!sourceId) {
+            throw new Error("Selecione uma janela para compartilhar tela");
+        }
 
-        if (sourceId) {
-            const isWindow = sourceId.startsWith("window:");
-            const wantAudio = !!includeAudio && isWindow;
+        const windowSource = !!isWindow && sourceId.startsWith("window:");
+        const wantAudio = !!includeAudio && windowSource;
 
-            if (includeAudio && !isWindow) {
-                console.warn("Áudio disponível apenas para janelas.");
-            }
+        if (includeAudio && !windowSource) {
+            console.warn("Áudio disponível apenas para janelas.");
+        }
 
-            stream = await navigator.mediaDevices.getUserMedia({
-                audio: wantAudio
+        async function captureScreen(withAudio: boolean) {
+            return navigator.mediaDevices.getUserMedia({
+                audio: withAudio
                     ? { mandatory: { chromeMediaSource: "desktop", chromeMediaSourceId: sourceId } } as unknown as MediaTrackConstraints
                     : false,
                 video: {
@@ -234,20 +236,20 @@ export function useCall(groupId: string | null): UseCallResult {
                     }
                 } as unknown as MediaTrackConstraints
             });
+        }
 
-        } else {
-            stream = await navigator.mediaDevices.getDisplayMedia({
-                video: quality ? {
-                    width: { ideal: quality.width },
-                    height: { ideal: quality.height },
-                    frameRate: { ideal: quality.frameRate }
-                } : true,
-                audio: false
-            });
+        let stream: MediaStream;
+        let audioTrack: MediaStreamTrack | null = null;
+
+        try {
+            stream = await captureScreen(wantAudio);
+            audioTrack = stream.getAudioTracks()[0] ?? null;
+        } catch (error) {
+            if (!wantAudio) throw error;
+            stream = await captureScreen(false);
         }
 
         const [videoTrack] = stream.getVideoTracks();
-        const [audioTrack] = stream.getAudioTracks();
 
         if (!videoTrack) {
             stream.getTracks().forEach(track => track.stop());
@@ -264,9 +266,11 @@ export function useCall(groupId: string | null): UseCallResult {
             stopScreenShare();
         }
 
-        screenStreamRef.current = stream;
-        setScreenStream(stream);
-        webrtc.addScreenTrack(videoTrack, audioTrack ?? null, stream, quality?.height);
+        const merged = new MediaStream([videoTrack, ...(audioTrack ? [audioTrack] : [])]);
+        screenStreamRef.current = merged;
+        setScreenStream(merged);
+
+        webrtc.addScreenTrack(videoTrack, audioTrack ?? null, merged, quality?.height);
         send({ type: "screen-share", sharing: true });
 
     }

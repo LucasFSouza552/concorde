@@ -11,6 +11,7 @@ export async function createUser(db: D1Database, data: CreateUserData) {
 				id,
 				username,
 				displayName,
+				friendsOnly,
 				email,
 				passwordHash,
 				passwordSalt,
@@ -22,6 +23,7 @@ export async function createUser(db: D1Database, data: CreateUserData) {
 			id,
 			data.username,
 			data.username,
+			1,
 			data.email,
 			data.passwordHash,
 			data.passwordSalt,
@@ -34,17 +36,19 @@ export async function createUser(db: D1Database, data: CreateUserData) {
 		username: data.username,
 		displayName: data.username,
 		email: data.email,
+		friendsOnly: true,
 		createdAt
 	};
 }
 
 export async function getUserByEmail(db: D1Database, email: string): Promise<UserRecord | null> {
 	const user = await db.prepare("SELECT * FROM users WHERE email = ?").bind(email).first<UserRecord>();
+	if (user) user.friendsOnly = Boolean(user.friendsOnly as unknown as number);
 	return user;
 }
 
 export async function getUserById(db: D1Database, id: string): Promise<User | null> {
-	const user = await db.prepare(`SELECT id, username, displayName, email, createdAt FROM users WHERE id = ?`).bind(id).first<User>();
+	const user = await db.prepare(`SELECT id, username, displayName, email, friendsOnly, createdAt FROM users WHERE id = ?`).bind(id).first<User>();
 
 	return user;
 }

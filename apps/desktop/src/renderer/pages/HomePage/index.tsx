@@ -3,26 +3,42 @@ import { PanelLeftOpen } from "lucide-react";
 
 import SideBar from "../../components/SideBar/SideBar"
 import Friends from './components/Friends/Friends';
+import GroupPage from "./components/Home/GroupPage";
 import Home from './components/Home/Home';
-import type { Friend } from "@concorde/shared";
+import type { Friend, GroupRole } from "@concorde/shared";
 import { useActiveCall } from "../../contexts/ActiveCallProvider";
 import { useCallInviteState } from "../../contexts/CallInviteProvider";
+import { useToast } from "../../contexts/ToastProvider";
 
-import { api } from "../../api/api";
+import { api, getErrorMessage } from "../../api/api";
 import { GlobalRemoteAudio } from '../../hooks/GlobalRemoteAudio';
 
 import styles from "./HomePage.module.css";
 
-export type SectionType = "home" | "friends";
+export type SectionType = "home" | "friends" | "group";
 
 export default function HomePage() {
     const [Section, setSection] = useState<SectionType>("home");
     const { groupId, peers } = useActiveCall();
-    const { outgoing } = useCallInviteState();
+    const { outgoing, joinedGroup } = useCallInviteState();
     const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
     const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
+    const [selectedGroup, setSelectedGroup] = useState<{ id: string; name: string; role: GroupRole } | null>(null);
     const lastCallPeer = useRef<{ userId: string; displayName: string } | null>(null);
+    const groupCallRef = useRef(false);
+    const { push } = useToast();
+
+    async function handleOpenFriend(friend: Friend) {
+        try {
+            const { data } = await api.post<{ channel: { id: string } }>("/channels/dm", { toUserId: friend.id });
+            setSelectedFriend(friend);
+            setActiveChannelId(data.channel.id);
+            setSection("friends");
+        } catch (error) {
+            push(getErrorMessage(error), "error");
+        }
+    }
 
     function openDirectMessage(peer: { userId: string; displayName: string }) {
         let cancelled = false;
@@ -46,7 +62,12 @@ export default function HomePage() {
     }
 
     useEffect(() => {
+        if (joinedGroup) groupCallRef.current = true;
+    }, [joinedGroup]);
+
+    useEffect(() => {
         if (groupId) {
+            if (groupCallRef.current) return;
             if (peers.length === 1) {
                 const peer = {
                     userId: peers[0].userId,
@@ -68,8 +89,10 @@ export default function HomePage() {
         }
         const peer = lastCallPeer.current;
         lastCallPeer.current = null;
+        const wasGroup = groupCallRef.current;
+        groupCallRef.current = false;
 
-        if (!peer) return;
+        if (wasGroup || !peer) return;
 
         return openDirectMessage(peer);
 
@@ -77,7 +100,19 @@ export default function HomePage() {
 
     return (
         <main className={styles.container}>
-            {sidebarOpen && <SideBar section={Section} setSection={setSection} sidebarOpen={sidebarOpen} onToggleSidebar={() => setSidebarOpen((open) => !open)} />}
+            {sidebarOpen && (
+                <SideBar
+                    section={Section}
+                    setSection={setSection}
+                    sidebarOpen={sidebarOpen}
+                    onToggleSidebar={() => setSidebarOpen((open) => !open)}
+                    selectedGroupId={selectedGroup?.id ?? null}
+                    onSelectGroup={(group) => {
+                        setSelectedGroup(group);
+                        setSection("group");
+                    }}
+                />
+            )}
             {!sidebarOpen && (
                 <button
                     type="button"
@@ -89,8 +124,27 @@ export default function HomePage() {
                     <PanelLeftOpen size={14} />
                 </button>
             )}
-            <Home hidden={Section !== "home"} />
+            <Home
+                hidden={Section !== "home"}
+                onOpenFriend={handleOpenFriend}
+                onGoFriends={() => setSection("friends")}
+                onSelectGroup={(group) => {
+                    setSelectedGroup(group);
+                    setSection("group");
+                }}
+            />
             <Friends hidden={Section !== "friends"} activeChannelId={activeChannelId} onActiveChannel={setActiveChannelId} onSelectFriend={setSelectedFriend} selectedFriend={selectedFriend} />
+            {Section === "group" && selectedGroup && (
+                <GroupPage
+                    groupId={selectedGroup.id}
+                    name={selectedGroup.name}
+                    role={selectedGroup.role}
+                    onBack={() => {
+                        setSelectedGroup(null);
+                        setSection("home");
+                    }}
+                />
+            )}
             <GlobalRemoteAudio />
         </main>
     )

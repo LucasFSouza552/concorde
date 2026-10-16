@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
-import { createPortal } from "react-dom";
 import { AppWindow, Monitor, ScreenShare, X } from "lucide-react";
+import { createPortal } from "react-dom";
 
 import type { DesktopSource, ScreenQuality } from "@concorde/shared";
 
@@ -8,7 +8,7 @@ import styles from "./SourceModal.module.css";
 
 interface SourceModalProps {
     onClose: () => void;
-    onStart: (sourceId: string, quality: ScreenQuality, includeAudio: boolean) => void;
+    onStart: (sourceId: string, quality: ScreenQuality, includeAudio: boolean, isWindow?: boolean) => void;
 }
 
 const resolutions = [
@@ -24,7 +24,7 @@ export default function SourceModal({ onClose, onStart }: SourceModalProps) {
     const [loading, setLoading] = useState(true);
     const [tab, setTab] = useState<"screens" | "windows">("screens");
     const [selectedId, setSelectedId] = useState<string | null>(null);
-    const [shareAudio] = useState(false);
+    const [shareAudio, setShareAudio] = useState(false);
 
     const [selectedRes, setSelectedRes] = useState(1);
     const [selectedFps, setSelectedFps] = useState(1);
@@ -33,7 +33,6 @@ export default function SourceModal({ onClose, onStart }: SourceModalProps) {
         let cancelled = false;
 
         const bridge = window.concorde?.screenShare;
-        console.log("bridge", bridge)
 
         if (!bridge) {
             setLoading(false);
@@ -71,20 +70,26 @@ export default function SourceModal({ onClose, onStart }: SourceModalProps) {
         tab === "screens" ? s.isScreen : !s.isScreen
     );
 
-    const selectedIsWindow = selectedId?.startsWith("window:") ?? false;
+    const selected = sources.find((s) => s.id === selectedId) ?? null;
+    const selectedIsWindow = selected ? !selected.isScreen : false;
 
     function handleSelect(sourceId: string) {
         setSelectedId(sourceId);
+
+        if (!sourceId.startsWith("window:")) {
+            setShareAudio(false);
+        }
     }
 
     function handleStart() {
-        if (!selectedId) return;
+        if (!selectedId || !selected) return;
 
         const res = resolutions[selectedRes];
         onStart(
             selectedId,
             { width: res.width, height: res.height, frameRate: frameRates[selectedFps] },
-            shareAudio && selectedIsWindow
+            shareAudio && selectedIsWindow,
+            selectedIsWindow
         );
 
         onClose();
@@ -143,19 +148,25 @@ export default function SourceModal({ onClose, onStart }: SourceModalProps) {
                     <>
                         <label
                             className={`${styles.audioCard} ${shareAudio ? styles.audioCardOn : ""}`}
-                            title="Compartilhamento com áudio temporariamente desabilitado"
+                            title="Transmite o som da janela"
                         >
                             <input
                                 type="checkbox"
-                                checked={false}
-                                disabled
-                                onChange={() => { }}
+                                checked={shareAudio}
+                                onChange={(event) => setShareAudio(event.target.checked)}
                             />
                             <span>
                                 <span className={styles.audioTitle}>Compartilhar som</span>
-                                <span className={styles.audioSub}>Temporariamente desabilitado</span>
+                                <span className={styles.audioSub}>Som da janela selecionada</span>
                             </span>
                         </label>
+                        {shareAudio && selectedIsWindow && (
+                            <p className={styles.hint} role="alert">
+                                Cuidado: o som capturado é o do programa todo (todas as abas e janelas dele),
+                                não só desta janela. Evite programas emitindo a própria chamada e prefira usar
+                                fones — sem isso, o áudio realimenta e o volume pode disparar.
+                            </p>
+                        )}
                     </>
                 )}
 

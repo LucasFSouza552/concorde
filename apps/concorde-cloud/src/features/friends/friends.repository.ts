@@ -13,6 +13,27 @@ export async function getFriendship(db: D1Database, userId: string, friendId: st
 		.first<Friendship>();
 }
 
+export async function findFriendship(
+	db: D1Database,
+	userId: string,
+	friendId: string
+): Promise<Friendship | null> {
+	return db.prepare(`
+        SELECT userId, friendId, status, createdAt
+        FROM friendships
+        WHERE status = 'accepted'
+          AND (
+              (userId = ? AND friendId = ?)
+              OR
+              (userId = ? AND friendId = ?)
+          )
+        LIMIT 1
+    `).bind(
+		userId, friendId,
+		friendId, userId
+	).first<Friendship>();
+}
+
 export async function sendRequest(db: D1Database, userId: string, friendId: string): Promise<void> {
 	await db.prepare(`INSERT INTO friendships (userId, friendId, status, createdAt) VALUES (?, ?, 'pending', ?)`)
 		.bind(userId, friendId, Date.now())

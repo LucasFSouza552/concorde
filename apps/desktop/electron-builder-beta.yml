@@ -1,0 +1,14 @@
+appId: com.concorde.app.beta
+productName: Concorde Beta
+artifactName: Concorde-Beta-Setup-${version}.${ext}
+files:
+  - out/**/*
+directories:
+  output: release-beta
+win:
+  target:
+    - nsis
+publish:
+  provider: github
+  owner: LucasFSouza552
+  repo: concorde-beta

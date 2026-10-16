@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { UserSocketServerMessage } from "@concorde/shared";
+import type { UserSocketClientMessage, UserSocketServerMessage } from "@concorde/shared";
 import { useAuth } from "../contexts/AuthContext";
 
 import { WS_BASE_URL } from "../api/api";
@@ -8,11 +8,15 @@ import { getStoredToken } from "../api/session";
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
+const HEARTBEAT_MS = 60_000;
+
+type CallStateMessage = Extract<UserSocketClientMessage, { type: "call-state" }>;
 
 export function useUserSocket() {
     const [lastEvent, setLastEvent] = useState<UserSocketServerMessage | null>(null);
     const [connected, setConnected] = useState(false);
     const socketRef = useRef<WebSocket | null>(null);
+    const lastCallState = useRef<CallStateMessage | null>(null);
     const { user } = useAuth();
 
     useEffect(() => {
@@ -23,8 +27,16 @@ export function useUserSocket() {
 
         let stopped = false;
         let retryTimer: ReturnType<typeof setTimeout> | null = null;
+        let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
         let attempt = 0;
         let socket: WebSocket | null = null;
+
+        function stopHeartbeat() {
+            if (heartbeatTimer) {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+            }
+        }
 
         function connect() {
             if (stopped || !user) return;
@@ -41,20 +53,33 @@ export function useUserSocket() {
                 attempt = 0;
                 setConnected(true);
                 ws.send(JSON.stringify({ type: "auth", token }));
+                if (lastCallState.current) {
+                    ws.send(JSON.stringify(lastCallState.current));
+                }
+                stopHeartbeat();
+                heartbeatTimer = setInterval(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: "ping" }));
+                    }
+                }, HEARTBEAT_MS);
             });
 
             ws.addEventListener("message", (event) => {
                 try {
-                    setLastEvent(JSON.parse(event.data));
+                    const parsed = JSON.parse(event.data) as UserSocketServerMessage;
+                    if (parsed.type === "pong") return;
+                    setLastEvent(parsed);
                 } catch {
 
                 }
             });
 
-            ws.addEventListener("close", () => {
+            ws.addEventListener("close", (event) => {
+                stopHeartbeat();
                 if (stopped) return;
+                console.log("[socket] fechou:", event.code, event.reason || "(sem motivo)", "limpo:", event.wasClean);
                 setConnected(false);
-                const delay = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS);
+                const delay = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS) * (0.5 + Math.random());
                 attempt += 1;
                 retryTimer = setTimeout(connect, delay);
             });
@@ -64,6 +89,7 @@ export function useUserSocket() {
 
         return () => {
             stopped = true;
+            stopHeartbeat();
             if (retryTimer) clearTimeout(retryTimer);
             socketRef.current = null;
             const current = socket;
@@ -81,6 +107,9 @@ export function useUserSocket() {
         lastEvent,
         connected,
         send: (message: unknown) => {
+            if (message && typeof message === "object" && (message as { type?: string }).type === "call-state") {
+                lastCallState.current = message as CallStateMessage;
+            }
             const socket = socketRef.current;
             if (!socket || socket.readyState !== WebSocket.OPEN) return;
             socket.send(JSON.stringify(message));

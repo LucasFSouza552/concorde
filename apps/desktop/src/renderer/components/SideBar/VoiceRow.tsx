@@ -7,14 +7,15 @@ interface VoiceRowProps {
     muted: boolean;
     deafened?: boolean;
     isLocal?: boolean;
+    speaking?: boolean;
 }
 
-export default function VoiceRow({ name, muted, deafened = false, isLocal = false }: VoiceRowProps) {
+export default function VoiceRow({ name, muted, deafened = false, isLocal = false, speaking = false }: VoiceRowProps) {
     const initial = name.trim().charAt(0).toUpperCase() || "?";
 
     return (
         <div className={styles.row}>
-            <span className={styles.avatar}>{initial}</span>
+            <span className={`${styles.avatar} ${speaking ? styles.speaking : ""}`}>{initial}</span>
             <span className={styles.name}>
                 {name}{isLocal ? " (você)" : ""}
             </span>

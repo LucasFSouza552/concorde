@@ -11,10 +11,10 @@ export interface GridTile {
 
 interface CallGridProps {
     tiles: GridTile[];
-    ringingName?: string;
+    ringingNames?: string[];
 }
 
-export default function CallGrid({ tiles, ringingName }: CallGridProps) {
+export default function CallGrid({ tiles, ringingNames = [] }: CallGridProps) {
     return (
         <div className={styles.grid}>
             {tiles.map((tile) => (
@@ -22,15 +22,15 @@ export default function CallGrid({ tiles, ringingName }: CallGridProps) {
                     {tile.node}
                 </div>
             ))}
-            {ringingName !== undefined && (
-                <div className={styles.gridItem}>
+            {ringingNames.map((name, index) => (
+                <div className={styles.gridItem} key={`ringing-${index}`}>
                     <ParticipantTile
-                        name={ringingName}
+                        name={name}
                         muted={false}
                         ringing
                     />
                 </div>
-            )}
+            ))}
         </div>
     );
 }

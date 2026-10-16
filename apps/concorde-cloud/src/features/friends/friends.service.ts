@@ -1,7 +1,17 @@
-import { Friend, FriendshipStatus, SendFriendRequestResult } from "@concorde/shared";
-import { findUserByUsername, findFriendsByStatus, sendRequest as sendRequestRepo, acceptRequest as acceptRequestRepo, declineRequest as declineRequestRepo, removeFriend as removeFriendRepo, getFriendship, findIncomingRequests } from "./friends.repository";
+import { Friend, SendFriendRequestResult } from "@concorde/shared";
+import { findUserByUsername, findFriendsByStatus, sendRequest as sendRequestRepo, acceptRequest as acceptRequestRepo, declineRequest as declineRequestRepo, removeFriend as removeFriendRepo, findFriendship, findIncomingRequests } from "./friends.repository";
+import { getUserById } from "../auth/auth.repository";
 
 import { AppError } from "../../utils/AppError";
+
+export async function requireFriendship(db: D1Database, userId: string, friendId: string, message = "Ação permitida somente entre amigos."): Promise<void> {
+	if (await findFriendship(db, userId, friendId)) return;
+
+	const recipient = await getUserById(db, friendId);
+	if (recipient && !recipient.friendsOnly) return;
+
+	throw AppError.forbidden(message);
+}
 
 export async function searchUsers(db: D1Database, term: string): Promise<Friend[]> {
 	const user = await findUserByUsername(db, term);
@@ -27,11 +37,11 @@ export async function sendRequest(db: D1Database, userId: string, username: stri
 		return "self";
 	}
 
-	const existing = await getFriendship(db, userId, target.id);
+	const existing = await findFriendship(db, userId, target.id);
 	if (existing?.status === "accepted") return "already-friends";
 	if (existing?.status === "pending") return "pending";
 
-	const reverse = await getFriendship(db, target.id, userId);
+	const reverse = await findFriendship(db, target.id, userId);
 	if (reverse?.status === "accepted") return "already-friends";
 	if (reverse?.status === "pending") return "pending";
 

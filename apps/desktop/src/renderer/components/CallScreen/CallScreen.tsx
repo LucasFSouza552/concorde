@@ -11,7 +11,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useCallInviteState } from "../../contexts/CallInviteProvider";
 
 import { useFullscreen } from "../../hooks/useFullscreen";
-import { useSpeakingIndicators } from "../../hooks/useSpeakingIndicators";
 
 import styles from "./CallScreen.module.css";
 
@@ -23,6 +22,7 @@ interface CallScreenProps {
     onToggleChat?: () => void;
     peerName?: string;
     onBack?: () => void;
+    flat?: boolean;
     preview?: {
         peers: { userId: string; username: string }[];
         action: ReactNode;
@@ -31,13 +31,12 @@ interface CallScreenProps {
 
 const LOCAL_ID = "local";
 
-export default function CallScreen({ layout = "panel", controls = true, chatAvailable = false, chatOpen = false, onToggleChat, peerName, onBack, preview = null }: CallScreenProps) {
-    const { groupId, peers, peerMuted, peerSharing, micMuted, deafened, status, remoteScreenStreams, screenStream, localStream, remoteStreams } = useActiveCall();
+export default function CallScreen({ layout = "panel", controls = true, chatAvailable = false, chatOpen = false, onToggleChat, peerName, onBack, preview = null, flat = false }: CallScreenProps) {
+    const { groupId, peers, peerMuted, peerSharing, micMuted, deafened, status, remoteScreenStreams, screenStream, speakingMap } = useActiveCall();
     const { outgoing } = useCallInviteState();
     const { user } = useAuth();
     const [focusedId, setFocusedId] = useState<string | null>(null);
     const dismissedSharer = useRef<string | null>(null);
-    const speakingMap = useSpeakingIndicators(localStream, remoteStreams);
     const { ref: sectionRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLElement>();
 
     const sharerId = screenStream
@@ -66,6 +65,12 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
     if (!groupId && !preview) return null;
 
     const ringing = !preview && outgoing.status === "dialing" && peers.length === 0;
+
+    const ringingNames: string[] = !preview && outgoing.status === "dialing-group"
+        ? outgoing.pending
+            .filter((item) => !peers.some((peer) => peer.userId === item.userId))
+            .map((item) => item.displayName)
+        : [];
 
     function toggleFocus(id: string) {
         setFocusedId((current) => {
@@ -129,10 +134,14 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
     return (
         <section
             ref={sectionRef}
-            className={layout === "full" ? styles.full : styles.panel}
+            className={`${layout === "full" ? styles.full : styles.panel} ${flat ? styles.flat : ""}`}
             aria-label="Chamada ativa"
         >
-            <CallHeader peerName={peerName} onBack={onBack} />
+            <CallHeader
+                peerName={peerName}
+                statusText={preview ? "Chamada ativa" : "Em chamada"}
+                onBack={onBack}
+            />
             {preview ? (
                 <CallGrid tiles={tiles} />
             ) : status !== "connected" ? (
@@ -142,7 +151,7 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
             ) : (
                 <CallGrid
                     tiles={tiles}
-                    ringingName={ringing && outgoing.status === "dialing" ? outgoing.toDisplayName : undefined}
+                    ringingNames={ringing && outgoing.status === "dialing" ? [outgoing.toDisplayName] : ringingNames}
                 />
             )}
 

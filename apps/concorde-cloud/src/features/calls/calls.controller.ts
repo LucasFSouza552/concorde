@@ -1,6 +1,6 @@
 import { Context } from "hono";
 
-import { acceptCall, cancelCall, createCallInvite, declineCall, redirectCall } from "./calls.service";
+import { acceptCall, cancelCall, createCallInvite, createGroupCallInvite, declineCall, redirectCall } from "./calls.service";
 import { Env } from "../../types/Env";
 
 import { AppError } from "../../utils/AppError";
@@ -61,14 +61,27 @@ export async function cancelCallController(c: AppContext) {
 
 export async function redirectCallController(c: AppContext) {
 	const callId = c.req.param("id");
-	const body = await c.req.json<{ callerId: string; groupId: string }>();
+	const body = await c.req.json<{ callerId: string; groupId: string; concordeGroupId?: string | null }>();
 
 	if (!callId || typeof body?.callerId !== "string" || typeof body?.groupId !== "string") {
 		throw AppError.badRequest("");
 	}
 
-	await redirectCall(c.env, body.callerId, callId, body.groupId);
+	await redirectCall(c.env, body.callerId, callId, body.groupId, body.concordeGroupId ?? null);
 
 	return c.json({ status: "redirected" }, 200);
 
+}
+
+export async function createGroupCallController(c: AppContext) {
+	const userId = c.get("userId");
+	const body = await c.req.json<{ toUserIds: string[]; concordeGroupId?: string }>();
+
+	if (!body || !Array.isArray(body.toUserIds)) {
+		throw AppError.badRequest("Informe os participantes.");
+	}
+
+	const { groupId, invites } = await createGroupCallInvite(c.env, userId, body.toUserIds, body.concordeGroupId);
+
+	return c.json({ groupId, invites }, 201);
 }

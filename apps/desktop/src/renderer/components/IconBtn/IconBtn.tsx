@@ -9,9 +9,11 @@ interface IconBtnProps {
     name: string;
     handleClick?: () => void;
     disabled?: boolean;
+    active?: boolean;
+    tone?: "danger" | "warn";
 }
 
-export default function IconBtn({ id, icon: Icon, disabledIcon: DisabledIcon, name, handleClick, disabled }: IconBtnProps) {
+export default function IconBtn({ id, icon: Icon, disabledIcon: DisabledIcon, name, handleClick, disabled, active = false, tone = "danger" }: IconBtnProps) {
 
     const CurrentIcon = disabled && DisabledIcon
         ? DisabledIcon
@@ -19,9 +21,11 @@ export default function IconBtn({ id, icon: Icon, disabledIcon: DisabledIcon, na
 
     return (
         <button
-            className={styles.content}
+            className={`${styles.content} ${active ? (tone === "warn" ? styles.activeWarn : styles.activeDanger) : ""}`}
             id={id}
             name={name}
+            title={name}
+            aria-pressed={active}
             onClick={handleClick}>
             <CurrentIcon />
         </button>

@@ -3,6 +3,7 @@ export interface User {
     id: string;
     username: string;
     displayName: string,
+    friendsOnly: boolean,
     email: string;
     createdAt: number;
 }
@@ -44,17 +45,20 @@ export type SendFriendRequestResult = "sent" | "already-friends" | "pending" | "
 
 export type UserSocketClientMessage =
     | { type: "auth"; token: string }
-    | { type: "call-state"; groupId: string | null };
+    | { type: "ping" }
+    | { type: "call-state"; groupId: string | null; concordeGroupId?: string | null };
 
 export type UserSocketServerMessage =
+    | { type: "pong" }
     | { type: "user-connected"; userId: string }
+    | { type: "pong" }
     | { type: "channel-message"; message: NewMessage }
     | { type: "call-invite"; invite: CallInvite }
     | { type: "call-accepted"; callId: string }
     | { type: "call-declined"; callId: string }
     | { type: "call-cancelled"; callId: string }
-    | { type: "call-redirect"; callId: string; groupId: string }
-    | { type: "peer-call-state"; userId: string; groupId: string | null };;
+    | { type: "call-redirect"; callId: string; groupId: string; concordeGroupId?: string | null }
+    | { type: "peer-call-state"; userId: string; groupId: string | null; concordeGroupId?: string | null };;
 
 // Group
 
@@ -63,6 +67,7 @@ export interface CreateGroupInput {
 }
 
 export type GroupRole = "owner" | "admin" | "member";
+
 export interface GroupWithRole {
     id: string;
     name: string;
@@ -116,4 +121,14 @@ export interface ScreenQuality {
     width: number;
     height: number;
     frameRate: number;
+}
+
+export interface CallInvite {
+    callId: string;
+    groupId: string;
+    fromUserId: string;
+    fromDisplayName: string;
+    concordeGroupId?: string;
+    createdAt: number;
+    expiresAt: number;
 }

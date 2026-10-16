@@ -9,7 +9,7 @@
     padding: 0;
 
     border: none;
-    border-radius: var(--radius-sm);
+    border-radius: 50%;
 
     background: transparent;
     color: var(--color-text-muted);
@@ -33,4 +33,27 @@
 .content:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
+}
+
+.activeDanger {
+    border-color: transparent;
+    background: var(--color-danger);
+    color: #ffffff;
+}
+
+.activeDanger:hover {
+    background: var(--color-danger-hover);
+    color: #ffffff;
+}
+
+.activeWarn {
+    border-color: transparent;
+    background: var(--color-warning);
+    color: #1a1200;
+}
+
+.activeWarn:hover {
+    background: var(--color-warning);
+    color: #1a1200;
+    filter: brightness(0.92);
 }

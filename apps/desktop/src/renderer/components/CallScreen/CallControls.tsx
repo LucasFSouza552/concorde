@@ -105,9 +105,8 @@ export default function CallControls({ chatAvailable = false, chatOpen = false, 
             {showSource && (
                 <SourceModal
                     onClose={() => setShowSource(false)}
-                    onStart={(sourceId, quality, includeAudio) => {
-                        console.log("INICIAR COMPARTILHAMENTO DE TELA")
-                        void startScreenShare(sourceId, quality, includeAudio);
+                    onStart={(sourceId, quality, includeAudio, isWindow) => {
+                        void startScreenShare(sourceId, quality, includeAudio, isWindow);
                     }}
                 />
             )}

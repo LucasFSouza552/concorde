@@ -4,7 +4,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import VoiceRow from "./VoiceRow";
 
 export default function VoiceList() {
-    const { groupId, peers, peerMuted, micMuted, deafened } = useActiveCall();
+    const { groupId, peers, peerMuted, micMuted, deafened, speakingMap } = useActiveCall();
     const { user } = useAuth();
 
     if (!groupId) return null;
@@ -16,6 +16,7 @@ export default function VoiceList() {
                 muted={micMuted || deafened}
                 deafened={deafened}
                 isLocal
+                speaking={!!speakingMap["local"]}
             />
             {peers.map((peer) => (
                 <VoiceRow
@@ -23,6 +24,7 @@ export default function VoiceList() {
                     name={peer.username}
                     muted={peerMuted[peer.userId]?.muted ?? false}
                     deafened={peerMuted[peer.userId]?.deafened ?? false}
+                    speaking={!!speakingMap[peer.userId]}
                 />
             ))}
         </>

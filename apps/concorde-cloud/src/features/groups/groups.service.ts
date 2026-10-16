@@ -9,11 +9,14 @@ import {
 	insertGroupMember,
 	insertGroupWithOwner,
 	updateGroupMemberRole,
+	listGroupMembers as listGroupMembersRepo
 } from "./groups.repository";
+import { getUserById } from "../auth/auth.repository";
 import {
 	findUserByUsername,
-	getFriendship
+	findFriendship
 } from "../friends/friends.repository";
+import { requireFriendship } from "../friends/friends.service";
 
 import { AppError } from "../../utils/AppError";
 
@@ -62,7 +65,7 @@ export async function addGroupMember(db: D1Database, actorId: string, groupId: s
 	const group = await findGroupById(db, groupId);
 
 	if (!group) {
-		throw AppError.notFound("Grupo")
+		throw AppError.notFound("Grupo não encontrado");
 	}
 
 	await requireGroupRole(db, groupId, actorId, ["owner", "admin"]);
@@ -85,11 +88,11 @@ export async function addGroupMember(db: D1Database, actorId: string, groupId: s
 		throw AppError.badRequest("Você já participa deste grupo como responsável pela ação.");
 	}
 
-	const direct = await getFriendship(db, actorId, target.id);
-	const reverse = await getFriendship(db, target.id, actorId);
+	const recipient = await getUserById(db, target.id);
+	if (!recipient) throw AppError.notFound("Usuário não encontrado.");
 
-	if (direct?.status !== "accepted" && reverse?.status !== "accepted") {
-		throw AppError.forbidden("Somente amigos podem ser adicionados ao grupo.");
+	if (recipient.friendsOnly) {
+		await requireFriendship(db, actorId, target.id, "Somente amigos podem ser adicionados ao grupo.");
 	}
 
 	const existing = await findGroupMember(db, groupId, target.id);
@@ -167,4 +170,14 @@ export async function changeGroupMemberRole(db: D1Database, actorId: string, gro
 	if (!updated) {
 		throw AppError.notFound("Membro não encontrado.");
 	}
+}
+
+export async function listGroupMembers(db: D1Database, actorId: string, groupId: string) {
+	const membership = await findGroupMember(db, groupId, actorId);
+
+	if (!membership) {
+		throw AppError.forbidden("Somente membros podem ver a lista.");
+	}
+
+	return listGroupMembersRepo(db, groupId);
 }

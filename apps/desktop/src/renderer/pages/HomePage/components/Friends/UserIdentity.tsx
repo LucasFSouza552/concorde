@@ -3,18 +3,19 @@ import styles from "./Friends.module.css";
 interface UserIdentityProps {
     displayName: string;
     username: string;
+    large?: boolean;
 }
 
-export default function UserIdentity({ displayName, username }: UserIdentityProps) {
+export default function UserIdentity({ displayName, username, large = false }: UserIdentityProps) {
     const initial = displayName.trim().charAt(0).toUpperCase() || "?";
 
     return (
         <>
-            <span className={styles.avatar}>
+            <span className={`${styles.avatar} ${large ? styles.avatarLarge : ""}`}>
                 {initial}
             </span>
             <span className={styles.identity}>
-                <strong>{displayName}</strong>
+                <strong className={large ? styles.nameLarge : ""}>{displayName}</strong>
                 <small>@{username}</small>
             </span>
         </>

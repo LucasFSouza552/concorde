@@ -1,10 +1,11 @@
 import type { Context } from "hono";
 
-import { isValidUsername } from "@concorde/shared";
+import { isValidUsername, sanitizeUsername } from "@concorde/shared";
 import {
 	addGroupMember,
 	changeGroupMemberRole,
 	createGroup,
+	listGroupMembers,
 	listUserGroups,
 	removeGroupMember
 } from "./groups.service";
@@ -34,6 +35,17 @@ export async function listGroupsController(c: AppContext) {
 	return c.json({ groups }, 200);
 }
 
+export async function listGroupMembersController(c: AppContext) {
+	const userId = c.get("userId");
+	const groupId = c.req.param("groupId");
+
+	if (!groupId) throw AppError.badRequest("");
+
+	const members = await listGroupMembers(c.env.concorde_users, userId, groupId);
+
+	return c.json({ members }, 200);
+}
+
 export async function addGroupMemberController(c: AppContext) {
 	const actorId = c.get("userId");
 	const groupId = c.req.param("groupId");
@@ -46,6 +58,8 @@ export async function addGroupMemberController(c: AppContext) {
 	if (!body || !isValidUsername(body.username)) {
 		throw AppError.badRequest("É necessário informar um nome de usuário válido.");
 	}
+
+	body.username = sanitizeUsername(body.username);
 
 	await addGroupMember(
 		c.env.concorde_users,

@@ -1,4 +1,4 @@
-import { Credentials, isValidEmail, LoginResponse, RegisterData, User } from "@concorde/shared";
+import { Credentials, isValidEmail, isValidUsernameFormat, LoginResponse, RegisterData, sanitizeUsername, User } from "@concorde/shared";
 import { createUser, getUserByEmail, getUserById } from "./auth.repository";
 import { CreateUserData } from "./auth.type";
 
@@ -8,7 +8,12 @@ import { createToken } from "../../utils/JWT";
 
 export async function registerUser(db: D1Database, secret: string, data: RegisterData): Promise<LoginResponse> {
 
-	const { email, password, username } = data;
+	const { email, password } = data;
+	const username = sanitizeUsername(data.username);
+
+	if (!isValidUsernameFormat(username)) {
+		throw AppError.badRequest("Use letras minúsculas, números, ponto e underline.");
+	}
 
 	if (!isValidEmail(email)) {
 		throw AppError.badRequest("O email é inválido");
@@ -63,6 +68,7 @@ export async function loginUser(db: D1Database, secret: string, data: Credential
 			username: user.username,
 			displayName: user.displayName,
 			email: user.email,
+			friendsOnly: Boolean(user.friendsOnly),
 			createdAt: user.createdAt
 		},
 		token

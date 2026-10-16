@@ -2,6 +2,7 @@ import { useEffect, useState, type ChangeEvent } from "react";
 
 import { Login } from "../../components/Auth/LoginComponent";
 import { Register } from "../../components/Auth/RegisterComponent";
+import { isValidUsernameFormat, sanitizeUsername } from "@concorde/shared";
 import { useAuth } from "../../contexts/AuthContext";
 
 import styles from "./AuthPage.module.css";
@@ -35,13 +36,21 @@ export default function AuthPage() {
     function handleChange(e: ChangeEvent<HTMLInputElement>) {
         const { name, value } = e.target;
         setForm((current) => ({
-            ...current, [name as keyof RegisterForm]: value
+            ...current, [name as keyof RegisterForm]: name === "username" ? sanitizeUsername(value) : value
         }))
     }
 
     function handleBoolChange(e: ChangeEvent<HTMLInputElement>) {
         setShowPassword(e.target.checked)
     }
+
+    useEffect(() => {
+        if (authMode == "login" || !form.username || isValidUsernameFormat(form.username)) {
+            setErrors(errors => ({ ...errors, username: "" }));
+            return;
+        }
+        setErrors(errors => ({ ...errors, username: "Use letras minúsculas, números, ponto e underline." }));
+    }, [form.username, authMode]);
 
     useEffect(() => {
         if (authMode == "login" || !form.passwordConfirm || form.password === form.passwordConfirm) {
