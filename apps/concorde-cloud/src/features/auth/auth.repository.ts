@@ -17,7 +17,7 @@ export async function createUser(db: D1Database, data: CreateUserData) {
 				passwordSalt,
 				createdAt
 			)
-			VALUES (?, ?, ?, ?, ?, ?, ?)
+			VALUES (?, ?, ?, ?, ?, ?, ?,?)
 		`)
 		.bind(
 			id,
