@@ -12,6 +12,11 @@ dist
 dist-ssr
 *.local
 
+# Artefatos de build nativo (helper de captura por processo)
+out
+resources/loopback
+native/loopback-capture/build
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -10,6 +10,12 @@
     "files": [
       "out/**/*"
     ],
+    "extraResources": [
+      {
+        "from": "resources/loopback",
+        "to": "loopback"
+      }
+    ],
     "win": {
       "target": [
         "nsis"

@@ -157,14 +157,15 @@ export default function SourceModal({ onClose, onStart }: SourceModalProps) {
                             />
                             <span>
                                 <span className={styles.audioTitle}>Compartilhar som</span>
-                                <span className={styles.audioSub}>Som da janela selecionada</span>
+                                <span className={styles.audioSub}>Som do programa selecionado</span>
                             </span>
                         </label>
                         {shareAudio && selectedIsWindow && (
                             <p className={styles.hint} role="alert">
-                                Cuidado: o som capturado é o do programa todo (todas as abas e janelas dele),
-                                não só desta janela. Evite programas emitindo a própria chamada e prefira usar
-                                fones — sem isso, o áudio realimenta e o volume pode disparar.
+                                O som capturado é o do programa selecionado (todas as janelas e abas dele),
+                                não apenas desta janela — mas nunca o áudio de outros programas ou do sistema.
+                                Evite programas que emitam a própria chamada e prefira usar fones; sem isso,
+                                o áudio realimenta e o volume pode disparar.
                             </p>
                         )}
                     </>

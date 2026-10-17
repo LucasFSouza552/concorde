@@ -4,9 +4,11 @@ import type { ClientMessage, ForwardedDirectMessage, Peer, ScreenQuality } from 
 import { createCallSocket, type CallSocket, type CallStatus } from "./CallSocket";
 import { useLocalMedia } from "./useLocalMedia";
 import { createWebRTCManager } from "./WebRTCManager";
+import { startWindowAudio, stopWindowAudio } from "./screenProcessAudio";
 
 import { WS_BASE_URL } from "../api/api";
 import { getSession } from "../api/session";
+import { useToast } from "../contexts/ToastProvider";
 
 interface UseCallResult {
     status: CallStatus;
@@ -39,6 +41,7 @@ export function useCall(groupId: string | null): UseCallResult {
 
     const managerRef = useRef<ReturnType<typeof createWebRTCManager> | null>(null);
     const localMedia = useLocalMedia(groupId !== null);
+    const { push: pushToast } = useToast();
 
     const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
     const screenStreamRef = useRef<MediaStream | null>(null);
@@ -65,6 +68,7 @@ export function useCall(groupId: string | null): UseCallResult {
     }
 
     const webrtc = managerRef.current;
+
 
     useEffect(() => {
 
@@ -217,6 +221,7 @@ export function useCall(groupId: string | null): UseCallResult {
 
         if (includeAudio && !windowSource) {
             console.warn("Áudio disponível apenas para janelas.");
+            pushToast("O audio da tela cheia nao e suportado. Compartilhando sem audio.", "info");
         }
 
         async function captureScreen(withAudio: boolean) {
@@ -241,18 +246,32 @@ export function useCall(groupId: string | null): UseCallResult {
         let stream: MediaStream;
         let audioTrack: MediaStreamTrack | null = null;
 
-        try {
-            stream = await captureScreen(wantAudio);
-            audioTrack = stream.getAudioTracks()[0] ?? null;
-        } catch (error) {
-            if (!wantAudio) throw error;
-            stream = await captureScreen(false);
+        // Video da fonte selecionada. NUNCA capturamos audio global do sistema.
+        stream = await captureScreen(false);
+
+        // Audio SOMENTE da janela selecionada, capturado por processo (WASAPI
+        // Process Loopback). Se falhar, compartilhamos sem audio — sem fallback.
+        if (wantAudio) {
+            try {
+                const pid = await window.concorde?.windows.getPid(sourceId);
+                if (pid) {
+                    audioTrack = await startWindowAudio(pid);
+                } else {
+                    console.warn("[ScreenShare] nao foi possivel determinar o processo da janela; sem audio.");
+                    pushToast("Nao foi possivel identificar o audio desta janela. Compartilhando sem audio.", "info");
+                }
+            } catch (err) {
+                console.warn("[ScreenShare] captura de audio da janela indisponivel:", err);
+                pushToast("Audio da janela indisponivel. Compartilhando sem audio.", "info");
+                audioTrack = null;
+            }
         }
 
         const [videoTrack] = stream.getVideoTracks();
 
         if (!videoTrack) {
             stream.getTracks().forEach(track => track.stop());
+            stopWindowAudio();
             return;
         }
 
@@ -282,6 +301,7 @@ export function useCall(groupId: string | null): UseCallResult {
         screenStreamRef.current = null;
         setScreenStream(null);
         webrtc.removeScreenTrack(stream);
+        stopWindowAudio();
         send({ type: "screen-share", sharing: false });
     }
 

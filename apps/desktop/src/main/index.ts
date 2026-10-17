@@ -1,5 +1,7 @@
 import { app, BrowserWindow, Menu, ipcMain, desktopCapturer } from 'electron'
 import { autoUpdater } from 'electron-updater'
+import { spawn, type ChildProcess } from 'node:child_process'
+import fs from 'node:fs';
 import path from 'node:path';
 
 type UpdateState = "idle" | "available" | "downloading" | "ready";
@@ -51,6 +53,115 @@ function setupAutoUpdater() {
   setInterval(() => {
     autoUpdater.checkForUpdates().catch(() => { });
   }, 6 * 60 * 60 * 1000);
+}
+
+interface ScreenAudioSession {
+  child: ChildProcess;
+  sender: Electron.WebContents;
+}
+
+let screenAudioSession: ScreenAudioSession | null = null;
+
+function captureExePath(): string {
+  const name = "concorde-loopback-capture.exe";
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "loopback", name)
+    : path.join(app.getAppPath(), "resources", "loopback", name);
+}
+
+function stopScreenAudio() {
+  if (!screenAudioSession) return;
+  try { screenAudioSession.child.kill(); } catch { /* ignore */ }
+  screenAudioSession = null;
+}
+
+function setupScreenAudio() {
+  ipcMain.handle("screen-audio:start", async (event, pid: number) => {
+    stopScreenAudio();
+    if (!Number.isInteger(pid) || pid <= 0) return { ok: false, error: "PID invalido" };
+
+    const exe = captureExePath();
+    if (!fs.existsSync(exe)) {
+      return { ok: false, error: "capturador nativo de audio indisponivel" };
+    }
+
+    const sender = event.sender;
+
+    return await new Promise<{ ok: boolean; error?: string; rate?: number; channels?: number; bits?: number; encoding?: string }>((resolve) => {
+      let settled = false;
+      let headerDone = false;
+      let buffer = Buffer.alloc(0);
+      const child = spawn(exe, ["--pid", String(pid)], { windowsHide: true });
+
+      const finishFail = (error: string) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        try { child.kill(); } catch { /* ignore */ }
+        resolve({ ok: false, error });
+      };
+
+      const sendPcm = (buf: Buffer) => {
+        if (buf.length === 0 || sender.isDestroyed()) return;
+        try {
+          sender.send("screen-audio:pcm", buf);
+        } catch { /* janela fechada */ }
+      };
+
+      const timer = setTimeout(() => finishFail("timeout ao iniciar a captura de audio"), 5000);
+
+      child.stdout?.on("data", (chunk: Buffer) => {
+        if (!headerDone) {
+          const combined = Buffer.from(chunk);
+          const nl = combined.indexOf(0x0a);
+          if (nl < 0) {
+            buffer = Buffer.concat([buffer, combined]);
+            return;
+          }
+          const headerLine = Buffer.concat([buffer, combined.subarray(0, nl)]).toString("utf8");
+          const remainder = combined.subarray(nl + 1);
+          let header: { rate?: number; channels?: number; bits?: number; encoding?: string };
+          try {
+            header = JSON.parse(headerLine);
+          } catch {
+            finishFail("cabecalho de audio invalido");
+            return;
+          }
+          headerDone = true;
+          buffer = Buffer.alloc(0);
+          clearTimeout(timer);
+          screenAudioSession = { child, sender };
+          settled = true;
+          sendPcm(remainder);
+          resolve({ ok: true, rate: header.rate, channels: header.channels, bits: header.bits, encoding: header.encoding });
+          return;
+        }
+        sendPcm(Buffer.from(chunk));
+      });
+
+      child.stderr?.on("data", (d: Buffer) => {
+        const line = d.toString("utf8").trim();
+        if (line) console.warn("[screen-audio:native]", line);
+      });
+
+      child.on("error", () => finishFail("falha ao executar o capturador nativo"));
+      child.on("exit", () => {
+        if (!settled) {
+          finishFail("o capturador nativo encerrou prematuramente");
+          return;
+        }
+        if (!sender.isDestroyed()) {
+          try { sender.send("screen-audio:ended"); } catch { /* ignore */ }
+        }
+        if (screenAudioSession?.child === child) screenAudioSession = null;
+      });
+    });
+  });
+
+  ipcMain.handle("screen-audio:stop", () => {
+    stopScreenAudio();
+    return { ok: true };
+  });
 }
 
 function createWindow() {
@@ -123,6 +234,8 @@ app.whenReady().then(() => {
 
   ipcMain.handle("app:get-version", () => app.getVersion());
 
+  setupScreenAudio();
+
   ipcMain.handle("window:get-pid", async (_event, sourceId: string) => {
     try {
       if (!sourceId || !sourceId.startsWith("window:")) return null;
@@ -142,10 +255,10 @@ app.whenReady().then(() => {
         "}",
         "\"@;",
         `$h=[IntPtr]${hwndNum};`,
-        "$pid=0;",
-        "[Win32]::GetWindowThreadProcessId($h,[ref]$pid);",
-        "Write-Output $pid"
-      ].join("");
+        "$procId=0;",
+        "[void][Win32]::GetWindowThreadProcessId($h,[ref]$procId);",
+        "Write-Output $procId"
+      ].join("\n");
 
       const ps = spawnSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], {
         windowsHide: true,

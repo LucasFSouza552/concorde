@@ -33,6 +33,22 @@ declare global {
             app: {
                 getVersion: () => Promise<string>
             }
+            windows: {
+                getPid: (sourceId: string) => Promise<number | null>
+            }
+            screenAudio: {
+                start: (pid: number) => Promise<{
+                    ok: boolean;
+                    error?: string;
+                    rate?: number;
+                    channels?: number;
+                    bits?: number;
+                    encoding?: string;
+                }>;
+                stop: () => Promise<{ ok: boolean }>;
+                setHandlers: (onData: (pcm: ArrayBuffer) => void, onEnded: () => void) => void;
+                clearHandlers: () => void;
+            }
         }
     }
 }
