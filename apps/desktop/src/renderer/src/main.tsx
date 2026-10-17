@@ -2,9 +2,18 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 
 import App from './App'
+import { playSound } from '../audio/sounds';
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
+const root = ReactDOM.createRoot(document.getElementById('root')!);
+
+root.render(
+  import.meta.env.DEV ? (
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  ) : (
     <App />
-  </React.StrictMode>
-)
+  )
+);
+
+playSound('startup');

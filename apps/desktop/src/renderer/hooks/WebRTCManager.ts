@@ -20,6 +20,7 @@ interface WebRTCManagerOptions {
 
 const ICE_RESTART_COOLDOWN_MS = 5000;
 const SCREEN_TOTAL_BITRATE = 8_000_000;
+const MIC_MAX_BITRATE = 32_000;
 
 export function createWebRTCManager(options: WebRTCManagerOptions) {
     const { emit, onRemoteStream, getLocalStream, shouldOffer, getScreenStream, onRemoteScreenStream, onRemoteScreenAudio } = options;
@@ -29,6 +30,21 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
     const negotiating = new Set<string>();
     const lastRestart = new Map<string, number>();
     const screenAudioTrackIds = new Set<string>();
+
+    async function applyMicSendParams(connection: RTCPeerConnection) {
+        const sender = connection.getSenders().find(
+            (s) => s.track?.kind === "audio" && !screenAudioTrackIds.has(s.track.id)
+        );
+        if (!sender) return;
+        try {
+            const params = sender.getParameters();
+            if (!params.encodings?.length) params.encodings = [{}];
+            params.encodings[0].maxBitrate = MIC_MAX_BITRATE;
+            await sender.setParameters(params);
+        } catch (err) {
+            console.warn("[Mic] Falha ao aplicar bitrate:", err);
+        }
+    }
 
     function createConnection(peerId: string) {
         const connection = new RTCPeerConnection(RTC_CONFIG);
@@ -131,6 +147,7 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
                 } satisfies ClientMessage);
 
                 flushCandidates(peerId);
+                void applyMicSendParams(connection);
             })
             .catch(console.error);
     }
@@ -174,6 +191,8 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
                     to: peerId,
                     sdp: connection.localDescription!.sdp
                 } satisfies ClientMessage)
+
+                void applyMicSendParams(connection);
             })
             .catch(console.error)
             .finally(() => {
@@ -205,6 +224,8 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
                     to: peerId,
                     sdp: connection.localDescription!.sdp
                 } satisfies ClientMessage)
+
+                void applyMicSendParams(connection);
             })
             .catch(console.error)
             .finally(() => {

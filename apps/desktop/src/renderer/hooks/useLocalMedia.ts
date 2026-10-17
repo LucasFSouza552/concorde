@@ -23,7 +23,12 @@ export function useLocalMedia(active: boolean): UseLocalMediaResult {
     const processorRef = useRef<RnnoiseProcessor>(null);
     const gateRef = useRef<SensitivityGate | null>(null);
     const gateCtxRef = useRef<AudioContext | null>(null);
-    const { denoiseEnabled, sensitivityMode, sensitivityThreshold } = useSettings().audio;
+    const { denoiseEnabled, sensitivityMode, sensitivityThreshold, micDeviceId, setMicDeviceId } = useSettings().audio;
+
+    const micDeviceIdRef = useRef(micDeviceId);
+    useEffect(() => {
+        micDeviceIdRef.current = micDeviceId;
+    }, [micDeviceId]);
 
     function teardownGate() {
         gateRef.current?.destroy();
@@ -43,124 +48,137 @@ export function useLocalMedia(active: boolean): UseLocalMediaResult {
         setError(null);
         let cancelled = false;
 
-        navigator.mediaDevices
-            .getUserMedia({
-                audio: {
-                    noiseSuppression: false,
-                    echoCancellation: true
-                }, video: false
-            })
-            .then(async (stream) => {
-                if (cancelled || switchedRef.current) {
+        const requested = micDeviceIdRef.current;
+        const baseAudio = { noiseSuppression: false, echoCancellation: true };
+        const audio = requested ? {
+            ...baseAudio,
+            deviceId: { exact: requested }
+        } : baseAudio;
+
+        const openMic = async (): Promise<MediaStream> => {
+            try {
+                return await navigator.mediaDevices.getUserMedia({ audio, video: false })
+            } catch (err) {
+                const name = (err as DOMException).name;
+                if (!requested || (name !== "OverconstrainedError" && name !== "NotFoundError")) throw err;
+                setMicDeviceId(undefined);
+                micDeviceIdRef.current = undefined;
+                return navigator.mediaDevices.getUserMedia({ audio: baseAudio, video: false });
+            }
+
+        }
+
+        openMic().then(async (stream) => {
+            if (cancelled || switchedRef.current) {
+                stream.getTracks().forEach((track) => track.stop());
+                return;
+            }
+
+            async function gateTrack(sendTrack: MediaStreamTrack, observeStream: MediaStream): Promise<MediaStreamTrack | null> {
+                try {
+                    const ctx = new AudioContext();
+                    if (ctx.state === "suspended") {
+                        await ctx.resume().catch(() => { });
+                    }
+                    const source = ctx.createMediaStreamSource(new MediaStream([sendTrack]));
+                    const gateGain = ctx.createGain();
+                    gateGain.gain.value = 1;
+                    const sink = ctx.createMediaStreamDestination();
+                    source.connect(gateGain);
+                    gateGain.connect(sink);
+
+                    const gated = sink.stream.getAudioTracks()[0];
+                    if (!gated) {
+                        void ctx.close().catch(() => { });
+                        return null;
+                    }
+
+                    const gate = new SensitivityGate();
+                    await gate.connect(observeStream, ctx);
+                    gate.onChange = (open) => {
+                        const t = ctx.currentTime;
+                        gateGain.gain.cancelScheduledValues(t);
+                        gateGain.gain.setTargetAtTime(open ? 1 : 0, t, open ? 0.005 : 0.01);
+                    };
+                    gate.setOptions({ mode: sensitivityMode, manualThreshold: sensitivityThreshold });
+
+                    gateRef.current = gate;
+                    gateCtxRef.current = ctx;
+                    return gated;
+                } catch {
+                    return null;
+                }
+            }
+
+            const track = stream.getAudioTracks()[0];
+
+            if (!denoiseEnabled) {
+                if (cancelled) {
                     stream.getTracks().forEach((track) => track.stop());
                     return;
                 }
 
-                async function gateTrack(sendTrack: MediaStreamTrack, observeStream: MediaStream): Promise<MediaStreamTrack | null> {
-                    try {
-                        const ctx = new AudioContext();
-                        if (ctx.state === "suspended") {
-                            await ctx.resume().catch(() => { });
-                        }
-                        const source = ctx.createMediaStreamSource(new MediaStream([sendTrack]));
-                        const gateGain = ctx.createGain();
-                        gateGain.gain.value = 1;
-                        const sink = ctx.createMediaStreamDestination();
-                        source.connect(gateGain);
-                        gateGain.connect(sink);
-
-                        const gated = sink.stream.getAudioTracks()[0];
-                        if (!gated) {
-                            void ctx.close().catch(() => { });
-                            return null;
-                        }
-
-                        const gate = new SensitivityGate();
-                        await gate.connect(observeStream);
-                        gate.onChange = (open) => {
-                            const t = ctx.currentTime;
-                            gateGain.gain.cancelScheduledValues(t);
-                            gateGain.gain.setTargetAtTime(open ? 1 : 0, t, open ? 0.005 : 0.01);
-                        };
-                        gate.setOptions({ mode: sensitivityMode, manualThreshold: sensitivityThreshold });
-
-                        gateRef.current = gate;
-                        gateCtxRef.current = ctx;
-                        return gated;
-                    } catch {
-                        return null;
-                    }
-                }
-
-                const track = stream.getAudioTracks()[0];
-
-                if (!denoiseEnabled) {
-                    if (cancelled) {
-                        stream.getTracks().forEach((track) => track.stop());
-                        return;
-                    }
-
-                    const gated = await gateTrack(track, stream);
-                    if (cancelled) {
-                        teardownGate();
-                        stream.getTracks().forEach((track) => track.stop());
-                        return;
-                    }
-
-                    rawStreamRef.current = stream;
-                    const finalStream = new MediaStream([gated ?? track]);
-                    localStreamRef.current = finalStream;
-                    setLocalStream(finalStream);
+                const gated = await gateTrack(track, stream);
+                if (cancelled) {
+                    teardownGate();
+                    stream.getTracks().forEach((track) => track.stop());
                     return;
-
                 }
 
-                try {
-                    if (!processorRef.current) {
-                        processorRef.current = new RnnoiseProcessor();
-                    }
+                rawStreamRef.current = stream;
+                const finalStream = new MediaStream([gated ?? track]);
+                localStreamRef.current = finalStream;
+                setLocalStream(finalStream);
+                return;
 
-                    const clean = await processorRef.current.process(track);
-                    if (cancelled) {
-                        clean.stop();
-                        return;
-                    }
+            }
 
-                    const gated = await gateTrack(clean, stream);
-                    if (cancelled) {
-                        teardownGate();
-                        clean.stop();
-                        return;
-                    }
-
-                    const cleanStream = new MediaStream([gated ?? clean]);
-
-                    localStreamRef.current = cleanStream;
-                    setLocalStream(cleanStream);
-                    rawStreamRef.current = stream;
-                } catch (error) {
-                    console.warn(getErrorMessage(error));
-
-                    if (cancelled) {
-                        stream.getTracks().forEach((track) => track.stop());
-                        return;
-                    }
-
-                    const gated = await gateTrack(track, stream);
-                    if (cancelled) {
-                        teardownGate();
-                        stream.getTracks().forEach((track) => track.stop());
-                        return;
-                    }
-
-                    const fallbackStream = new MediaStream([gated ?? track]);
-                    localStreamRef.current = fallbackStream;
-                    setLocalStream(fallbackStream);
+            try {
+                if (!processorRef.current) {
+                    processorRef.current = new RnnoiseProcessor();
                 }
 
-            }).catch((error: unknown) => {
-                setError(getErrorMessage(error));
-            });
+                const clean = await processorRef.current.process(track);
+                if (cancelled) {
+                    clean.stop();
+                    return;
+                }
+
+                const gated = await gateTrack(clean, stream);
+                if (cancelled) {
+                    teardownGate();
+                    clean.stop();
+                    return;
+                }
+
+                const cleanStream = new MediaStream([gated ?? clean]);
+
+                localStreamRef.current = cleanStream;
+                setLocalStream(cleanStream);
+                rawStreamRef.current = stream;
+            } catch (error) {
+                console.warn(getErrorMessage(error));
+
+                if (cancelled) {
+                    stream.getTracks().forEach((track) => track.stop());
+                    return;
+                }
+
+                const gated = await gateTrack(track, stream);
+                if (cancelled) {
+                    teardownGate();
+                    stream.getTracks().forEach((track) => track.stop());
+                    return;
+                }
+
+                const fallbackStream = new MediaStream([gated ?? track]);
+                localStreamRef.current = fallbackStream;
+                setLocalStream(fallbackStream);
+            }
+
+        }).catch((error: unknown) => {
+            setError(getErrorMessage(error));
+        });
         return () => {
             cancelled = true;
             teardownGate();
@@ -172,7 +190,7 @@ export function useLocalMedia(active: boolean): UseLocalMediaResult {
             rawStreamRef.current = null;
         };
 
-    }, [active, denoiseEnabled]);
+    }, [active, denoiseEnabled, setMicDeviceId]);
 
     function getStream() {
         return localStreamRef.current;

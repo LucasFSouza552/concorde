@@ -1,6 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 
 import type { Peer, ScreenQuality } from "@concorde/shared";
+import { playSound } from "../audio/sounds";
 
 import type { CallStatus } from "../hooks/CallSocket";
 import { useCall } from "../hooks/useCall";
@@ -44,18 +45,32 @@ export function ActiveCallProvider({ children }: { children: ReactNode }) {
 
     const leave = useCallback(() => setGroupId(null), []);
     const speakingMap = useSpeakingIndicators(call.localStream, call.remoteStreams);
+    const prevGroupId = useRef<string | null>(null);
+
+    useEffect(() => {
+        const prev = prevGroupId.current;
+        if (prev === groupId) return;
+        prevGroupId.current = groupId;
+        if (groupId && !prev) playSound("join");
+        else if (!groupId && prev) playSound("leave");
+    }, [groupId]);
 
     function toggleMic() {
         if (deafened) {
             setDeafened(false);
             setMicMuted(false);
+            playSound("micUnmute");
             return;
         }
-        setMicMuted((current) => !current);
+        const next = !micMuted;
+        setMicMuted(next);
+        playSound(next ? "micMute" : "micUnmute");
     }
 
     function toggleDeafen() {
-        setDeafened((current) => !current);
+        const next = !deafened;
+        setDeafened(next);
+        if (next) playSound("deafenOn");
     }
 
     function toggleScreenAudioMute() {

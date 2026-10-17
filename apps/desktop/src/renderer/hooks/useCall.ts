@@ -2,13 +2,14 @@ import { useEffect, useRef, useState } from "react";
 
 import type { ClientMessage, ForwardedDirectMessage, Peer, ScreenQuality } from "@concorde/shared";
 import { createCallSocket, type CallSocket, type CallStatus } from "./CallSocket";
+import { startWindowAudio, stopWindowAudio } from "./screenProcessAudio";
 import { useLocalMedia } from "./useLocalMedia";
 import { createWebRTCManager } from "./WebRTCManager";
-import { startWindowAudio, stopWindowAudio } from "./screenProcessAudio";
+import { playSound } from "../audio/sounds";
+import { useToast } from "../contexts/ToastProvider";
 
 import { WS_BASE_URL } from "../api/api";
 import { getSession } from "../api/session";
-import { useToast } from "../contexts/ToastProvider";
 
 interface UseCallResult {
     status: CallStatus;
@@ -99,6 +100,7 @@ export function useCall(groupId: string | null): UseCallResult {
                 );
 
                 offerTo(peer.userId);
+                playSound("join");
             },
             onPeerLeft: function (peerId: string): void {
                 setPeers((current) =>
@@ -136,6 +138,8 @@ export function useCall(groupId: string | null): UseCallResult {
                     delete next[peerId];
                     return next;
                 });
+
+                playSound("leave");
             },
             onDirect: function (message: ForwardedDirectMessage): void {
                 const from = message.from;

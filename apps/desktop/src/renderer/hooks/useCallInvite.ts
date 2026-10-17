@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { CallInvite, Friend } from "@concorde/shared";
+import { playSound } from "../audio/sounds";
 import { useActiveCall } from "../contexts/ActiveCallProvider";
 import { useAuth } from "../contexts/AuthContext";
 import { useUserSocketConnected, useUserSocketEvent, useUserSocketSend } from "../contexts/UserSocketProvider";
@@ -29,25 +30,14 @@ export function useCallInvite() {
     const socketConnected = useUserSocketConnected();
     const sendUserMessage = useUserSocketSend();
 
-    useEffect(() => {
-        if (!socketConnected) {
-            announcedRef.current = undefined;
-            return;
-        }
-        const concordeGroupId = joinedGroup?.concordeGroupId ?? null;
-        const current = announcedRef.current;
-        if (current && current.groupId === groupId && current.concordeGroupId === concordeGroupId) return;
-        announcedRef.current = { groupId, concordeGroupId };
-        sendUserMessage({ type: "call-state", groupId, concordeGroupId });
-    }, [groupId, joinedGroup, socketConnected, sendUserMessage]);
+    const recentPeerIds = useRef<Set<string>>(new Set());
+    const peersRef = useRef(peers);
+    peersRef.current = peers;
 
     function joinGroupCall(callGroupId: string, concordeGroupId: string | null) {
         join(callGroupId);
         setJoinedGroup(concordeGroupId ? { callGroupId, concordeGroupId } : null);
     }
-    const recentPeerIds = useRef<Set<string>>(new Set());
-    const peersRef = useRef(peers);
-    peersRef.current = peers;
 
     const clearTimer = useCallback(() => {
         if (timeoutRef.current) {
@@ -117,76 +107,6 @@ export function useCallInvite() {
         }, CALL_RING_TIMEOUT_MS);
 
     }
-
-    useEffect(() => {
-        if (!groupId) {
-            recentPeerIds.current.clear();
-            return;
-        }
-
-        peers.forEach((peer) => recentPeerIds.current.add(peer.userId));
-    }, [groupId, peers]);
-
-    useEffect(() => {
-        if (!lastEvent) return;
-
-        switch (lastEvent.type) {
-            case "call-invite":
-                if (groupId && recentPeerIds.current.has(lastEvent.invite.fromUserId)) {
-                    void api.post(`/calls/${lastEvent.invite.callId}/redirect`, {
-                        callerId: lastEvent.invite.fromUserId,
-                        groupId,
-                        concordeGroupId: joinedGroup?.concordeGroupId ?? null,
-                    }).catch(() => { });
-                    break;
-                }
-
-                if (!incoming) {
-                    setIncoming(lastEvent.invite);
-                } else if (!waiting || waiting.callId === lastEvent.invite.callId) {
-                    setWaiting(lastEvent.invite);
-                } else {
-                    void api.post(`/calls/${lastEvent.invite.callId}/decline`, {
-                        callerId: lastEvent.invite.fromUserId
-                    }).catch(() => { });
-                }
-                break;
-            case "call-accepted":
-            case "call-declined": {
-                clearTimer();
-                if (outgoing.status === "dialing") {
-                    if (lastEvent.type === "call-declined") {
-                        if (outgoing.callId !== lastEvent.callId) break;
-                        leave();
-                    }
-                    setOutgoing({ status: "idle" });
-                } else if (outgoing.status === "dialing-group") {
-                    const remaining = outgoing.pending.filter((item) => item.callId !== lastEvent.callId);
-                    setOutgoing(remaining.length === 0 ? { status: "idle" } : { ...outgoing, pending: remaining });
-                }
-                break;
-            }
-            case "call-cancelled":
-                if (incoming?.callId === lastEvent.callId) {
-                    setIncoming(null);
-                } else if (waiting?.callId === lastEvent.callId) {
-                    setWaiting(null);
-                }
-                break;
-            case "call-redirect":
-                if (outgoing.status === "dialing" && outgoing.callId === lastEvent.callId) {
-                    clearTimer();
-                    void api.post(`/calls/${outgoing.callId}/cancel`, {
-                        toUserId: outgoing.toUserId
-                    }).catch(() => { });
-                    leave();
-                    setOutgoing({ status: "idle" });
-                    join(lastEvent.groupId);
-                    setJoinedGroup(lastEvent.concordeGroupId ? { callGroupId: lastEvent.groupId, concordeGroupId: lastEvent.concordeGroupId } : null);
-                }
-                break;
-        }
-    }, [lastEvent, leave, clearTimer]);
 
     async function acceptIncoming() {
         if (!incoming) return;
@@ -274,8 +194,97 @@ export function useCallInvite() {
     }
 
     useEffect(() => {
+        if (!incoming) return;
+        playSound("ring");
+        const interval = window.setInterval(() => playSound("ring"), 2000);
+        return () => clearInterval(interval);
+    }, [incoming]);
+
+    useEffect(() => {
+        if (!groupId) {
+            recentPeerIds.current.clear();
+            return;
+        }
+
+        peers.forEach((peer) => recentPeerIds.current.add(peer.userId));
+    }, [groupId, peers]);
+
+    useEffect(() => {
+        if (!lastEvent) return;
+
+        switch (lastEvent.type) {
+            case "call-invite":
+                if (groupId && recentPeerIds.current.has(lastEvent.invite.fromUserId)) {
+                    void api.post(`/calls/${lastEvent.invite.callId}/redirect`, {
+                        callerId: lastEvent.invite.fromUserId,
+                        groupId,
+                        concordeGroupId: joinedGroup?.concordeGroupId ?? null,
+                    }).catch(() => { });
+                    break;
+                }
+
+                if (!incoming) {
+                    setIncoming(lastEvent.invite);
+                } else if (!waiting || waiting.callId === lastEvent.invite.callId) {
+                    setWaiting(lastEvent.invite);
+                } else {
+                    void api.post(`/calls/${lastEvent.invite.callId}/decline`, {
+                        callerId: lastEvent.invite.fromUserId
+                    }).catch(() => { });
+                }
+                break;
+            case "call-accepted":
+            case "call-declined": {
+                clearTimer();
+                if (outgoing.status === "dialing") {
+                    if (lastEvent.type === "call-declined") {
+                        if (outgoing.callId !== lastEvent.callId) break;
+                        leave();
+                    }
+                    setOutgoing({ status: "idle" });
+                } else if (outgoing.status === "dialing-group") {
+                    const remaining = outgoing.pending.filter((item) => item.callId !== lastEvent.callId);
+                    setOutgoing(remaining.length === 0 ? { status: "idle" } : { ...outgoing, pending: remaining });
+                }
+                break;
+            }
+            case "call-cancelled":
+                if (incoming?.callId === lastEvent.callId) {
+                    setIncoming(null);
+                } else if (waiting?.callId === lastEvent.callId) {
+                    setWaiting(null);
+                }
+                break;
+            case "call-redirect":
+                if (outgoing.status === "dialing" && outgoing.callId === lastEvent.callId) {
+                    clearTimer();
+                    void api.post(`/calls/${outgoing.callId}/cancel`, {
+                        toUserId: outgoing.toUserId
+                    }).catch(() => { });
+                    leave();
+                    setOutgoing({ status: "idle" });
+                    join(lastEvent.groupId);
+                    setJoinedGroup(lastEvent.concordeGroupId ? { callGroupId: lastEvent.groupId, concordeGroupId: lastEvent.concordeGroupId } : null);
+                }
+                break;
+        }
+    }, [lastEvent, leave, clearTimer]);
+
+    useEffect(() => {
         return () => clearTimer();
     }, [clearTimer]);
+
+    useEffect(() => {
+        if (!socketConnected) {
+            announcedRef.current = undefined;
+            return;
+        }
+        const concordeGroupId = joinedGroup?.concordeGroupId ?? null;
+        const current = announcedRef.current;
+        if (current && current.groupId === groupId && current.concordeGroupId === concordeGroupId) return;
+        announcedRef.current = { groupId, concordeGroupId };
+        sendUserMessage({ type: "call-state", groupId, concordeGroupId });
+    }, [groupId, joinedGroup, socketConnected, sendUserMessage]);
 
     return { outgoing, incoming, waiting, dial, acceptIncoming, declineIncoming, acceptWaiting, declineWaiting, cancelDial, hangUp, joinedGroup, dialGroup, joinGroupCall };
 }

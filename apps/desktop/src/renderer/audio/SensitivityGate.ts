@@ -76,9 +76,11 @@ export function decideGateOpen(input: GateDecisionInput): GateDecision {
 
 export class SensitivityGate {
     private context?: AudioContext;
+    private sourceNode?: MediaStreamAudioSourceNode;
     private analyser?: AnalyserNode;
     private data?: Uint8Array<ArrayBuffer>;
     private timer?: ReturnType<typeof setInterval>;
+    private ownsContext = false;
 
     private level = 0;
     private floor = 0.02;
@@ -114,11 +116,13 @@ export class SensitivityGate {
         return resolveThreshold(this.options.mode, this.options.manualThreshold, this.floor);
     }
 
-    async connect(stream: MediaStream): Promise<void> {
+    async connect(stream: MediaStream, context?: AudioContext): Promise<void> {
         this.destroy();
 
-        this.context = new AudioContext();
+        this.context = context ?? new AudioContext();
+        this.ownsContext = !context;
         const source = this.context.createMediaStreamSource(stream);
+        this.sourceNode = source;
         this.analyser = this.context.createAnalyser();
         this.analyser.fftSize = 512;
         source.connect(this.analyser);
@@ -170,11 +174,17 @@ export class SensitivityGate {
             clearInterval(this.timer);
             this.timer = undefined;
         }
+        this.sourceNode?.disconnect();
+        this.sourceNode = undefined;
+        this.analyser?.disconnect();
+        this.analyser = undefined;
         if (this.context) {
-            void this.context.close();
+            if (this.ownsContext) {
+                void this.context.close();
+            }
             this.context = undefined;
         }
-        this.analyser = undefined;
+        this.ownsContext = false;
         this.data = undefined;
         this.onChange = undefined;
     }

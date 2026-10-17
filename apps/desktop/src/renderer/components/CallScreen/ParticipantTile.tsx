@@ -1,4 +1,4 @@
-import type { KeyboardEvent } from "react";
+import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import { HeadphoneOff, MicOff } from "lucide-react";
 
 import { ScreenVideo } from "./ScreenVideo";
@@ -15,15 +15,17 @@ interface ParticipantTileProps {
     screenStream?: MediaStream | null;
     focused?: boolean;
     onToggleFocus?: () => void;
+    onContextMenu?: (event: ReactMouseEvent<HTMLDivElement>) => void;
 }
 
-export default function ParticipantTile({ name, muted, deafened = false, isLocal = false, speaking = false, ringing = false, screenStream, focused = false, onToggleFocus }: ParticipantTileProps) {
+export default function ParticipantTile({ name, muted, deafened = false, isLocal = false, speaking = false, ringing = false, screenStream, focused = false, onToggleFocus, onContextMenu }: ParticipantTileProps) {
     const initial = name.trim().charAt(0).toUpperCase() || "?";
     const clickable = onToggleFocus !== undefined;
 
     return (
         <div
             className={`${styles.tile} ${speaking ? styles.speaking : ""} ${clickable ? styles.tileClickable : ""}`}
+            onContextMenu={onContextMenu}
             {...(clickable ? {
                 role: "button",
                 tabIndex: 0,
@@ -38,7 +40,7 @@ export default function ParticipantTile({ name, muted, deafened = false, isLocal
             } : {})}
         >
             {screenStream ? (
-                <ScreenVideo stream={screenStream} muted={isLocal} />
+                <ScreenVideo stream={screenStream} />
             ) : (<>
                 <div className={styles.media}>
                     <div className={`${styles.avatar} ${muted ? styles.avatarMuted : ""} ${ringing ? styles.ringing : ""}`}>

@@ -3,30 +3,100 @@ import { useEffect, useRef } from "react";
 interface RemoteAudioProps {
     stream: MediaStream;
     muted: boolean;
+    volume?: number;
+}
+
+type StreamGraph = {
+    source: MediaStreamAudioSourceNode;
+    gain: GainNode;
 };
 
-export function RemoteAudio({ stream, muted }: RemoteAudioProps) {
-    const ref = useRef<HTMLAudioElement>(null);
+const globalStore = globalThis as unknown as {
+    __concordeAudioCtx?: AudioContext;
+    __concordeGraphs?: WeakMap<MediaStream, StreamGraph>;
+};
+
+if (!globalStore.__concordeAudioCtx) {
+    globalStore.__concordeAudioCtx = new AudioContext();
+}
+if (!globalStore.__concordeGraphs) {
+    globalStore.__concordeGraphs = new WeakMap();
+}
+
+const ctx = globalStore.__concordeAudioCtx;
+const graphs = globalStore.__concordeGraphs;
+
+function getGraph(stream: MediaStream): StreamGraph {
+    if (ctx.state === "suspended") {
+        void ctx.resume().catch((err) => {
+            console.warn("[RA] Falha ao resumir AudioContext:", err);
+        });
+    }
+
+    let graph = graphs.get(stream);
+    if (!graph) {
+        const source = ctx.createMediaStreamSource(stream);
+        const gain = ctx.createGain();
+        source.connect(gain).connect(ctx.destination);
+        graph = { source, gain };
+        graphs.set(stream, graph);
+        console.debug("[RA] grafo criado (MediaStreamSource), context.state=", ctx.state);
+    }
+    return graph;
+}
+
+function applyGain(gainNode: GainNode, target: number) {
+    const now = ctx.currentTime;
+    const param = gainNode.gain;
+    param.cancelScheduledValues(now);
+    param.setTargetAtTime(target, now, 0.01);
+}
+
+export function RemoteAudio({ stream, muted, volume }: RemoteAudioProps) {
+    const audioRef = useRef<HTMLAudioElement>(null);
+    const gainRef = useRef<GainNode | null>(null);
 
     useEffect(() => {
-        const element = ref.current;
-
-        if (!element) return;
-
-        element.srcObject = stream;
-
-        element.play().catch((error: DOMException) => {
-            if (error.name === "AbortError") return;
-
-            console.error("Falha ao tocar áudio remoto:", error);
+        const el = audioRef.current;
+        if (!el || !stream) return;
+        el.srcObject = stream;
+        el.muted = true;
+        el.play().catch((err: DOMException) => {
+            if (err.name !== "AbortError") {
+                console.warn("[RA] Falha ao acordar decodificador WebRTC:", err);
+            }
         });
 
         return () => {
-            element.pause();
-            element.srcObject = null;
+            el.pause();
+            el.srcObject = null;
         };
-
     }, [stream]);
 
-    return <audio ref={ref} autoPlay muted={muted} />;
+    useEffect(() => {
+        const graph = getGraph(stream);
+        gainRef.current = graph.gain;
+        applyGain(graph.gain, muted ? 0 : (volume ?? 1));
+        console.debug("[RA] gain (init) ←", muted ? 0 : (volume ?? 1));
+
+        return () => {
+            try {
+                graph.source.disconnect();
+                graph.gain.disconnect();
+            } catch {  }
+            graphs.delete(stream);
+            gainRef.current = null;
+        };
+    }, [stream]);
+
+    useEffect(() => {
+        const gainNode = gainRef.current;
+        if (!gainNode) return;
+        if (ctx.state === "suspended") void ctx.resume().catch(() => { });
+        const target = muted ? 0 : (volume ?? 1);
+        applyGain(gainNode, target);
+        console.debug("[RA] gain ←", target, "(volume=", volume, "muted=", muted, ")");
+    }, [muted, volume]);
+
+    return <audio ref={audioRef} autoPlay muted playsInline style={{ display: "none" }} />;
 }
