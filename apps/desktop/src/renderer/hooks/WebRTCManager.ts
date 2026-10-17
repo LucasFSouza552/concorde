@@ -18,6 +18,9 @@ interface WebRTCManagerOptions {
     shouldOffer: (peerId: string) => boolean;
 }
 
+const ICE_RESTART_COOLDOWN_MS = 5000;
+const SCREEN_TOTAL_BITRATE = 8_000_000;
+
 export function createWebRTCManager(options: WebRTCManagerOptions) {
     const { emit, onRemoteStream, getLocalStream, shouldOffer, getScreenStream, onRemoteScreenStream, onRemoteScreenAudio } = options;
 
@@ -26,8 +29,6 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
     const negotiating = new Set<string>();
     const lastRestart = new Map<string, number>();
     const screenAudioTrackIds = new Set<string>();
-
-    const ICE_RESTART_COOLDOWN_MS = 5000;
 
     function createConnection(peerId: string) {
         const connection = new RTCPeerConnection(RTC_CONFIG);
@@ -96,6 +97,11 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         };
 
         connections.set(peerId, connection);
+
+        const screenTrack = screen?.getVideoTracks()[0];
+        if (screenTrack) {
+            void applyScreenSendParams(connection, screenTrack, screenTrack.getSettings().height ?? 720);
+        }
 
         return connection;
     }
@@ -211,6 +217,7 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         connections.delete(peerId);
         pendingCandidates.delete(peerId);
         negotiating.delete(peerId);
+        refreshScreenBitrates();
     }
 
     function replaceAudioTrack(track: MediaStreamTrack) {
@@ -223,10 +230,11 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         });
     }
 
-    function screenMaxBitrate(height: number): number {
-        if (height >= 1080) return 10_000_000;
-        if (height >= 720) return 5_000_000;
-        return 2_500_000;
+    function screenMaxBitrate(height: number, peers: number): number {
+        const cap = height >= 1080 ? 4_000_000 : height >= 720 ? 2_500_000 : 1_500_000;
+        const floor = height >= 1080 ? 1_500_000 : height >= 720 ? 1_000_000 : 800_000;
+        const perPeer = Math.floor(SCREEN_TOTAL_BITRATE / Math.max(1, peers));
+        return Math.max(floor, Math.min(cap, perPeer));
     }
 
     async function applyScreenSendParams(connection: RTCPeerConnection, track: MediaStreamTrack, height: number) {
@@ -237,7 +245,7 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
             if (!params.encodings || params.encodings.length === 0) {
                 params.encodings = [{}];
             }
-            params.encodings[0].maxBitrate = screenMaxBitrate(height);
+            params.encodings[0].maxBitrate = screenMaxBitrate(height, connections.size);
             (params as RTCRtpSendParameters & { degradationPreference?: string }).degradationPreference = "maintain-resolution";
             await sender.setParameters(params);
         } catch (err) {
@@ -268,6 +276,15 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
                 }
             });
             startOffer(peerId);
+        }
+    }
+
+    function refreshScreenBitrates() {
+        const videoTrack = getScreenStream()?.getVideoTracks()[0];
+        if (!videoTrack) return;
+        const height = videoTrack.getSettings().height ?? 720;
+        for (const connection of connections.values()) {
+            void applyScreenSendParams(connection, videoTrack, height);
         }
     }
 

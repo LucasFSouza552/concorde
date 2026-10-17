@@ -181,13 +181,13 @@ function createWindow() {
 
   if (process.env.ELECTRON_RENDERER_URL) {
     window.loadURL(process.env.ELECTRON_RENDERER_URL);
+
+    window.webContents.openDevTools();
   } else {
     window.loadFile(
       path.join(__dirname, "../renderer/index.html")
     );
   }
-
-  window.webContents.openDevTools();
 
   mainWindow = window;
   window.on("closed", () => {
