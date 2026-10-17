@@ -25,6 +25,7 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
     const pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
     const negotiating = new Set<string>();
     const lastRestart = new Map<string, number>();
+    const screenAudioTrackIds = new Set<string>();
 
     const ICE_RESTART_COOLDOWN_MS = 5000;
 
@@ -43,6 +44,9 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
 
         if (screen) {
             screen.getTracks().forEach((track) => {
+                if (track.kind === "audio") {
+                    screenAudioTrackIds.add(track.id);
+                }
                 connection.addTrack(track, screen);
             });
         }
@@ -212,9 +216,9 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
     function replaceAudioTrack(track: MediaStreamTrack) {
         connections.forEach((connection) => {
             connection.getSenders().forEach((sender) => {
-                if (sender.track?.kind === "audio") {
-                    sender.replaceTrack(track);
-                }
+                if (sender.track?.kind !== "audio") return;
+                if (screenAudioTrackIds.has(sender.track.id)) return;
+                sender.replaceTrack(track);
             });
         });
     }
@@ -246,6 +250,7 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         for (const [peerId, connection] of connections) {
             connection.addTrack(track, stream);
             if (audioTrack) {
+                screenAudioTrackIds.add(audioTrack.id);
                 connection.addTrack(audioTrack, stream);
             }
             void applyScreenSendParams(connection, track, sendHeight);
@@ -255,6 +260,7 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
 
     function removeScreenTrack(stream: MediaStream | null) {
         const ids = new Set((stream?.getTracks() ?? []).map((track) => track.id));
+        ids.forEach((id) => screenAudioTrackIds.delete(id));
         for (const [peerId, connection] of connections) {
             connection.getSenders().forEach((sender) => {
                 if (sender.track && ids.has(sender.track.id)) {
@@ -270,6 +276,7 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         connections.clear();
         pendingCandidates.clear();
         negotiating.clear();
+        screenAudioTrackIds.clear();
     }
 
     return {

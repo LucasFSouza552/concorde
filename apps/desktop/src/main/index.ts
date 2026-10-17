@@ -122,4 +122,44 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("app:get-version", () => app.getVersion());
+
+  ipcMain.handle("window:get-pid", async (_event, sourceId: string) => {
+    try {
+      if (!sourceId || !sourceId.startsWith("window:")) return null;
+      const parts = sourceId.split(":");
+      const hwndStr = parts[1];
+      const hwnd = BigInt(hwndStr);
+      const hwndNum = Number(hwnd > BigInt(Number.MAX_SAFE_INTEGER) ? hwndStr : hwnd);
+
+      const { spawnSync } = await import("node:child_process");
+      const script = [
+        "Add-Type @\"",
+        "using System;",
+        "using System.Runtime.InteropServices;",
+        "public class Win32 {",
+        "  [DllImport(\"user32.dll\")]",
+        "  public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);",
+        "}",
+        "\"@;",
+        `$h=[IntPtr]${hwndNum};`,
+        "$pid=0;",
+        "[Win32]::GetWindowThreadProcessId($h,[ref]$pid);",
+        "Write-Output $pid"
+      ].join("");
+
+      const ps = spawnSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], {
+        windowsHide: true,
+        timeout: 3000
+      });
+
+      if (ps.error) return null;
+      const out = (ps.stdout?.toString() || "").trim();
+      const pid = parseInt(out);
+      if (!Number.isFinite(pid) || pid <= 0) return null;
+      return pid;
+    } catch (err) {
+      console.error("[window:get-pid]", err);
+      return null;
+    }
+  });
 });

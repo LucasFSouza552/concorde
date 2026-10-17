@@ -25,5 +25,8 @@ contextBridge.exposeInMainWorld("concorde", {
     },
     app: {
         getVersion: () => ipcRenderer.invoke("app:get-version")
+    },
+    windows: {
+        getPid: (sourceId: string) => ipcRenderer.invoke("window:get-pid", sourceId)
     }
 });
