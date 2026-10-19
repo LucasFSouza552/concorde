@@ -28,7 +28,7 @@ export default function AddFriendCard({ query, state, onQueryChange, onAdd }: Ad
                                 onAdd();
                         }} />
 
-                    <button className={styles.inviteBtn} onClick={onAdd} disabled={busy}>
+                    <button type="button" className={styles.inviteBtn} onClick={onAdd} disabled={busy}>
                         Adicionar
                     </button>
                 </div>

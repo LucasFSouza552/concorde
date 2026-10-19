@@ -13,6 +13,9 @@ interface ActiveCallContextData {
     peers: Peer[];
     peerMuted: Record<string, { muted: boolean; deafened: boolean }>;
     peerSharing: Record<string, boolean>;
+    watchingShareIds: Set<string>;
+    watchShare: (peerId: string) => void;
+    unwatchShare: (peerId: string) => void;
     localStream: MediaStream | null;
     remoteStreams: Record<string, MediaStream>;
     speakingMap: Record<string, boolean>;
@@ -108,6 +111,9 @@ export function ActiveCallProvider({ children }: { children: ReactNode }) {
                 screenAudioMuted, toggleScreenAudioMute,
                 peerMuted: call.peerMuted,
                 peerSharing: call.peerSharing,
+                watchingShareIds: call.watchingShareIds,
+                watchShare: call.watchShare,
+                unwatchShare: call.unwatchShare,
 
                 screenStream: call.screenStream,
                 remoteScreenStreams: call.remoteScreenStreams,

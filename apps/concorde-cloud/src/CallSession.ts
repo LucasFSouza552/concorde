@@ -2,6 +2,7 @@ import type { ClientMessage, DirectClientMessage, Peer, ServerMessage } from "@c
 
 export class CallSession {
 	private clients = new Map<WebSocket, Peer>();
+	private state = new Map<string, { sharing: boolean; muted: boolean; deafened: boolean }>();
 
 	async fetch(request: Request): Promise<Response> {
 		const upgradeHeader = request.headers.get("Upgrade");
@@ -34,21 +35,20 @@ export class CallSession {
 					const previous = [...this.clients.entries()].find(
 						([, peer]) => peer.userId === message.userId
 					);
+					const staleSocket = previous?.[0];
 
-					if (previous) {
-						const [staleSocket] = previous;
-
+					if (staleSocket) {
 						this.clients.delete(staleSocket);
 
 						this.broadcast(server, { type: "peer-left", userId: message.userId });
-
-						staleSocket.close();
 					}
 
 					const peer: Peer = {
 						userId: message.userId,
 						username: message.username,
 					};
+
+					this.state.delete(message.userId);
 
 					server.send(
 						JSON.stringify({
@@ -57,9 +57,36 @@ export class CallSession {
 						} satisfies ServerMessage)
 					);
 
+					for (const [userId, current] of this.state) {
+						if (userId === message.userId || !userId) continue;
+
+						if (current.sharing) {
+							server.send(
+								JSON.stringify({
+									type: "screen-share",
+									sharing: true,
+									from: userId,
+								} satisfies ServerMessage)
+							);
+						}
+
+						if (current.muted || current.deafened) {
+							server.send(
+								JSON.stringify({
+									type: "mute-state",
+									muted: current.muted,
+									deafened: current.deafened,
+									from: userId,
+								} satisfies ServerMessage)
+							);
+						}
+					}
+
 					this.broadcast(server, { type: "peer-joined", peer });
 
 					this.clients.set(server, peer);
+
+					staleSocket?.close();
 					break;
 				}
 				case "chat":
@@ -67,6 +94,11 @@ export class CallSession {
 					break;
 				case "mute-state": {
 					const from = this.clients.get(server)?.userId ?? "";
+					this.state.set(from, {
+						...(this.state.get(from) ?? { sharing: false, muted: false, deafened: false }),
+						muted: message.muted,
+						deafened: message.deafened
+					});
 					this.broadcast(server, {
 						type: "mute-state",
 						muted: message.muted,
@@ -78,6 +110,10 @@ export class CallSession {
 				}
 				case "screen-share":
 					const from = this.clients.get(server)?.userId ?? "";
+					this.state.set(from, {
+						...(this.state.get(from) ?? { sharing: false, muted: false, deafened: false }),
+						sharing: message.sharing
+					});
 					this.broadcast(server, { type: "screen-share", sharing: message.sharing, from });
 					break;
 			}
@@ -90,6 +126,10 @@ export class CallSession {
 			this.clients.delete(server);
 
 			if (peer?.userId) {
+				if (!this.findClient(peer.userId)) {
+					this.state.delete(peer.userId);
+				}
+
 				this.broadcast(server, { type: "peer-left", userId: peer.userId });
 			}
 

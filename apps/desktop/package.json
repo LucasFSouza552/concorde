@@ -14,12 +14,17 @@
       {
         "from": "resources/loopback",
         "to": "loopback"
+      },
+      {
+        "from": "resources/concorde.ico",
+        "to": "concorde.ico"
       }
     ],
     "win": {
       "target": [
         "nsis"
-      ]
+      ],
+      "icon": "resources/concorde.ico"
     },
     "publish": {
       "provider": "github",

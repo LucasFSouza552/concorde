@@ -20,6 +20,9 @@ interface UseCallResult {
     remoteStreams: Record<string, MediaStream>;
     peerMuted: Record<string, { muted: boolean; deafened: boolean }>;
     peerSharing: Record<string, boolean>;
+    watchingShareIds: Set<string>;
+    watchShare: (peerId: string) => void;
+    unwatchShare: (peerId: string) => void;
     switchMicrophone: (next: MediaStream) => void;
 
     remoteScreenStreams: Record<string, MediaStream>;
@@ -37,6 +40,7 @@ export function useCall(groupId: string | null): UseCallResult {
     const [peers, setPeers] = useState<Peer[]>([]);
     const [peerMuted, setPeerMuted] = useState<Record<string, { muted: boolean; deafened: boolean }>>({});
     const [peerSharing, setPeerSharing] = useState<Record<string, boolean>>({});
+    const [watchingShareIds, setWatchingShareIds] = useState<Set<string>>(new Set());
 
     const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
 
@@ -55,8 +59,9 @@ export function useCall(groupId: string | null): UseCallResult {
 
         managerRef.current = createWebRTCManager({
             emit: send,
-            onRemoteStream: (peerId, stream) =>
-                setRemoteStreams((current) => ({ ...current, [peerId]: stream })),
+            onRemoteStream: (peerId, stream) => {
+                setRemoteStreams((current) => ({ ...current, [peerId]: stream }));
+            },
             getLocalStream: () => localMedia.getStream(),
             onRemoteScreenStream: (peerId, stream) =>
                 setRemoteScreenStreams((current) => ({ ...current, [peerId]: stream })),
@@ -127,6 +132,13 @@ export function useCall(groupId: string | null): UseCallResult {
                     return next;
                 });
 
+                setWatchingShareIds((current) => {
+                    if (!current.has(peerId)) return current;
+                    const next = new Set(current);
+                    next.delete(peerId);
+                    return next;
+                });
+
                 setRemoteScreenStreams((current) => {
                     const next = { ...current };
                     delete next[peerId];
@@ -168,6 +180,12 @@ export function useCall(groupId: string | null): UseCallResult {
                             [message.from]: message.sharing
                         }));
                         if (!message.sharing) {
+                            setWatchingShareIds((current) => {
+                                if (!current.has(message.from)) return current;
+                                const next = new Set(current);
+                                next.delete(message.from);
+                                return next;
+                            });
                             setRemoteScreenAudioStreams((current) => {
                                 const next = { ...current };
                                 delete next[message.from];
@@ -180,6 +198,7 @@ export function useCall(groupId: string | null): UseCallResult {
         });
 
         return () => {
+            setWatchingShareIds(new Set());
             stopScreenShare();
             socketRef.current?.close();
             socketRef.current = null;
@@ -187,6 +206,31 @@ export function useCall(groupId: string | null): UseCallResult {
             webrtc.closeAll();
         };
     }, [groupId]);
+
+    useEffect(() => {
+        if (!groupId || !screenStream) return;
+
+        socketRef.current?.send({ type: "screen-share", sharing: true });
+    }, [groupId, screenStream, status]);
+
+    useEffect(() => {
+        peers.forEach((peer) => {
+            const enabled = !peerSharing[peer.userId] || watchingShareIds.has(peer.userId);
+            managerRef.current?.setShareReceiveEnabled(peer.userId, enabled);
+        });
+    }, [peers, peerSharing, watchingShareIds]);
+
+    function watchShare(peerId: string) {
+        setWatchingShareIds((current) => new Set(current).add(peerId));
+    }
+
+    function unwatchShare(peerId: string) {
+        setWatchingShareIds((current) => {
+            const next = new Set(current);
+            next.delete(peerId);
+            return next;
+        });
+    }
 
     function send(message: ClientMessage) {
         socketRef.current?.send(message);
@@ -309,6 +353,6 @@ export function useCall(groupId: string | null): UseCallResult {
         send({ type: "screen-share", sharing: false });
     }
 
-    return { status, peers, send, localStream: localMedia.localStream, remoteStreams, switchMicrophone, peerMuted, peerSharing, remoteScreenStreams, remoteScreenAudioStreams, screenStream, startScreenShare, stopScreenShare };
+    return { status, peers, send, localStream: localMedia.localStream, remoteStreams, switchMicrophone, peerMuted, peerSharing, watchingShareIds, watchShare, unwatchShare, remoteScreenStreams, remoteScreenAudioStreams, screenStream, startScreenShare, stopScreenShare };
 
 }

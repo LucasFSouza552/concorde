@@ -1,4 +1,6 @@
 
+export type UserStatus = "online" | "away" | "busy" | "invisible" | "offline";
+
 export interface User {
     id: string;
     username: string;
@@ -46,17 +48,18 @@ export type SendFriendRequestResult = "sent" | "already-friends" | "pending" | "
 export type UserSocketClientMessage =
     | { type: "auth"; token: string }
     | { type: "ping" }
+    | { type: "set-status"; status: UserStatus }
     | { type: "call-state"; groupId: string | null; concordeGroupId?: string | null };
 
 export type UserSocketServerMessage =
     | { type: "pong" }
     | { type: "user-connected"; userId: string }
-    | { type: "pong" }
     | { type: "channel-message"; message: NewMessage }
     | { type: "call-invite"; invite: CallInvite }
     | { type: "call-accepted"; callId: string }
     | { type: "call-declined"; callId: string }
     | { type: "call-cancelled"; callId: string }
+    | { type: "peer-status"; userId: string; status: UserStatus }
     | { type: "call-redirect"; callId: string; groupId: string; concordeGroupId?: string | null }
     | { type: "peer-call-state"; userId: string; groupId: string | null; concordeGroupId?: string | null };;
 

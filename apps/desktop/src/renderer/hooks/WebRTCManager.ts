@@ -30,6 +30,9 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
     const negotiating = new Set<string>();
     const lastRestart = new Map<string, number>();
     const screenAudioTrackIds = new Set<string>();
+    const shareTransceivers = new Map<string, RTCRtpTransceiver[]>();
+    const shareReceiveDesired = new Map<string, boolean>();
+
 
     async function applyMicSendParams(connection: RTCPeerConnection) {
         const sender = connection.getSenders().find(
@@ -66,6 +69,7 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
                 }
                 connection.addTrack(track, screen);
             });
+            preferH264(connection);
         }
 
         connection.ontrack = (event) => {
@@ -77,8 +81,10 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
             }
             if (event.track.kind === "video") {
                 onRemoteScreenStream(peerId, remote);
+                recordShareTransceiver(peerId, event.transceiver);
             } else if (remote.getVideoTracks().length > 0) {
                 onRemoteScreenAudio(peerId, remote);
+                recordShareTransceiver(peerId, event.transceiver);
             } else {
                 onRemoteStream(peerId, remote);
             }
@@ -137,7 +143,10 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         const connection = connections.get(peerId) ?? createConnection(peerId);
 
         connection.setRemoteDescription({ type: "offer", sdp })
-            .then(() => connection.createAnswer())
+            .then(() => {
+                preferH264(connection);
+                return connection.createAnswer();
+            })
             .then((answer) => connection.setLocalDescription(answer))
             .then(() => {
                 emit({
@@ -238,6 +247,8 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         connections.delete(peerId);
         pendingCandidates.delete(peerId);
         negotiating.delete(peerId);
+        shareTransceivers.delete(peerId);
+        shareReceiveDesired.delete(peerId);
         refreshScreenBitrates();
     }
 
@@ -256,6 +267,31 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         const floor = height >= 1080 ? 1_500_000 : height >= 720 ? 1_000_000 : 800_000;
         const perPeer = Math.floor(SCREEN_TOTAL_BITRATE / Math.max(1, peers));
         return Math.max(floor, Math.min(cap, perPeer));
+    }
+
+    function preferH264(connection: RTCPeerConnection) {
+        if (typeof RTCRtpReceiver === "undefined" || !RTCRtpReceiver.getCapabilities) return;
+        const capabilities = RTCRtpReceiver.getCapabilities("video");
+        if (!capabilities?.codecs) return;
+
+        const h264 = capabilities.codecs.filter((c) => c.mimeType.toLowerCase() === "video/h264");
+        const others = capabilities.codecs.filter((c) => c.mimeType.toLowerCase() !== "video/h264");
+        if (h264.length === 0) return;
+
+        const preferredOrder = [...h264, ...others];
+
+        for (const transceiver of connection.getTransceivers()) {
+            if (
+                transceiver.sender.track?.kind === "video" ||
+                transceiver.receiver.track?.kind === "video"
+            ) {
+                try {
+                    transceiver.setCodecPreferences(preferredOrder);
+                } catch (err) {
+                    console.warn("[WebRTC] Falha ao aplicar preferência H.264:", err);
+                }
+            }
+        }
     }
 
     async function applyScreenSendParams(connection: RTCPeerConnection, track: MediaStreamTrack, height: number) {
@@ -282,6 +318,7 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
                 screenAudioTrackIds.add(audioTrack.id);
                 connection.addTrack(audioTrack, stream);
             }
+            preferH264(connection);
             void applyScreenSendParams(connection, track, sendHeight);
             startOffer(peerId);
         }
@@ -309,12 +346,70 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         }
     }
 
+    function recordShareTransceiver(peerId: string, transceiver: RTCRtpTransceiver) {
+        const list = shareTransceivers.get(peerId) ?? [];
+        if (list.includes(transceiver)) return;
+        list.push(transceiver);
+        shareTransceivers.set(peerId, list);
+
+        if (shareReceiveDesired.has(peerId)) applyShareReceive(peerId);
+    }
+
+    function applyShareReceive(peerId: string) {
+        const list = shareTransceivers.get(peerId);
+        if (!list?.length) return;
+
+        const connection = connections.get(peerId);
+        if (!connection) return;
+
+        const enabled = shareReceiveDesired.get(peerId) ?? true;
+        let changed = false;
+
+        for (const transceiver of list) {
+            const sends = !!transceiver.sender.track;
+            const target: RTCRtpTransceiverDirection = enabled
+                ? (sends ? "sendrecv" : "recvonly")
+                : (sends ? "sendonly" : "inactive");
+            if (transceiver.direction === target) continue;
+            try {
+                transceiver.direction = target;
+                changed = true;
+            } catch {
+                // transceiver parado — nada a fazer
+            }
+        }
+
+        if (!changed) return;
+        negotiateWhenStable(peerId, connection);
+    }
+
+    function negotiateWhenStable(peerId: string, connection: RTCPeerConnection) {
+        if (connection.signalingState === "stable") {
+            startOffer(peerId);
+            return;
+        }
+
+        const onChange = () => {
+            if (connection.signalingState !== "stable") return;
+            connection.removeEventListener("signalingstatechange", onChange);
+            startOffer(peerId);
+        };
+        connection.addEventListener("signalingstatechange", onChange);
+    }
+
+    function setShareReceiveEnabled(peerId: string, enabled: boolean) {
+        shareReceiveDesired.set(peerId, enabled);
+        applyShareReceive(peerId);
+    }
+
     function closeAll() {
         connections.forEach((connection) => connection.close());
         connections.clear();
         pendingCandidates.clear();
         negotiating.clear();
         screenAudioTrackIds.clear();
+        shareTransceivers.clear();
+        shareReceiveDesired.clear();
     }
 
     return {
@@ -327,7 +422,8 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         closeAll,
 
         addScreenTrack,
-        removeScreenTrack
+        removeScreenTrack,
+        setShareReceiveEnabled
     };
 
 }

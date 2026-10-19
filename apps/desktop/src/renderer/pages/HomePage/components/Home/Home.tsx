@@ -1,21 +1,29 @@
-import { useState } from "react";
-import { BellRing, ChevronRight, MessageSquare, Phone, Plus, UserPlus, Users, UsersRound } from "lucide-react";
+import { useMemo, useState } from "react";
+import { BellRing, ChevronRight, MessageSquare, Phone, Users, UsersRound } from "lucide-react";
 
 import InlineError from "../../../../components/InlineError/InlineError";
 import Page from "../../../../components/Page/Page";
 import Section from "../../../../components/Section/Section";
-import { roleLabels, type CreateGroupInput, type Friend, type GroupRole } from "@concorde/shared";
-import { useActiveCall } from "../../../../contexts/ActiveCallProvider";
+import type { Friend } from "@concorde/shared";
+import AddFriendModal from "./AddFriendModal";
+import CreateGroupModal from "./CreateGroupModal";
+import Feed from "./Feed";
+import HomeActions from "./HomeActions";
+import QuickCallModal from "./QuickCallModal";
 import { useAuth } from "../../../../contexts/AuthContext";
-import { useToast } from "../../../../contexts/ToastProvider";
+import { useCallInviteState } from "../../../../contexts/CallInviteProvider";
 
-import { api, getErrorMessage } from "../../../../api/api";
+import { useActiveCalls, type ActiveCallEntry } from "../../../../hooks/useActiveCalls";
 import { useChannels } from "../../../../hooks/useChannels";
 import { useFriendsList } from "../../../../hooks/useFriendsList";
+import { useFriendsPresence } from "../../../../hooks/useFriendsPresence";
 import { useGroupsList } from "../../../../hooks/useGroupsList";
 import { useIncomingRequests } from "../../../../hooks/useIncomingRequests";
+import { STATUS_COLOR, STATUS_GLOW, STATUS_LABEL } from "../../../../utils/status";
 
 import styles from "./Home.module.css";
+
+type HomeModal = "addFriend" | "quickCall" | "createGroup" | null;
 
 function greetingFor(date: Date): string {
     const hour = date.getHours();
@@ -25,41 +33,44 @@ function greetingFor(date: Date): string {
     return "Boa noite";
 }
 
+function initialOf(name: string): string {
+    return name.trim().charAt(0).toUpperCase() || "?";
+}
+
 interface HomeProps {
     hidden?: boolean;
     onOpenFriend: (friend: Friend) => void;
     onGoFriends: () => void;
-    onSelectGroup: (group: { id: string; name: string; role: GroupRole }) => void;
+    onJoinCall: (call: ActiveCallEntry) => void;
 }
 
-export default function Home({ hidden = false, onOpenFriend, onGoFriends, onSelectGroup }: HomeProps) {
+export default function Home({ hidden = false, onOpenFriend, onGoFriends, onJoinCall }: HomeProps) {
     const { user } = useAuth();
-    const [groupId, setGroupId] = useState("");
-    const { join } = useActiveCall();
-    const { groups, loading: loadingGroups, error: errorGroups, load: reloadGroups } = useGroupsList();
+    const { dial } = useCallInviteState();
+    const { groups, loading: loadingGroups, load: reloadGroups } = useGroupsList();
     const { friends, loading: loadingFriends, error: errorFriends, load: reloadFriends } = useFriendsList();
     const { channels } = useChannels();
     const { requests } = useIncomingRequests();
-    const [name, setName] = useState("");
+    const [modal, setModal] = useState<HomeModal>(null);
 
-    const { push } = useToast();
+    const presences = useFriendsPresence(friends);
+    const { calls } = useActiveCalls(groups, friends);
 
     const now = new Date();
     const dateLine = now.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
     const dmCount = channels.filter((channel) => channel.kind === "dm").length;
-    const initial = (user?.displayName ?? "?").trim().charAt(0).toUpperCase() || "?";
+    const initial = initialOf(user?.displayName ?? "?");
 
-    async function handleCreate() {
-        try {
-            if (!name.trim()) return;
+    const onlineFriends = useMemo(() => friends
+        .filter((friend) => {
+            const status = presences.get(friend.id)?.status;
+            return status !== undefined && status !== "offline";
+        })
+        .sort((a, b) => a.displayName.localeCompare(b.displayName)),
+        [friends, presences],
+    );
 
-            await api.post("/groups", { name: name.trim() } satisfies CreateGroupInput);
-            setName("");
-            await reloadGroups();
-        } catch (error) {
-            push(getErrorMessage(error), "error");
-        }
-    }
+    const groupCalls = useMemo(() => calls.filter((call) => call.kind === "group"), [calls]);
 
     return (
         <Page hidden={hidden}>
@@ -71,9 +82,7 @@ export default function Home({ hidden = false, onOpenFriend, onGoFriends, onSele
                     <div className={styles.heroText}>
                         <p className={styles.heroDate}>{dateLine}</p>
                         <h1 className={styles.headerTitle}>{greetingFor(now)}, {user?.displayName}</h1>
-                        <p className={styles.headerSubtitle}>
-                            {friends.length} {friends.length === 1 ? "amigo" : "amigos"} · {groups.length} {groups.length === 1 ? "grupo" : "grupos"} · {dmCount} {dmCount === 1 ? "conversa" : "conversas"}
-                        </p>
+                        <p className={styles.headerSubtitle}>Tudo em um só lugar: amigos, chamadas e conversas.</p>
                     </div>
                     <div className={styles.heroStats}>
                         <div className={styles.statCard}>
@@ -111,122 +120,136 @@ export default function Home({ hidden = false, onOpenFriend, onGoFriends, onSele
                     </button>
                 )}
 
-                {friends.length === 0 && groups.length === 0 && !loadingFriends && !loadingGroups && (
-                    <div className={styles.onboarding}>
-                        <strong className={styles.onboardingTitle}>Comece por aqui</strong>
-                        <ol className={styles.onboardingSteps}>
-                            <li>
-                                <UserPlus size={16} aria-hidden="true" />
-                                <div>
-                                    <span>Adicione amigos pelo nome de usuário</span>
-                                    <button type="button" className={styles.seeAllBtn} onClick={onGoFriends}>
-                                        Ir para Amigos
-                                    </button>
-                                </div>
-                            </li>
-                            <li>
-                                <UsersRound size={16} aria-hidden="true" />
-                                <div>
-                                    <span>Crie um grupo e chame o pessoal</span>
-                                </div>
-                            </li>
-                            <li>
-                                <Phone size={16} aria-hidden="true" />
-                                <div>
-                                    <span>Ligue direto da conversa ou da lista</span>
-                                </div>
-                            </li>
-                        </ol>
-                    </div>
-                )}
-
-                <div className={styles.actions}>
-                    <div className={styles.createCard}>
-                        <Plus size={22} aria-hidden="true" className={styles.createCardIcon} />
-                        <div className={styles.createForm}>
-                            <strong className={styles.createCardTitle}>Criar um grupo</strong>
-                            <div className={styles.joinRow}>
-                                <input
-                                    className={styles.joinField}
-                                    placeholder="Nome do grupo"
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter") void handleCreate();
-                                    }}
-                                />
-                                <button className={styles.joinBtn} onClick={handleCreate}>Criar</button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className={styles.joinCard}>
-                        <label className={styles.joinLabel} htmlFor="invite">entrar com código</label>
-                        <div className={styles.joinRow}>
-                            <input className={styles.joinField} id="invite" placeholder="código de convite" value={groupId} onChange={(e) => setGroupId(e.target.value)} />
-                            <button className={styles.joinBtn} onClick={() => join(groupId)}>Entrar</button>
-                        </div>
-                    </div>
-                </div>
+                <HomeActions
+                    onAddFriend={() => setModal("addFriend")}
+                    onQuickCall={() => setModal("quickCall")}
+                    onCreateGroup={() => setModal("createGroup")}
+                />
 
                 <div className={styles.columns}>
-                    <Section title="Conversas">
+                    <Section
+                        title="Amigos Online"
+                        action={<button type="button" className={styles.seeAllBtn} onClick={onGoFriends}>Ver Todos</button>}
+                    >
                         {loadingFriends && <p className={styles.empty}>Carregando...</p>}
                         {!loadingFriends && errorFriends && <InlineError message={errorFriends} onRetry={reloadFriends} />}
-                        {!loadingFriends && !errorFriends && friends.length === 0 && (
-                            <p className={styles.empty}>Adicione amigos para começar a conversar.</p>
+                        {!loadingFriends && !errorFriends && onlineFriends.length === 0 && (
+                            <p className={styles.empty}>Nenhum amigo online agora.</p>
                         )}
-                        {!loadingFriends && !errorFriends && friends.slice(0, 8).map((friend) => (
-                            <button
-                                key={friend.id}
-                                type="button"
-                                className={styles.listRowAction}
-                                onClick={() => onOpenFriend(friend)}
-                                title={`Conversar com ${friend.displayName}`}
-                            >
-                                <span className={styles.listAvatar} aria-hidden="true">
-                                    {friend.displayName.trim().charAt(0).toUpperCase() || "?"}
-                                </span>
-                                <div className={styles.listText}>
-                                    <span className={styles.listName}>{friend.displayName}</span>
-                                    <span className={styles.listSub}>@{friend.username}</span>
+                        {onlineFriends.slice(0, 8).map((friend) => {
+                            const status = presences.get(friend.id)?.status ?? "offline";
+
+                            return (
+                                <div key={friend.id} className={styles.friendRow}>
+                                    <div className={styles.friendRowArea}>
+                                        <span className={styles.listAvatar} aria-hidden="true">
+                                            {initialOf(friend.displayName)}
+                                        </span>
+                                        <div className={styles.listText}>
+                                            <span className={styles.listName}>{friend.displayName}</span>
+                                            <span className={styles.listSub}>
+                                                <span
+                                                    className={styles.statusDot}
+                                                    aria-hidden="true"
+                                                    style={{
+                                                        background: STATUS_COLOR[status],
+                                                        boxShadow: STATUS_GLOW[status],
+                                                    }}
+                                                />
+                                                {STATUS_LABEL[status]} · @{friend.username}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className={styles.friendRowArea}>
+                                        <button
+                                            type="button"
+                                            className={styles.rowIconBtn}
+                                            title={`Mensagem para ${friend.displayName}`}
+                                            aria-label={`Mensagem para ${friend.displayName}`}
+                                            onClick={() => onOpenFriend(friend)}
+                                        >
+                                            <MessageSquare size={15} aria-hidden="true" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={styles.rowIconBtn}
+                                            title={`Ligar para ${friend.displayName}`}
+                                            aria-label={`Ligar para ${friend.displayName}`}
+                                            onClick={() => void dial(friend)}
+                                        >
+                                            <Phone size={15} aria-hidden="true" />
+                                        </button>
+                                    </div>
                                 </div>
-                                <ChevronRight size={16} aria-hidden="true" className={styles.rowChevron} />
-                            </button>
-                        ))}
-                        {!loadingFriends && !errorFriends && friends.length > 8 && (
+                            );
+                        })}
+                        {onlineFriends.length > 8 && (
                             <button type="button" className={styles.seeAllBtn} onClick={onGoFriends}>
-                                Ver todos os {friends.length} amigos
+                                Ver todos os {onlineFriends.length} online
                             </button>
                         )}
                     </Section>
 
-                    <Section title="Seus grupos">
+                    <Section
+                        title="Grupos em Chamada"
+                        action={
+                            groupCalls.length > 0
+                                ? <span className={styles.badge}>{groupCalls.length}</span>
+                                : undefined
+                        }
+                    >
                         {loadingGroups && <p className={styles.empty}>Carregando...</p>}
-                        {!loadingGroups && errorGroups && <InlineError message={errorGroups} onRetry={reloadGroups} />}
-                        {!loadingGroups && !errorGroups && groups.length === 0 && (
-                            <p className={styles.empty}>Você ainda não está em nenhum grupo. Crie um acima.</p>
+                        {!loadingGroups && groupCalls.length === 0 && (
+                            <p className={styles.empty}>Nenhuma chamada de grupo no momento.</p>
                         )}
-                        {!loadingGroups && !errorGroups && groups.map((group) => (
-                            <button
-                                key={group.id}
-                                type="button"
-                                className={styles.listRowAction}
-                                onClick={() => onSelectGroup({ id: group.id, name: group.name, role: group.role })}
-                                title={`Abrir ${group.name}`}
-                            >
-                                <span className={styles.listAvatar} aria-hidden="true">
-                                    {group.name.trim().charAt(0).toUpperCase() || "?"}
-                                </span>
-                                <span className={styles.listName}>{group.name}</span>
-                                <span className={styles.roleBadge}>{roleLabels[group.role] ?? group.role}</span>
-                                <ChevronRight size={16} aria-hidden="true" className={styles.rowChevron} />
-                            </button>
-                        ))}
+                        {groupCalls.map((call) => {
+                            const present = friends.filter((friend) => presences.get(friend.id)?.groupId === call.callGroupId);
+
+                            return (
+                                <div key={call.key} className={styles.callCard}>
+                                    <div className={styles.callCardTop}>
+                                        <span className={styles.listAvatar} aria-hidden="true">
+                                            {initialOf(call.title)}
+                                        </span>
+                                        <div className={styles.listText}>
+                                            <span className={styles.listName}>{call.title}</span>
+                                            <span className={styles.listSub}>{call.subtitle}</span>
+                                        </div>
+                                        {present.length > 0 && (
+                                            <div className={styles.avatarStack} aria-hidden="true">
+                                                {present.slice(0, 4).map((friend) => (
+                                                    <span key={friend.id} className={styles.stackAvatar}>
+                                                        {initialOf(friend.displayName)}
+                                                    </span>
+                                                ))}
+                                                {present.length > 4 && (
+                                                    <span className={styles.stackAvatar}>+{present.length - 4}</span>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        className={call.isCurrent ? styles.callGroupBtnCurrent : styles.callGroupBtn}
+                                        onClick={() => onJoinCall(call)}
+                                    >
+                                        {call.isCurrent ? "Voltar para a chamada" : "Entrar na Chamada"}
+                                    </button>
+                                </div>
+                            );
+                        })}
                     </Section>
                 </div>
 
+                <Feed />
             </div>
+
+            {modal === "addFriend" && <AddFriendModal onClose={() => setModal(null)} />}
+            {modal === "quickCall" && <QuickCallModal friends={friends} onClose={() => setModal(null)} />}
+            {modal === "createGroup" && (
+                <CreateGroupModal onClose={() => setModal(null)} onCreated={() => void reloadGroups()} />
+            )}
+
         </Page>
     )
 }

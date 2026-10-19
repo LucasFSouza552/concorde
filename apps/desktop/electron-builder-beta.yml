@@ -5,7 +5,13 @@ files:
   - out/**/*
 directories:
   output: release-beta
+extraResources:
+  - from: resources/loopback
+    to: loopback
+  - from: resources/concorde.ico
+    to: concorde.ico
 win:
+  icon: resources/concorde.ico
   target:
     - nsis
 publish:

@@ -40,7 +40,6 @@ function getGraph(stream: MediaStream): StreamGraph {
         source.connect(gain).connect(ctx.destination);
         graph = { source, gain };
         graphs.set(stream, graph);
-        console.debug("[RA] grafo criado (MediaStreamSource), context.state=", ctx.state);
     }
     return graph;
 }
@@ -77,13 +76,12 @@ export function RemoteAudio({ stream, muted, volume }: RemoteAudioProps) {
         const graph = getGraph(stream);
         gainRef.current = graph.gain;
         applyGain(graph.gain, muted ? 0 : (volume ?? 1));
-        console.debug("[RA] gain (init) ←", muted ? 0 : (volume ?? 1));
 
         return () => {
             try {
                 graph.source.disconnect();
                 graph.gain.disconnect();
-            } catch {  }
+            } catch { }
             graphs.delete(stream);
             gainRef.current = null;
         };
@@ -93,9 +91,8 @@ export function RemoteAudio({ stream, muted, volume }: RemoteAudioProps) {
         const gainNode = gainRef.current;
         if (!gainNode) return;
         if (ctx.state === "suspended") void ctx.resume().catch(() => { });
-        const target = muted ? 0 : (volume ?? 1);
+        const target = muted ? 0 : ((volume && volume * 2) ?? 1);
         applyGain(gainNode, target);
-        console.debug("[RA] gain ←", target, "(volume=", volume, "muted=", muted, ")");
     }, [muted, volume]);
 
     return <audio ref={audioRef} autoPlay muted playsInline style={{ display: "none" }} />;

@@ -12,6 +12,7 @@ import { useToast } from "../../contexts/ToastProvider";
 
 import { api, getErrorMessage } from "../../api/api";
 import { GlobalRemoteAudio } from '../../hooks/GlobalRemoteAudio';
+import type { ActiveCallEntry } from "../../hooks/useActiveCalls";
 
 import styles from "./HomePage.module.css";
 
@@ -20,7 +21,7 @@ export type SectionType = "home" | "friends" | "group";
 export default function HomePage() {
     const [Section, setSection] = useState<SectionType>("home");
     const { groupId, peers } = useActiveCall();
-    const { outgoing, joinedGroup } = useCallInviteState();
+    const { outgoing, joinedGroup, joinGroupCall } = useCallInviteState();
     const [activeChannelId, setActiveChannelId] = useState<string | null>(null);
     const [selectedFriend, setSelectedFriend] = useState<Friend | null>(null);
     const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -37,6 +38,26 @@ export default function HomePage() {
             setSection("friends");
         } catch (error) {
             push(getErrorMessage(error), "error");
+        }
+    }
+
+    function goFriends() {
+        setActiveChannelId(null);
+        setSelectedFriend(null);
+        setSection("friends");
+    }
+
+    function handleJoinCall(call: ActiveCallEntry) {
+        if (!call.isCurrent) joinGroupCall(call.callGroupId, call.concordeGroupId);
+
+        if (call.kind === "group" && call.group) {
+            setSelectedGroup({ id: call.group.id, name: call.group.name, role: call.group.role });
+            setSection("group");
+            return;
+        }
+
+        if (call.kind === "dm" && call.friend) {
+            void handleOpenFriend(call.friend);
         }
     }
 
@@ -111,6 +132,8 @@ export default function HomePage() {
                         setSelectedGroup(group);
                         setSection("group");
                     }}
+                    onJoinCall={handleJoinCall}
+                    onGoFriends={goFriends}
                 />
             )}
             {!sidebarOpen && (
@@ -127,11 +150,8 @@ export default function HomePage() {
             <Home
                 hidden={Section !== "home"}
                 onOpenFriend={handleOpenFriend}
-                onGoFriends={() => setSection("friends")}
-                onSelectGroup={(group) => {
-                    setSelectedGroup(group);
-                    setSection("group");
-                }}
+                onGoFriends={goFriends}
+                onJoinCall={handleJoinCall}
             />
             <Friends hidden={Section !== "friends"} activeChannelId={activeChannelId} onActiveChannel={setActiveChannelId} onSelectFriend={setSelectedFriend} selectedFriend={selectedFriend} />
             {Section === "group" && selectedGroup && (

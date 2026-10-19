@@ -11,12 +11,14 @@ const RECONNECT_MAX_MS = 30000;
 const HEARTBEAT_MS = 60_000;
 
 type CallStateMessage = Extract<UserSocketClientMessage, { type: "call-state" }>;
+type SetStatusMessage = Extract<UserSocketClientMessage, { type: "set-status" }>;
 
 export function useUserSocket() {
     const [lastEvent, setLastEvent] = useState<UserSocketServerMessage | null>(null);
     const [connected, setConnected] = useState(false);
     const socketRef = useRef<WebSocket | null>(null);
     const lastCallState = useRef<CallStateMessage | null>(null);
+    const lastStatus = useRef<SetStatusMessage | null>(null);
     const { user } = useAuth();
 
     useEffect(() => {
@@ -56,6 +58,9 @@ export function useUserSocket() {
                 if (lastCallState.current) {
                     ws.send(JSON.stringify(lastCallState.current));
                 }
+                if (lastStatus.current) {
+                    ws.send(JSON.stringify(lastStatus.current));
+                }
                 stopHeartbeat();
                 heartbeatTimer = setInterval(() => {
                     if (ws.readyState === WebSocket.OPEN) {
@@ -70,7 +75,7 @@ export function useUserSocket() {
                     if (parsed.type === "pong") return;
                     setLastEvent(parsed);
                 } catch {
-
+                    /* mensagem malformada — descartada */
                 }
             });
 
@@ -107,8 +112,8 @@ export function useUserSocket() {
         lastEvent,
         connected,
         send: (message: unknown) => {
-            if (message && typeof message === "object" && (message as { type?: string }).type === "call-state") {
-                lastCallState.current = message as CallStateMessage;
+            if (message && typeof message === "object" && (message as { type?: string }).type === "set-status") {
+                lastStatus.current = message as SetStatusMessage;
             }
             const socket = socketRef.current;
             if (!socket || socket.readyState !== WebSocket.OPEN) return;

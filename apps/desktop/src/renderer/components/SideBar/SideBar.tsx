@@ -1,20 +1,25 @@
 import { useEffect, useState } from "react";
-import { Headphones, HeadphoneOff, House, Mic, MicOff, PanelLeftClose, PanelLeftOpen, Settings, Users, Volume2 } from "lucide-react";
-
-import type { GroupRole } from "@concorde/shared";
+import { Headphones, HeadphoneOff, House, Mic, MicOff, PanelLeftClose, PanelLeftOpen, PhoneIncoming, Settings, Users, Volume2 } from "lucide-react";
 
 import IconBtn from "../../components/IconBtn/IconBtn";
 import type { SectionType } from "../../pages/HomePage";
+import type { GroupRole, UserStatus } from "@concorde/shared";
+import VoiceList from "./VoiceList";
 import { useActiveCall } from "../../contexts/ActiveCallProvider";
 import { useAuth } from "../../contexts/AuthContext";
+import { useUserSocketSend } from "../../contexts/UserSocketProvider";
 import NavigationButton from "../NavigationButton/NavigationButton";
 import SettingsModal from "../SettingsModal/SettingsModal";
-import VoiceList from "./VoiceList";
-import { useIncomingRequests } from "../../hooks/useIncomingRequests";
+
+import { STATUS_COLOR, STATUS_LABEL } from "../../utils/status";
+import { useActiveCalls, type ActiveCallEntry } from "../../hooks/useActiveCalls";
+import { useFriendsList } from "../../hooks/useFriendsList";
 import { useGroupsList } from "../../hooks/useGroupsList";
-import { useGroupsVoice } from "../../hooks/useGroupsVoice";
+import { useIncomingRequests } from "../../hooks/useIncomingRequests";
 
 import styles from "./SideBar.module.css";
+
+const SETTABLE_STATUSES = ["online", "away", "busy", "invisible"] as const;
 
 interface SideBarProps {
     section: SectionType;
@@ -23,15 +28,21 @@ interface SideBarProps {
     onToggleSidebar?: () => void;
     selectedGroupId: string | null;
     onSelectGroup: (group: { id: string; name: string; role: GroupRole }) => void;
+    onJoinCall: (call: ActiveCallEntry) => void;
+    onGoFriends?: () => void;
 }
 
-export default function SideBar({ section, setSection, sidebarOpen = true, onToggleSidebar, selectedGroupId, onSelectGroup }: SideBarProps) {
-    const { groupId, micMuted, deafened, toggleMic, toggleDeafen } = useActiveCall();
+export default function SideBar({ section, setSection, sidebarOpen = true, onToggleSidebar, selectedGroupId, onSelectGroup, onJoinCall, onGoFriends }: SideBarProps) {
+    const { micMuted, deafened, toggleMic, toggleDeafen } = useActiveCall();
     const { user } = useAuth();
     const { requests } = useIncomingRequests();
     const { groups, load: reloadGroups } = useGroupsList();
-    const voiceGroups = useGroupsVoice(groups);
+    const { friends } = useFriendsList();
+    const { calls: activeCalls, voiceGroupIds } = useActiveCalls(groups, friends);
     const [settingsOpen, setSettingsOpen] = useState(false);
+    const send = useUserSocketSend();
+    const [status, setStatus] = useState<UserStatus>("online");
+    const [statusMenuOpen, setStatusMenuOpen] = useState(false);
 
     useEffect(() => {
         void reloadGroups();
@@ -42,7 +53,14 @@ export default function SideBar({ section, setSection, sidebarOpen = true, onTog
 
             <nav className={styles.nav}>
                 <NavigationButton id="home" label="Inicio" icon={House} selected={section == "home"} handleClick={() => setSection("home")} />
-                <NavigationButton id="friends" label="Amigos" icon={Users} selected={section == "friends"} handleClick={() => setSection("friends")} badge={requests.length} />
+                <NavigationButton
+                    id="friends"
+                    label="Amigos"
+                    icon={Users}
+                    selected={section == "friends"}
+                    handleClick={onGoFriends ?? (() => setSection("friends"))}
+                    badge={requests.length}
+                />
                 <span className={styles.divisor}></span>
                 {groups.length > 0 && (
                     <div className={styles.guildRow}>
@@ -57,7 +75,7 @@ export default function SideBar({ section, setSection, sidebarOpen = true, onTog
                                 onClick={() => onSelectGroup({ id: group.id, name: group.name, role: group.role })}
                             >
                                 {group.name.trim().charAt(0).toUpperCase() || "?"}
-                                {voiceGroups.has(group.id) && (
+                                {voiceGroupIds.has(group.id) && (
                                     <span className={styles.voiceBadge} title="Chamada ativa">
                                         <Volume2 size={10} />
                                     </span>
@@ -70,27 +88,80 @@ export default function SideBar({ section, setSection, sidebarOpen = true, onTog
             </nav>
 
             <section className={styles.roomPanel}>
-                <h4 className={styles.roomTitle}>Minhas Salas</h4>
-
-                {groupId ? (
-                    <>
-                        <h4 className={styles.voiceLabel}>Chamada</h4>
-                        <div
-                            className={styles.voiceSlot}
-                            onClick={() => setSection("friends")}
-                            title="Voltar para a chamada"
-                        >
-                            <VoiceList />
-                        </div>
-                    </>
+                {activeCalls.length > 0 ? (
+                    <div className={styles.callsBlock}>
+                        <h4 className={styles.voiceLabel}>Chamadas ativas</h4>
+                        {activeCalls.map((call) => (
+                            <div key={call.key} className={styles.callGroup}>
+                                <button
+                                    type="button"
+                                    className={`${styles.callRow} ${call.isCurrent ? styles.callRowCurrent : ""}`}
+                                    title={call.isCurrent ? `Ir para ${call.title}` : `Entrar em ${call.title}`}
+                                    onClick={() => onJoinCall(call)}
+                                >
+                                    <span className={styles.callAvatar}>
+                                        {call.title.trim().charAt(0).toUpperCase() || "?"}
+                                    </span>
+                                    <span className={styles.callText}>
+                                        <span className={styles.callTitle}>{call.title}</span>
+                                        <span className={styles.callSub}>{call.subtitle}</span>
+                                    </span>
+                                    {call.isCurrent
+                                        ? <Volume2 size={16} className={styles.callLiveIcon} aria-hidden="true" />
+                                        : <PhoneIncoming size={16} className={styles.callJoinIcon} aria-hidden="true" />}
+                                </button>
+                                {call.isCurrent && (
+                                    <div className={styles.callVoices}>
+                                        <VoiceList />
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
                 ) : (
                     <p className={styles.roomEmpty}>Nenhuma sala ativa.</p>
                 )}
-
             </section>
 
             <footer className={styles.userPanel}>
-                <div className={styles.avatar}>{(user?.displayName ?? "?").trim().charAt(0).toUpperCase()}</div>
+                <div className={styles.avatarWrap}>
+                    <div className={styles.avatar}>{(user?.displayName ?? "?").trim().charAt(0).toUpperCase()}</div>
+
+                    <button
+                        type="button"
+                        className={styles.statusDot}
+                        style={{ background: STATUS_COLOR[status] }}
+                        title={`Status: ${STATUS_LABEL[status]}`}
+                        aria-label={`Alterar status (atual: ${STATUS_LABEL[status]})`}
+                        aria-expanded={statusMenuOpen}
+                        onClick={() => setStatusMenuOpen((open) => !open)}
+                    />
+
+                    {statusMenuOpen && (
+                        <>
+                            <div className={styles.statusBackdrop} onClick={() => setStatusMenuOpen(false)} />
+                            <div className={styles.statusMenu} role="menu">
+                                {SETTABLE_STATUSES.map((option) => (
+                                    <button
+                                        key={option}
+                                        type="button"
+                                        role="menuitemradio"
+                                        aria-checked={status === option}
+                                        className={`${styles.statusItem} ${status === option ? styles.statusItemSelected : ""}`}
+                                        onClick={() => {
+                                            setStatus(option);
+                                            setStatusMenuOpen(false);
+                                            send({ type: "set-status", status: option });
+                                        }}
+                                    >
+                                        <span className={styles.statusDotStatic} style={{ background: STATUS_COLOR[option] }} />
+                                        {STATUS_LABEL[option]}
+                                    </button>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
                 <div className={styles.identity}>
                     <span className={styles.username}>{user?.displayName}</span>
                     <span className={styles.userHandle}>@{user?.username}</span>

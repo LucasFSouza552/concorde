@@ -25,20 +25,24 @@ interface ChatViewProps {
 
 export default function ChatView({ channelId, friend, onBack, showHeader = true }: ChatViewProps) {
     const { messages, loading, error: errorMessages, send, sending, cooling } = useChannelMessages(channelId);
-    const { dial, outgoing, joinGroupCall } = useCallInviteState();
+    const { dial, outgoing, joinGroupCall, joinedGroup } = useCallInviteState();
     const { groupId, peers } = useActiveCall();
     const { push } = useToast();
     const peerCall = usePeerCallState(friend.id);
 
     const [chatHidden, setChatHidden] = useState(false);
 
+    const inGroupCall = joinedGroup !== null && joinedGroup.callGroupId === groupId;
+
     const inCallWithFriend =
+        !inGroupCall &&
         groupId !== null &&
         (peers.some((peer) => peer.userId === friend.id) ||
             (outgoing.status === "dialing" && outgoing.toUserId === friend.id));
 
-    const showCall = inCallWithFriend || (groupId !== null && peers.length === 0);
-    const showPreview = !showCall && !inCallWithFriend && peerCall !== null;
+    const showCall = inCallWithFriend || (!inGroupCall && groupId !== null && peers.length === 0);
+    const directPeerCall = peerCall && peerCall.concordeGroupId === null ? peerCall : null;
+    const showPreview = !showCall && !inCallWithFriend && directPeerCall !== null;
     const callVisible = showCall || showPreview;
 
     async function handleCall(friend: Friend) {
@@ -56,7 +60,7 @@ export default function ChatView({ channelId, friend, onBack, showHeader = true 
                     friend={friend}
                     onBack={onBack}
                     showCall={showCall}
-                    peerCall={showPreview ? peerCall : null}
+                    peerCall={showPreview ? directPeerCall : null}
                     chatHidden={chatHidden}
                     onToggleChat={() => setChatHidden((hidden) => !hidden)}
                     onJoin={(call) => joinGroupCall(call.groupId, call.concordeGroupId)}

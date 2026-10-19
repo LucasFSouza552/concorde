@@ -1,16 +1,25 @@
-import { UserSocketClientMessage, UserSocketServerMessage } from "@concorde/shared";
-import { Env } from "./types/Env";
 import { findFriendsByStatus } from "./features/friends/friends.repository";
+import { UserSocketClientMessage, UserSocketServerMessage, type UserStatus } from "@concorde/shared";
+import { Env } from "./types/Env";
 
 import { verifyToken } from "./utils/JWT";
 
 interface SocketAttachment {
 	expectedUserId: string;
 	userId: string | null;
+	status: UserStatus;
 	authenticated: boolean;
 	connectedAt: number;
 	callGroupId: string | null;
 	callConcordeGroupId: string | null;
+}
+
+interface PresenceProps {
+	status: UserStatus;
+	online: boolean;
+	inCall: boolean;
+	groupId: string | null;
+	concordeGroupId: string | null
 }
 
 export class UserSession {
@@ -40,6 +49,7 @@ export class UserSession {
 		server.serializeAttachment({
 			expectedUserId: expectedUserId,
 			userId: null,
+			status: "online",
 			authenticated: false,
 			connectedAt: Date.now(),
 			callGroupId: null,
@@ -83,49 +93,106 @@ export class UserSession {
 					return;
 				}
 
+				const hadOtherSession = this.ctx.getWebSockets().some((other) => {
+					if (other === socket) return false;
+					const otherAttachment = other.deserializeAttachment() as SocketAttachment;
+					return otherAttachment.authenticated;
+				});
+
 				socket.serializeAttachment({
 					...attachment,
 					userId,
 					authenticated: true
 				});
 
-			socket.send(JSON.stringify({
-				type: "user-connected",
-				userId
-			} satisfies UserSocketServerMessage));
-		} catch {
-			socket.close(4401, "Token inválido.");
+				socket.send(JSON.stringify({
+					type: "user-connected",
+					userId
+				} satisfies UserSocketServerMessage));
+
+				if (!hadOtherSession) {
+					await this.notifyStatus(userId, "online");
+				}
+			} catch {
+				socket.close(4401, "Token inválido.");
+			}
+
+			return;
 		}
 
-		return;
+		if (parsed.type === "set-status") {
+			const allowed = ["online", "away", "busy", "invisible"];
+
+			if (!attachment.userId || !allowed.includes(parsed.status)) {
+				socket.close(4402, "Status inválido.");
+				return;
+			}
+
+			socket.serializeAttachment({
+				...attachment,
+				status: parsed.status
+			});
+
+			await this.notifyStatus(attachment.userId, parsed.status);
+			return;
+		}
+
+		if (parsed.type !== "call-state") {
+			return;
+		}
+
+		const previousGroupId = attachment.callGroupId;
+		const concordeGroupId = parsed.concordeGroupId ?? null;
+
+		socket.serializeAttachment({
+			...attachment,
+			callGroupId: parsed.groupId,
+			callConcordeGroupId: concordeGroupId
+		});
+
+		if ((previousGroupId !== parsed.groupId || attachment.callConcordeGroupId !== concordeGroupId) && attachment.userId) {
+			await this.notifyCallState(attachment.userId, parsed.groupId, concordeGroupId);
+		}
 	}
 
-	if (parsed.type !== "call-state") {
-		return;
+	private async notifyStatus(userId: string, status: UserStatus): Promise<void> {
+		let friends = [];
+
+		try {
+			friends = await findFriendsByStatus(this.env.concorde_users, userId, "accepted");
+		} catch {
+			return;
+		}
+
+		const message = JSON.stringify({
+			type: "peer-status",
+			userId,
+			status
+		} satisfies UserSocketServerMessage);
+
+		for (const friend of friends) {
+			try {
+				const stub = this.env.USER_SESSIONS.get(this.env.USER_SESSIONS.idFromName(friend.id));
+				await stub.fetch("https://user-session/deliver", {
+					method: "POST",
+					body: message
+				});
+			} catch {
+			}
+		}
 	}
 
-	const previousGroupId = attachment.callGroupId;
-	const concordeGroupId = parsed.concordeGroupId ?? null;
-
-	socket.serializeAttachment({
-		...attachment,
-		callGroupId: parsed.groupId,
-		callConcordeGroupId: concordeGroupId
-	});
-
-	if ((previousGroupId !== parsed.groupId || attachment.callConcordeGroupId !== concordeGroupId) && attachment.userId) {
-		await this.notifyCallState(attachment.userId, parsed.groupId, concordeGroupId);
-	}
-	}
-
-	private presence(): { online: boolean; inCall: boolean; groupId: string | null; concordeGroupId: string | null } {
+	private presence(): PresenceProps {
 		let groupId: string | null = null;
 		let concordeGroupId: string | null = null;
+		let status: UserStatus = "online";
 
 		for (const socket of this.ctx.getWebSockets()) {
 			const attachment = socket.deserializeAttachment() as SocketAttachment;
 
 			if (!attachment.authenticated) continue;
+
+			status = attachment.status;
 
 			if (attachment.callGroupId) {
 				groupId = attachment.callGroupId;
@@ -134,7 +201,16 @@ export class UserSession {
 			}
 		}
 
-		return { online: this.isOnline(), inCall: groupId !== null, groupId, concordeGroupId };
+		const online = this.isOnline();
+
+		return {
+			status: online ? (status === "invisible" ? "offline" : status) : "offline",
+			online,
+			inCall: groupId !== null,
+			groupId,
+			concordeGroupId
+		};
+
 	}
 
 	private async notifyCallState(userId: string, groupId: string | null, concordeGroupId: string | null): Promise<void> {
@@ -174,6 +250,18 @@ export class UserSession {
 			callGroupId: null,
 			callConcordeGroupId: null
 		});
+
+		if (!attachment.authenticated || !attachment.userId) return;
+
+		const stillOnline = this.ctx.getWebSockets().some((other) => {
+			if (other === socket) return false;
+			const otherAttachment = other.deserializeAttachment() as SocketAttachment;
+			return otherAttachment.authenticated;
+		});
+
+		if (stillOnline) return;
+
+		await this.notifyStatus(attachment.userId, "offline");
 	}
 
 	async alarm() {

@@ -1,16 +1,16 @@
 import { useEffect, useState } from "react";
 import { Phone, PhoneIncoming, Users } from "lucide-react";
 
-import Page from "../../../../components/Page/Page";
 import CallScreen from "../../../../components/CallScreen/CallScreen";
+import Page from "../../../../components/Page/Page";
 import type { GroupRole } from "@concorde/shared";
+import GroupDetail from "./GroupDetail";
 import { useCallInviteState } from "../../../../contexts/CallInviteProvider";
 import { useUserSocketEvent } from "../../../../contexts/UserSocketProvider";
 
 import { api } from "../../../../api/api";
 import { useGroupMembers } from "../../../../hooks/useGroupMembers";
 
-import GroupDetail from "./GroupDetail";
 import styles from "./Home.module.css";
 
 interface GroupPageProps {
@@ -73,7 +73,7 @@ export default function GroupPage({ groupId, name, role, onBack }: GroupPageProp
     }, [lastEvent, members, inGroupCall]);
 
     return (
-        <Page>
+        <Page flush={inGroupCall}>
             {inGroupCall ? (
                 <div className={styles.callWithMembers}>
                     <CallScreen layout="full" peerName={name} onBack={onBack} flat />

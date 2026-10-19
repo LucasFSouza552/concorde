@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { useEffect, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { Maximize, Minimize } from "lucide-react";
 
 import CallControls from "./CallControls";
@@ -33,26 +33,12 @@ interface CallScreenProps {
 const LOCAL_ID = "local";
 
 export default function CallScreen({ layout = "panel", controls = true, chatAvailable = false, chatOpen = false, onToggleChat, peerName, onBack, preview = null, flat = false }: CallScreenProps) {
-    const { groupId, peers, peerMuted, peerSharing, micMuted, deafened, status, remoteScreenStreams, screenStream, speakingMap } = useActiveCall();
+    const { groupId, peers, peerMuted, peerSharing, micMuted, deafened, status, remoteScreenStreams, screenStream, speakingMap, watchingShareIds, watchShare, unwatchShare } = useActiveCall();
     const { outgoing } = useCallInviteState();
     const { user } = useAuth();
     const [focusedId, setFocusedId] = useState<string | null>(null);
     const [audioMenu, setAudioMenu] = useState<{ peerId: string; peerName: string; x: number; y: number } | null>(null);
-    const dismissedSharer = useRef<string | null>(null);
     const { ref: sectionRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLElement>();
-
-    const sharerId = screenStream
-        ? LOCAL_ID
-        : (peers.find((peer) => peerSharing[peer.userId])?.userId ?? null);
-
-    useEffect(() => {
-        if (sharerId && sharerId !== dismissedSharer.current) {
-            setFocusedId((current) => current ?? sharerId);
-        }
-        if (!sharerId) {
-            dismissedSharer.current = null;
-        }
-    }, [sharerId]);
 
     useEffect(() => {
         function handleKeyDown(event: globalThis.KeyboardEvent) {
@@ -81,15 +67,7 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
     }
 
     function toggleFocus(id: string) {
-        setFocusedId((current) => {
-            if (current === id) {
-                if (sharerId === id) {
-                    dismissedSharer.current = id;
-                }
-                return null;
-            }
-            return id;
-        });
+        setFocusedId((current) => (current === id ? null : id));
     }
 
     const tiles: GridTile[] = preview
@@ -129,7 +107,10 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
                         speaking={!!speakingMap[peer.userId]}
                         muted={peerMuted[peer.userId]?.muted ?? false}
                         deafened={peerMuted[peer.userId]?.deafened ?? false}
-                        screenStream={peerSharing[peer.userId] ? (remoteScreenStreams[peer.userId] ?? null) : null}
+                        screenStream={peerSharing[peer.userId] && watchingShareIds.has(peer.userId) ? (remoteScreenStreams[peer.userId] ?? null) : null}
+                        isSharing={!!peerSharing[peer.userId]}
+                        onWatchShare={() => watchShare(peer.userId)}
+                        onStopWatchShare={() => unwatchShare(peer.userId)}
                         onContextMenu={(event) => openAudioMenu(event, peer.userId, peer.username)}
                         focused={focusedId === peer.userId}
                         onToggleFocus={() => toggleFocus(peer.userId)}

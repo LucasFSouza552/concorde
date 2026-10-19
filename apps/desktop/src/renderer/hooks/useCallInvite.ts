@@ -214,11 +214,11 @@ export function useCallInvite() {
 
         switch (lastEvent.type) {
             case "call-invite":
-                if (groupId && recentPeerIds.current.has(lastEvent.invite.fromUserId)) {
+                if (groupId && !joinedGroup && recentPeerIds.current.has(lastEvent.invite.fromUserId)) {
                     void api.post(`/calls/${lastEvent.invite.callId}/redirect`, {
                         callerId: lastEvent.invite.fromUserId,
                         groupId,
-                        concordeGroupId: joinedGroup?.concordeGroupId ?? null,
+                        concordeGroupId: null,
                     }).catch(() => { });
                     break;
                 }

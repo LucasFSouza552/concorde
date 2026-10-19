@@ -3,10 +3,8 @@ import { useActiveCall } from "../contexts/ActiveCallProvider";
 import { useSettings } from "../contexts/SettingsProvider";
 
 export function GlobalRemoteAudio() {
-    const { remoteStreams, remoteScreenAudioStreams, deafened, screenAudioMuted } = useActiveCall();
+    const { remoteStreams, remoteScreenAudioStreams, deafened, screenAudioMuted, watchingShareIds } = useActiveCall();
     const { peerVoiceVolumes, peerShareAudios } = useSettings().audio;
-
-    console.debug("[GRA] streams=", Object.keys(remoteStreams), "vols=", peerVoiceVolumes);
 
     return (
         <>
@@ -22,7 +20,7 @@ export function GlobalRemoteAudio() {
                 <RemoteAudio
                     key={`share-${peerId}`}
                     stream={stream}
-                    muted={deafened || screenAudioMuted || (peerShareAudios[peerId]?.muted ?? false)}
+                    muted={!watchingShareIds.has(peerId) || screenAudioMuted || (peerShareAudios[peerId]?.muted ?? false)}
                     volume={peerShareAudios[peerId]?.volume ?? 1}
                 />
             ))}

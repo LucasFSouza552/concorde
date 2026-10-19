@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, desktopCapturer } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, desktopCapturer, Tray } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs';
@@ -61,6 +61,8 @@ interface ScreenAudioSession {
 }
 
 let screenAudioSession: ScreenAudioSession | null = null;
+let isQuitting = false;
+let tray: Tray | null = null;
 
 function captureExePath(): string {
   const name = "concorde-loopback-capture.exe";
@@ -171,11 +173,13 @@ function createWindow() {
     minWidth: 900,
     minHeight: 600,
     frame: false,
+    icon: trayIconPath(),
 
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
+      backgroundThrottling: false,
     },
   });
 
@@ -190,15 +194,73 @@ function createWindow() {
   }
 
   mainWindow = window;
-  window.on("closed", () => {
-    mainWindow = null;
+  window.on("close", (event) => {
+    if (isQuitting) return;
+
+    event.preventDefault();
+    window.hide();
   });
 }
 
+function trayIconPath(): string {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "concorde.ico")
+    : path.join(app.getAppPath(), "resources", "concorde.ico");
+}
+
+function showWindow() {
+  if (!mainWindow) createWindow();
+
+  const window = mainWindow;
+  if (!window) return;
+
+  if (window.isMinimized()) window.restore();
+  window.show();
+  window.focus();
+}
+
+function setupTray() {
+  const icon = trayIconPath();
+
+  if (!fs.existsSync(icon)) {
+    console.warn("[tray] icone nao encontrado:", icon);
+    return;
+  }
+
+  tray = new Tray(icon);
+  tray.setToolTip("Concorde");
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Abrir Concorde", click: () => showWindow() },
+      { type: "separator" },
+      { label: "Sair", click: () => app.quit() },
+    ])
+  );
+  tray.on("double-click", () => showWindow());
+}
+
+// Ativa encoders/decoders por hardware da GPU no Chromium
+app.commandLine.appendSwitch("enable-features", "VaapiVideoEncoder,VaapiVideoDecoder,PlatformHEVCDecoderSupport");
+app.commandLine.appendSwitch("enable-gpu-rasterization");
+app.commandLine.appendSwitch("enable-zero-copy");
+app.commandLine.appendSwitch("ignore-gpu-blocklist");
+
+// Segunda instancia: foca a janela existente em vez de abrir outro app
+const isPrimaryInstance = app.requestSingleInstanceLock();
+
+if (!isPrimaryInstance) app.quit();
+
+app.on("second-instance", () => {
+  showWindow();
+});
+
 app.whenReady().then(() => {
+  if (!isPrimaryInstance) return;
+
   Menu.setApplicationMenu(null);
   createWindow();
   setupAutoUpdater();
+  setupTray();
 
   ipcMain.on('window-minimize', (event) => {
     const window = BrowserWindow.fromWebContents(event.sender);
@@ -209,7 +271,8 @@ app.whenReady().then(() => {
   ipcMain.on('window-maximize', (event) => {
     const window = BrowserWindow.fromWebContents(event.sender);
     if (!window) return;
-    window.isMaximized() ? window.unmaximize() : window.maximize();
+    if (window.isMaximized()) window.unmaximize();
+    else window.maximize();
   });
 
   ipcMain.on('window-close', (event) => {
@@ -275,4 +338,17 @@ app.whenReady().then(() => {
       return null;
     }
   });
+});
+
+app.on("before-quit", () => {
+  isQuitting = true;
+
+  if (tray) {
+    tray.destroy();
+    tray = null;
+  }
+});
+
+app.on("window-all-closed", () => {
+
 });

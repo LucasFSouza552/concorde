@@ -10,3 +10,4 @@ release/
 *.exe
 *.dmg
 *.AppImage
+scripts

@@ -3,12 +3,15 @@ import { EllipsisVertical, MessageCircle, Phone, RotateCcw } from "lucide-react"
 
 import InlineError from "../../../../components/InlineError/InlineError";
 import type { Friend } from "@concorde/shared";
+import type { FriendPresence } from "../../../../hooks/useFriendsPresence";
 import UserIdentity from "./UserIdentity";
 
 import styles from "./Friends.module.css";
 
 interface AcceptedFriendsListProps {
     friends: Friend[];
+    presences?: Map<string, FriendPresence>;
+    title?: string;
     loading: boolean;
     error: string | null;
     onRemove: (friendId: string) => void;
@@ -17,16 +20,16 @@ interface AcceptedFriendsListProps {
     onCall: (friend: Friend) => void;
 }
 
-export default function AcceptedFriendsList({ friends, loading, error, onRemove, onReload, onChat, onCall }: AcceptedFriendsListProps) {
-    const [menuOpen, setMenuOpen] = useState(false);
+export default function AcceptedFriendsList({ friends, presences, title = "Meus amigos", loading, error, onRemove, onReload, onChat, onCall }: AcceptedFriendsListProps) {
+    const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
-        if (!menuOpen) return;
+        if (!menuOpenId) return;
 
         function handleClickOutside(event: MouseEvent) {
             if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
-                setMenuOpen(false);
+                setMenuOpenId(null);
             }
         }
 
@@ -35,12 +38,15 @@ export default function AcceptedFriendsList({ friends, loading, error, onRemove,
         return () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
-    }, [menuOpen]);
+    }, [menuOpenId]);
 
     return (
         <section className={styles.panel}>
             <header className={styles.panelHeader}>
-                <h4 className={styles.panelTitle}>Meus amigos</h4>
+                <h4 className={styles.panelTitle}>
+                    {title}
+                    <span className={styles.count}>{friends.length}</span>
+                </h4>
                 <button className={styles.button} type="button" onClick={onReload}>
                     <RotateCcw />
                 </button>
@@ -49,13 +55,25 @@ export default function AcceptedFriendsList({ friends, loading, error, onRemove,
             {loading && <span>Carregando...</span>}
             {!loading && error && <InlineError message={error} />}
             {!loading && !error && friends.length === 0 && (
-                <p>Você ainda não tem amigos.</p>
+                <p>{title === "Meus amigos" ? "Você ainda não tem amigos." : "Nenhum amigo disponível agora."}</p>
             )}
 
             {!loading && !error && friends.map((friend) => (
                 <div key={friend.id} className={styles.row} onClick={() => onChat(friend)}>
-                    <UserIdentity displayName={friend.displayName} username={friend.username} />
-                    <button className={styles.iconAction}>
+                    <UserIdentity
+                        displayName={friend.displayName}
+                        username={friend.username}
+                        status={presences?.get(friend.id)?.status}
+                    />
+                    <button
+                        type="button"
+                        className={styles.iconAction}
+                        aria-label={`Abrir conversa com ${friend.displayName}`}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onChat(friend);
+                        }}
+                    >
                         <MessageCircle />
                     </button>
                     <button
@@ -76,22 +94,21 @@ export default function AcceptedFriendsList({ friends, loading, error, onRemove,
                         <button
                             type="button"
                             className={styles.iconAction}
-                            aria-label="Mais opções"
+                            aria-label={`Mais opções para ${friend.displayName}`}
                             aria-haspopup="menu"
-                            aria-expanded={menuOpen}
+                            aria-expanded={menuOpenId === friend.id}
                             onClick={() => {
-                                setMenuOpen((open) => !open);
+                                setMenuOpenId((open) => (open === friend.id ? null : friend.id));
                             }}
                         >
                             <EllipsisVertical />
                         </button>
 
-                        {menuOpen && (
+                        {menuOpenId === friend.id && (
                             <div role="menu" className={styles.menu}>
                                 <button type="button" role="menuitem" className={styles.menuItem} onClick={() => {
-                                }}>Ver perfil</button>
-                                <button type="button" role="menuitem" className={styles.menuItem} onClick={() => {
-                                    onRemove(friend.id)
+                                    setMenuOpenId(null);
+                                    onRemove(friend.id);
                                 }}>Desfazer Amizade</button>
                             </div>
                         )}

@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import type { Friend } from "@concorde/shared";
 import { useAuth } from "../../../../../contexts/AuthContext";
 
-import { ConvertTimeStampToHM } from "../../../../../utils/timeConverter";
+import { ConvertTimeStampToDateTime } from "../../../../../utils/timeConverter";
 import type { LocalMessage } from "../../../../../hooks/useChannelMessages";
 
 import styles from "./ChatView.module.css";
@@ -46,7 +46,7 @@ export default function MessageList({ channelId, friend, messages, loading, erro
                             <div className={styles.messageBody}>
                                 <div className={styles.messageHeader}>
                                     <strong>{displayName}</strong>
-                                    <small>{ConvertTimeStampToHM(message.createdAt)}</small>
+                                    <small>{ConvertTimeStampToDateTime(message.createdAt)}</small>
                                 </div>
                                 <p className={styles.messageText}>{message.content}</p>
                             </div>
