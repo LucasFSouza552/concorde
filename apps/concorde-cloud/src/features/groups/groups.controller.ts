@@ -5,6 +5,8 @@ import {
 	addGroupMember,
 	changeGroupMemberRole,
 	createGroup,
+	dissolveGroup,
+	leaveGroup,
 	listGroupMembers,
 	listUserGroups,
 	removeGroupMember
@@ -114,4 +116,30 @@ export async function changeGroupMemberRoleController(c: AppContext) {
 	);
 
 	return c.json({ status: "updated" }, 200);
+}
+
+export async function leaveGroupController(c: AppContext) {
+	const userId = c.get("userId");
+	const groupId = c.req.param("groupId");
+
+	if (!groupId) {
+		throw AppError.badRequest("Grupo é obrigatório.");
+	}
+
+	await leaveGroup(c.env.concorde_users, groupId, userId);
+
+	return c.json({ status: "left" }, 200);
+}
+
+export async function dissolveGroupController(c: AppContext) {
+	const userId = c.get("userId");
+	const groupId = c.req.param("groupId");
+
+	if (!groupId) {
+		throw AppError.badRequest("Grupo é obrigatório.");
+	}
+
+	await dissolveGroup(c.env.concorde_users, groupId, userId);
+
+	return c.json({ status: "dissolved" }, 200);
 }

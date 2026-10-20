@@ -113,6 +113,26 @@ export async function countGroups(db: D1Database, userId: string): Promise<numbe
 	return row?.total ?? 0;
 }
 
+export async function deleteGroup(db: D1Database, groupId: string): Promise<void> {
+	await db.batch([
+		db.prepare(
+			`DELETE FROM messages WHERE channelId IN (SELECT id FROM channels WHERE groupId = ?)`
+		).bind(groupId),
+		db.prepare(
+			`DELETE FROM channel_users WHERE channelId IN (SELECT id FROM channels WHERE groupId = ?)`
+		).bind(groupId),
+		db.prepare(
+			`DELETE FROM channels WHERE groupId = ?`
+		).bind(groupId),
+		db.prepare(
+			`DELETE FROM group_members WHERE groupId = ?`
+		).bind(groupId),
+		db.prepare(
+			`DELETE FROM groups WHERE id = ?`
+		).bind(groupId)
+	]);
+}
+
 export interface GroupMemberWithUser {
 	id: string;
 	username: string;

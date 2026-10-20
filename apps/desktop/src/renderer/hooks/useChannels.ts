@@ -35,6 +35,15 @@ export function useChannels() {
         void load();
     }, [load]);
 
+    useEffect(() => {
+        function handleChanged() {
+            void load();
+        }
+
+        window.addEventListener("concorde:groups-changed", handleChanged);
+        return () => window.removeEventListener("concorde:groups-changed", handleChanged);
+    }, [load]);
+
     return { channels, load, loading, error };
 
 }

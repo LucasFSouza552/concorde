@@ -2,6 +2,7 @@ import { GroupRole, GroupWithRole } from "@concorde/shared";
 import {
 	countGroupOwners,
 	countGroups,
+	deleteGroup,
 	deleteGroupMember,
 	findGroupById,
 	findGroupMember,
@@ -180,4 +181,46 @@ export async function listGroupMembers(db: D1Database, actorId: string, groupId:
 	}
 
 	return listGroupMembersRepo(db, groupId);
+}
+
+export async function leaveGroup(db: D1Database, groupId: string, userId: string) {
+	const group = await findGroupById(db, groupId);
+
+	if (!group) {
+		throw AppError.notFound("Grupo não encontrado.");
+	}
+
+	const membership = await findGroupMember(db, groupId, userId);
+
+	if (!membership) {
+		throw AppError.forbidden("Você não participa deste grupo.");
+	}
+
+	if (membership.role === "owner") {
+		const owners = await countGroupOwners(db, groupId);
+
+		if (owners <= 1) {
+			throw AppError.badRequest(
+				"O dono não pode sair do grupo. Dissolva o grupo ou transfira a liderança."
+			);
+		}
+	}
+
+	const removed = await deleteGroupMember(db, groupId, userId);
+
+	if (!removed) {
+		throw AppError.notFound("Membro não encontrado.");
+	}
+}
+
+export async function dissolveGroup(db: D1Database, groupId: string, userId: string) {
+	const group = await findGroupById(db, groupId);
+
+	if (!group) {
+		throw AppError.notFound("Grupo não encontrado.");
+	}
+
+	await requireGroupRole(db, groupId, userId, ["owner"]);
+
+	await deleteGroup(db, groupId);
 }

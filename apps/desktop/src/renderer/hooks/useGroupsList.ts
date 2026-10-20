@@ -4,6 +4,10 @@ import type { GroupWithRole } from "@concorde/shared";
 
 import { api, getErrorMessage } from "../api/api";
 
+export function notifyGroupsChanged() {
+    window.dispatchEvent(new Event("concorde:groups-changed"));
+}
+
 export function useGroupsList() {
     const [groups, setGroups] = useState<GroupWithRole[]>([]);
     const [loading, setLoading] = useState(true);
@@ -25,6 +29,15 @@ export function useGroupsList() {
 
     useEffect(() => {
         void load();
+    }, [load]);
+
+    useEffect(() => {
+        function handleChanged() {
+            void load();
+        }
+
+        window.addEventListener("concorde:groups-changed", handleChanged);
+        return () => window.removeEventListener("concorde:groups-changed", handleChanged);
     }, [load]);
 
     return { groups, loading, error, load };
