@@ -202,8 +202,14 @@ export function useCall(groupId: string | null): UseCallResult {
             stopScreenShare();
             socketRef.current?.close();
             socketRef.current = null;
-
             webrtc.closeAll();
+
+            setPeers([]);
+            setPeerMuted({});
+            setPeerSharing({});
+            setRemoteStreams({});
+            setRemoteScreenStreams({});
+            setRemoteScreenAudioStreams({});
         };
     }, [groupId]);
 
@@ -294,11 +300,8 @@ export function useCall(groupId: string | null): UseCallResult {
         let stream: MediaStream;
         let audioTrack: MediaStreamTrack | null = null;
 
-        // Video da fonte selecionada. NUNCA capturamos audio global do sistema.
         stream = await captureScreen(false);
 
-        // Audio SOMENTE da janela selecionada, capturado por processo (WASAPI
-        // Process Loopback). Se falhar, compartilhamos sem audio — sem fallback.
         if (wantAudio) {
             try {
                 const pid = await window.concorde?.windows.getPid(sourceId);

@@ -19,14 +19,6 @@ async function deliverToUser(env: Env, userId: string, message: UserSocketServer
 	});
 }
 
-export async function redirectCall(env: Env, callerId: string, callId: string, groupId: string, concordeGroupId?: string | null) {
-	if (!callId || !groupId) {
-		throw AppError.badRequest("É nescessário informar a chamada e a sala.");
-	}
-
-	await relayCallEvent(env, callerId, { type: "call-redirect", callId, groupId, concordeGroupId: concordeGroupId ?? null });
-}
-
 export async function createCallInvite(env: Env, fromUserId: string, toUserId: string) {
 	const db = env.concorde_users;
 	if (!toUserId) {

@@ -69,7 +69,6 @@ app.get("/call/:groupId", async (c) => {
 app.get("/user/:userId/socket", async (c) => {
 	const id = c.env.USER_SESSIONS.idFromName(c.req.param("userId"));
 	const stub = c.env.USER_SESSIONS.get(id);
-	console.log("Conectado novo usuário", id);
 	return stub.fetch(c.req.raw);
 });
 

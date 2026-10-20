@@ -17,7 +17,6 @@ export async function listFriendsController(c: AppContext) {
 export async function listRequestController(c: AppContext) {
 	const userId = c.get("userId");
 	const requests = await listRequests(c.env.concorde_users, userId);
-	console.log(requests);
 	return c.json({ requests }, 200);
 }
 

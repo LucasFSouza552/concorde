@@ -30,7 +30,6 @@ export function useCallInvite() {
     const socketConnected = useUserSocketConnected();
     const sendUserMessage = useUserSocketSend();
 
-    const recentPeerIds = useRef<Set<string>>(new Set());
     const peersRef = useRef(peers);
     peersRef.current = peers;
 
@@ -54,6 +53,7 @@ export function useCallInvite() {
         const { data } = await api.post<{ invite: CallInvite }>("/calls", { toUserId: friend.id });
 
         join(data.invite.groupId);
+        setJoinedGroup(null);
         setOutgoing({
             status: "dialing",
             groupId: data.invite.groupId,
@@ -201,27 +201,10 @@ export function useCallInvite() {
     }, [incoming]);
 
     useEffect(() => {
-        if (!groupId) {
-            recentPeerIds.current.clear();
-            return;
-        }
-
-        peers.forEach((peer) => recentPeerIds.current.add(peer.userId));
-    }, [groupId, peers]);
-
-    useEffect(() => {
         if (!lastEvent) return;
 
         switch (lastEvent.type) {
             case "call-invite":
-                if (groupId && !joinedGroup && recentPeerIds.current.has(lastEvent.invite.fromUserId)) {
-                    void api.post(`/calls/${lastEvent.invite.callId}/redirect`, {
-                        callerId: lastEvent.invite.fromUserId,
-                        groupId,
-                        concordeGroupId: null,
-                    }).catch(() => { });
-                    break;
-                }
 
                 if (!incoming) {
                     setIncoming(lastEvent.invite);
@@ -253,18 +236,6 @@ export function useCallInvite() {
                     setIncoming(null);
                 } else if (waiting?.callId === lastEvent.callId) {
                     setWaiting(null);
-                }
-                break;
-            case "call-redirect":
-                if (outgoing.status === "dialing" && outgoing.callId === lastEvent.callId) {
-                    clearTimer();
-                    void api.post(`/calls/${outgoing.callId}/cancel`, {
-                        toUserId: outgoing.toUserId
-                    }).catch(() => { });
-                    leave();
-                    setOutgoing({ status: "idle" });
-                    join(lastEvent.groupId);
-                    setJoinedGroup(lastEvent.concordeGroupId ? { callGroupId: lastEvent.groupId, concordeGroupId: lastEvent.concordeGroupId } : null);
                 }
                 break;
         }

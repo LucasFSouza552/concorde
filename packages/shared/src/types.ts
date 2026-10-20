@@ -60,7 +60,6 @@ export type UserSocketServerMessage =
     | { type: "call-declined"; callId: string }
     | { type: "call-cancelled"; callId: string }
     | { type: "peer-status"; userId: string; status: UserStatus }
-    | { type: "call-redirect"; callId: string; groupId: string; concordeGroupId?: string | null }
     | { type: "peer-call-state"; userId: string; groupId: string | null; concordeGroupId?: string | null };;
 
 // Group
@@ -109,6 +108,7 @@ export interface CallInvite {
     groupId: string;
     fromUserId: string;
     fromDisplayName: string;
+    concordeGroupId?: string;
     createdAt: number;
     expiresAt: number;
 }
@@ -124,14 +124,4 @@ export interface ScreenQuality {
     width: number;
     height: number;
     frameRate: number;
-}
-
-export interface CallInvite {
-    callId: string;
-    groupId: string;
-    fromUserId: string;
-    fromDisplayName: string;
-    concordeGroupId?: string;
-    createdAt: number;
-    expiresAt: number;
 }

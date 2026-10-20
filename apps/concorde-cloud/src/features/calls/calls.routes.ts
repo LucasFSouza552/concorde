@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 
-import { acceptCallController, cancelCallController, createCallController, createGroupCallController, declineCallController, redirectCallController } from "./calls.controller";
+import { acceptCallController, cancelCallController, createCallController, createGroupCallController, declineCallController } from "./calls.controller";
 import { authMiddleware } from "../../middleware/auth";
 import { Env } from "../../types/Env";
 
@@ -12,6 +12,5 @@ calls.post("/group", createGroupCallController);
 calls.post("/:id/accept", acceptCallController);
 calls.post("/:id/decline", declineCallController);
 calls.post("/:id/cancel", cancelCallController);
-calls.post("/:id/redirect", redirectCallController);
 
 export default calls;
