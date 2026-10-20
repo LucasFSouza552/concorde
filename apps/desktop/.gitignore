@@ -10,6 +10,8 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
+release
+release-beta
 *.local
 
 # Artefatos de build nativo (helper de captura por processo)

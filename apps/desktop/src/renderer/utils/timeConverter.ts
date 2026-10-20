@@ -1,13 +1,4 @@
 
-export function ConvertTimeStampToHM(epochTime: number) {
-    const time = new Date(epochTime).toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit"
-    });
-
-    return time;
-}
-
 export function ConvertTimeStampToDateTime(epochTime: number) {
     const date = new Date(epochTime);
     const now = new Date();

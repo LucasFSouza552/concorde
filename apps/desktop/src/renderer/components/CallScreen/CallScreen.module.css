@@ -183,42 +183,6 @@
     min-width: 0;
 }
 
-.unfocusBtn {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    z-index: 2;
-
-    display: flex;
-    align-items: center;
-    gap: 6px;
-
-    padding: 6px 12px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 999px;
-
-    background: rgba(0, 0, 0, 0.7);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
-    color: var(--color-text);
-
-    font-family: var(--font-sans);
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-
-    transition: background-color 0.15s ease;
-}
-
-.unfocusBtn:hover {
-    background: rgba(0, 0, 0, 0.9);
-}
-
-.unfocusBtn:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-}
-
 .focusStage .tile {
     flex: 1;
     width: 100%;

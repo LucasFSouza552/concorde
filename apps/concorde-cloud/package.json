@@ -12,10 +12,8 @@
 	},
 	"dependencies": {
 		"@concorde/shared": "workspace:*",
-		"argon2": "^0.45.1",
 		"hono": "^4.13.12",
-		"jose": "^6.2.12",
-		"zod": "^4.6.5"
+		"jose": "^6.2.12"
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-plugin": "^1.0.0",

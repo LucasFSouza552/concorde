@@ -17,7 +17,6 @@ declare global {
 
     interface Window {
         concorde: {
-            version: string
             window: {
                 minimize: () => void
                 maximize: () => void

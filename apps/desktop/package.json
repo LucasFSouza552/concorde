@@ -36,9 +36,8 @@
     "dev": "electron-vite dev",
     "dev:online": "cross-env VITE_API_URL=https://concorde-cloud.lucasfelipe552.workers.dev electron-vite dev",
     "build": "tsc -b && electron-vite build && electron-builder --win",
-    "dist": "pnpm build && electron-builder --win",
+    "dist": "electron-builder --win",
     "lint": "eslint .",
-    "preview": "vite preview",
     "test": "vitest run",
     "dist:beta": "pnpm build && electron-builder --win --config electron-builder-beta.yml"
   },

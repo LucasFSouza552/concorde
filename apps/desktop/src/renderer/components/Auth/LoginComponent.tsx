@@ -21,11 +21,7 @@ export function Login({ email, password, handleChange, showPassword, handleBoolC
     async function handleSubmit(e: React.SubmitEvent<HTMLFormElement>) {
         e.preventDefault();
 
-        if (!email) {
-            return;
-        }
-
-        if (!password) {
+        if (!email || !password) {
             return;
         }
 

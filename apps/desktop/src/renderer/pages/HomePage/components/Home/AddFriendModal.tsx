@@ -1,6 +1,8 @@
 import { CheckCircle2, TriangleAlert } from "lucide-react";
 
 import Modal from "../../../../components/Modal/Modal";
+
+import { getErrorMessage } from '../../../../api/api';
 import { useFriendRequest } from "../../../../hooks/useFriend";
 
 import styles from "./Home.module.css";
@@ -13,8 +15,8 @@ export default function AddFriendModal({ onClose }: { onClose: () => void }) {
     async function handleAdd() {
         try {
             await add();
-        } catch {
-            /* a mensagem de erro é exibida em `state` */
+        } catch (error) {
+            console.log(getErrorMessage(error));
         }
     }
 

@@ -1,75 +1,18 @@
-# React + TypeScript + Vite
+# Concorde — Desktop (Electron)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Cliente desktop do Concorde (monorepo pnpm), construído com electron-vite (main + preload + renderer) React e publicado com electron-builder.
 
-Currently, two official plugins are available:
+## Scripts
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `pnpm dev` — dev API local (`pnpm server` na raiz sobe o worker em `localhost:8787`).
+- `pnpm dev:online` — dev apontando para o worker publicado do cloud.
+- `pnpm build` — `tsc -b` + `electron-vite build` + `electron-builder --win` (gera instalador).
+- `pnpm dist` — `electron-builder --win` (empacota usando o `out/` existente).
+- `pnpm dist:beta` — build + empacotamento com o canal beta (`electron-builder-beta.yml`).
+- `pnpm lint` — ESLint. `pnpm test` — Vitest (`src/renderer/audio/SensitivityGate.test.ts`).
 
-## React Compiler
+## Recursos
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
-
-You can also install [eslint-plugin-react-x](https://npmx.dev/package/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://npmx.dev/package/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
+- **Ícone**: `resources/concorde.ico` é gerado a partir de `resources/concorde-original.ico` pelo pipeline manual `scripts/generate-icon.py` (raíz do monorepo).
+- **Áudio de janela compartilhada**: `resources/loopback/concorde-loopback-capture.exe` (WASAPI process loopback). Fonte em `native/loopback-capture/`; recompilar com `build.ps1`. O binário é gitignored (`*.exe`) — regenerável.
+- **Config única do Vite**: `electron.vite.config.ts` (não existe config de web separada).

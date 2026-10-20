@@ -2,9 +2,9 @@
   "name": "Concorde",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "pnpm --filter @concorde/desktop test",
+    "clean": "node clean.mjs",
     "dev": "pnpm --filter @concorde/desktop dev",
     "server": "pnpm --filter @concorde/concorde-cloud dev"
   },

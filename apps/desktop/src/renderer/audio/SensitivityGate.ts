@@ -8,12 +8,6 @@ export interface SensitivityOptions {
     hangoverMs?: number;
 }
 
-export interface GateState {
-    level: number;
-    threshold: number;
-    open: boolean;
-}
-
 const DEFAULTS = {
     mode: "auto" as SensitivityMode,
     manualThreshold: 0.08,
@@ -99,14 +93,6 @@ export class SensitivityGate {
             Object.entries(patch).filter(([, v]) => v !== undefined)
         );
         Object.assign(this.options, clean);
-    }
-
-    getState(): GateState {
-        return {
-            level: this.level,
-            threshold: this.currentThreshold(),
-            open: this.open
-        };
     }
 
     private currentThreshold(): number {

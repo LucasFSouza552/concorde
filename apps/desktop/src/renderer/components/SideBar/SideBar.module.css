@@ -1,11 +1,3 @@
-.container {
-    width: 100%;
-    height: 100%;
-
-    display: flex;
-    overflow-y: auto;
-}
-
 .voiceLabel {
     margin: 8px 0 4px;
     font-size: 12px;
@@ -281,7 +273,7 @@
     color: var(--color-primary);
 }
 
-/* Seletor de status do usuário */
+/* Seletor de status do usuï¿½rio */
 
 .avatarWrap {
     position: relative;

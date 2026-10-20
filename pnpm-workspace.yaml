@@ -3,7 +3,6 @@ packages:
   - "packages/*"
 allowBuilds:
   esbuild: false
-  electron: truerm -rf node_modules
+  electron: true
   workerd: true
-  argon2: true
   electron-winstaller: true

@@ -293,20 +293,8 @@
     cursor: wait;
 }
 
-.success {
-    color: var(--color-success);
-}
-
 .error {
     color: var(--color-danger);
-}
-
-.chatRow {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: 12px 4px;
-
 }
 
 .row {
