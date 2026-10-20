@@ -135,43 +135,274 @@
     line-height: 1.5;
 }
 
-.profileRow {
+.panelStack {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.sectionCard {
+    padding: 16px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+    background: var(--color-background);
+    box-shadow: var(--shadow-sm);
+}
+
+.sectionHead {
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 20px;
-    padding: 12px;
-    border: 1px solid var(--color-border-subtle);
-    border-radius: var(--radius-md);
-    background: var(--color-background);
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--color-border-subtle);
 }
 
-.profileAvatar {
+.sectionIcon {
     display: grid;
     place-items: center;
     flex: none;
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: var(--gradient-brand);
-    color: var(--color-primary-ink);
-    font-size: 18px;
-    font-weight: 700;
-    text-transform: uppercase;
-    user-select: none;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    background: rgba(255, 20, 147, 0.12);
+    color: var(--color-primary);
 }
 
-.profileName {
+.sectionIconAlt {
+    background: rgba(107, 33, 255, 0.16);
+    color: #b399ff;
+}
+
+.sectionHeadText {
+    flex: 1;
+    min-width: 0;
+}
+
+.sectionTitle {
     margin: 0;
     color: var(--color-text);
     font-size: 14px;
     font-weight: 700;
 }
 
-.profileUser {
-    margin: 2px 0 0;
+.sectionHint {
+    margin: 3px 0 0;
     color: var(--color-text-muted);
     font-size: 12px;
+    line-height: 1.4;
+}
+
+.formStack {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.fieldLabel {
+    margin: 2px 0 -6px;
+    color: var(--color-label);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.fieldWrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.fieldIcon {
+    position: absolute;
+    left: 13px;
+    display: grid;
+    place-items: center;
+    color: var(--color-text-muted);
+    pointer-events: none;
+}
+
+.fieldInput {
+    width: 100%;
+    padding: 11px 40px 11px 38px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fieldInput::placeholder {
+    color: var(--color-text-muted);
+}
+
+.fieldInput:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px rgba(255, 20, 147, 0.16);
+}
+
+.fieldEye {
+    position: absolute;
+    right: 6px;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.fieldEye:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+}
+
+.fieldEye:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+.actionBtn {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 2px;
+    padding: 10px 18px;
+    border: none;
+    border-radius: var(--radius-pill);
+    background: var(--gradient-button);
+    color: #ffffff;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: filter 0.15s ease, opacity 0.15s ease, transform 0.1s ease;
+}
+
+.actionBtn:hover:not(:disabled) {
+    filter: brightness(1.12);
+}
+
+.actionBtn:active:not(:disabled) {
+    transform: translateY(1px);
+}
+
+.actionBtn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.actionBtn:disabled {
+    opacity: 0.5;
+    cursor: default;
+}
+
+.errorChip {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin: 0;
+    padding: 9px 11px;
+    border: 1px solid rgba(255, 59, 92, 0.35);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 59, 92, 0.08);
+    color: var(--color-danger);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.profileCard {
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+    background: var(--color-background);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+}
+
+.banner {
+    height: 96px;
+    background: var(--gradient-brand);
+}
+
+.avatarWrap {
+    display: flex;
+    align-items: flex-end;
+    margin-top: -34px;
+    padding: 0 20px;
+}
+
+.avatarBig {
+    display: grid;
+    place-items: center;
+    width: 72px;
+    height: 72px;
+    border-radius: var(--radius-lg);
+    background: var(--gradient-brand);
+    box-shadow: 0 0 0 5px var(--color-background);
+    color: var(--color-primary-ink);
+    font-size: 26px;
+    font-weight: 800;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+.identityBody {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 10px 20px 18px;
+}
+
+.identityHead {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.identityName {
+    margin: 0;
+    color: var(--color-text);
+    font-size: 17px;
+    font-weight: 800;
+}
+
+.identityHandle {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.divider {
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+.sinceRow {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: var(--color-text-muted);
+    font-size: 12px;
+}
+
+.sinceDate {
+    color: var(--color-text);
+    font-weight: 700;
+}
+
+.sinceBadge {
+    margin-left: auto;
+    color: var(--color-primary);
 }
 
 .settingRow {
@@ -343,9 +574,14 @@
 }
 
 .dangerBtn {
-    padding: 9px 16px;
-    border: 1px solid var(--color-danger);
-    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 2px;
+    padding: 10px 18px;
+    border: 1px solid rgba(255, 59, 92, 0.4);
+    border-radius: var(--radius-pill);
     background: transparent;
     color: var(--color-danger);
     font-family: var(--font-sans);

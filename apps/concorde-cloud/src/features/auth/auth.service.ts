@@ -6,6 +6,11 @@ import { AppError } from "../../utils/AppError";
 import { hashPassword, verifyPassword } from "../../utils/auth.password";
 import { createToken } from "../../utils/JWT";
 
+import { getUserRecordById, updateDisplayName, updateUserPassword } from "./auth.repository";
+
+const MAX_DISPLAY_NAME_LENGTH = 32;
+const MAX_PASSWORD_LENGTH = 128;
+
 export async function registerUser(db: D1Database, secret: string, data: RegisterData): Promise<LoginResponse> {
 
 	const { email, password } = data;
@@ -83,4 +88,64 @@ export async function getCurrentUser(db: D1Database, id: string): Promise<User> 
 	}
 
 	return user;
+}
+
+export async function changeDisplayName(db: D1Database, id: string, displayName: unknown): Promise<User> {
+	if (typeof displayName !== "string") {
+		throw AppError.badRequest("Informe um nome de exibição.");
+	}
+
+	const name = displayName.trim().slice(0, MAX_DISPLAY_NAME_LENGTH);
+
+	if (name.length === 0) {
+		throw AppError.badRequest("O nome de exibição não pode ficar vazio.");
+	}
+
+	if (name !== displayName.trim()) {
+		throw AppError.badRequest(`O nome pode ter no máximo ${MAX_DISPLAY_NAME_LENGTH} caracteres.`);
+	}
+
+	await updateDisplayName(db, id, name);
+
+	const user = await getUserById(db, id);
+
+	if (!user) {
+		throw AppError.notFound("Usuário não encontrado");
+	}
+
+	return user;
+}
+
+export async function changePassword(db: D1Database, id: string, currentPassword: unknown, newPassword: unknown): Promise<void> {
+	if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+		throw AppError.badRequest("Informe a senha atual e a nova senha.");
+	}
+
+	if (!currentPassword || !newPassword) {
+		throw AppError.badRequest("Informe a senha atual e a nova senha.");
+	}
+
+	if (newPassword.length < 6) {
+		throw AppError.badRequest("A nova senha precisa de pelo menos 6 caracteres.");
+	}
+
+	if (newPassword.length > MAX_PASSWORD_LENGTH) {
+		throw AppError.badRequest(`A senha pode ter no máximo ${MAX_PASSWORD_LENGTH} caracteres.`);
+	}
+
+	const record = await getUserRecordById(db, id);
+
+	if (!record) {
+		throw AppError.notFound("Usuário não encontrado");
+	}
+
+	const currentValid = await verifyPassword(currentPassword, record.passwordHash, record.passwordSalt);
+
+	if (!currentValid) {
+		throw AppError.badRequest("A senha atual está incorreta.");
+	}
+
+	const { hash, salt } = await hashPassword(newPassword);
+
+	await updateUserPassword(db, id, hash, salt);
 }

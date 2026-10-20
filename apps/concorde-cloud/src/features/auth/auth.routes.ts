@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 
-import { loginController, meController, registerController } from "./auth.controller";
+import { loginController, meController, registerController, updatePasswordController, updateProfileController } from "./auth.controller";
 import { authMiddleware } from "../../middleware/auth";
 import type { Env } from "../../types/Env";
 
@@ -10,15 +10,14 @@ auth.get("/", async (c) => {
 	return c.json({ status: "ok", route: "auth" });
 });
 
-auth.get("/users", async (c) => {
-	const users = await c.env.concorde_users.prepare("SELECT * FROM users").all();
-	return c.json(users, 200);
-});
-
 auth.post("/login", loginController);
 
 auth.post("/register", registerController);
 
 auth.get("/me", authMiddleware, meController);
+
+auth.patch("/me", authMiddleware, updateProfileController);
+
+auth.post("/me/password", authMiddleware, updatePasswordController);
 
 export default auth;

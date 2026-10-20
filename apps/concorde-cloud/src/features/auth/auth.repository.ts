@@ -52,3 +52,25 @@ export async function getUserById(db: D1Database, id: string): Promise<User | nu
 
 	return user;
 }
+
+export async function getUserRecordById(db: D1Database, id: string): Promise<UserRecord | null> {
+	const user = await db.prepare("SELECT * FROM users WHERE id = ?").bind(id).first<UserRecord>();
+
+	if (user) user.friendsOnly = Boolean(user.friendsOnly as unknown as number);
+
+	return user;
+}
+
+export async function updateDisplayName(db: D1Database, id: string, displayName: string) {
+	await db
+		.prepare("UPDATE users SET displayName = ? WHERE id = ?")
+		.bind(displayName, id)
+		.run();
+}
+
+export async function updateUserPassword(db: D1Database, id: string, passwordHash: string, passwordSalt: string) {
+	await db
+		.prepare("UPDATE users SET passwordHash = ?, passwordSalt = ? WHERE id = ?")
+		.bind(passwordHash, passwordSalt, id)
+		.run();
+}

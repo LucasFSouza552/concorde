@@ -23,6 +23,7 @@ interface AuthContextData {
 
     login: (userForm: Credentials) => Promise<void>;
     register: (userForm: RegisterData) => Promise<void>;
+    updateUser: (next: User) => void;
 
     logout: () => void;
 
@@ -171,6 +172,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setSession(null);
     }
 
+    function updateUser(next: User) {
+        setSession((current) => (current ? { ...current, user: next } : current));
+    }
+
     function clearError() {
         setError(null);
     }
@@ -183,6 +188,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
                 login,
                 register,
+                updateUser,
 
                 logout,
 
