@@ -10,7 +10,7 @@
 
 .brand {
     margin: 0;
-    font-size: 28px;
+    font-size: var(--fs-display);
     font-weight: 800;
     letter-spacing: -0.02em;
     background: var(--gradient-brand);
@@ -38,7 +38,7 @@
 .step {
     margin: 0;
     color: var(--color-text-muted);
-    font-size: 13px;
+    font-size: var(--fs-md);
 }
 
 .iconWrap {
@@ -54,7 +54,7 @@
 
 .title {
     margin: 0;
-    font-size: 20px;
+    font-size: var(--fs-2xl);
     font-weight: 700;
     letter-spacing: -0.01em;
     text-align: center;
@@ -63,7 +63,7 @@
 .hint {
     margin: 0;
     color: var(--color-text-muted);
-    font-size: 13px;
+    font-size: var(--fs-md);
     text-align: center;
 }
 
@@ -74,7 +74,7 @@
     background: var(--color-primary);
     color: var(--color-primary-ink);
     font-family: var(--font-sans);
-    font-size: 13px;
+    font-size: var(--fs-md);
     font-weight: 700;
     cursor: pointer;
     transition: background-color 0.15s ease;

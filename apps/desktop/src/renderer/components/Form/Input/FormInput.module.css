@@ -44,7 +44,7 @@
     background: transparent;
     color: var(--color-text);
 
-    font-size: 14px;
+    font-size: var(--fs-base);
 }
 
 .label {
@@ -54,7 +54,7 @@
     transform: translateY(-50%);
 
     color: var(--color-label);
-    font-size: 14px;
+    font-size: var(--fs-base);
 
     pointer-events: none;
 
@@ -76,5 +76,5 @@
     background: var(--color-surface);
 
     color: var(--color-primary);
-    font-size: 11px;
+    font-size: var(--fs-xs);
 }

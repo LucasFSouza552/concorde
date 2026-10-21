@@ -11,7 +11,7 @@
     height: 20px;
 
     border: 2px solid var(--color-primary-ink);
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
 
     position: relative;
     overflow: hidden;

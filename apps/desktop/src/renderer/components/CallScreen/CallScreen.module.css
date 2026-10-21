@@ -8,8 +8,6 @@
     border: 1px solid var(--color-border-subtle);
     border-radius: var(--radius-lg);
     background: var(--color-surface);
-
-    border-bottom: solid 1px var(--color-surface-active);
 }
 
 .fullscreenBtn {
@@ -234,7 +232,7 @@
 
     background: var(--gradient-brand);
     color: var(--color-primary-ink);
-    font-size: 14px;
+    font-size: var(--fs-base);
     font-weight: 700;
     text-transform: uppercase;
     user-select: none;
@@ -248,7 +246,7 @@
 
 .peerName {
     color: var(--color-text);
-    font-size: 13px;
+    font-size: var(--fs-md);
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
@@ -257,7 +255,7 @@
 
 .peerStatus {
     color: var(--color-success);
-    font-size: 11px;
+    font-size: var(--fs-xs);
     font-weight: 600;
 }
 
@@ -296,7 +294,7 @@
     display: flex;
     flex-direction: column;
     background: #0d0d14;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     overflow: hidden;
     height: 100%;
     min-height: 120px;
@@ -328,12 +326,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 28px;
+    font-size: var(--fs-display);
     font-weight: 700;
     color: var(--color-primary-ink);
     text-transform: uppercase;
     user-select: none;
-    box-shadow: 0 4px 20px rgba(255, 20, 147, 0.3);
     flex: 0 0 auto;
 }
 
@@ -360,7 +357,7 @@
 }
 
 .ringingLabel {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     color: var(--color-text-muted);
     font-weight: 500;
     opacity: 0.9;
@@ -384,12 +381,12 @@
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     padding: 5px 10px;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .name {
-    font-size: 13px;
+    font-size: var(--fs-md);
     font-weight: 600;
     color: var(--color-text);
     white-space: nowrap;
@@ -399,7 +396,7 @@
 }
 
 .youLabel {
-    font-size: 11px;
+    font-size: var(--fs-xs);
     color: var(--color-success);
     font-weight: 500;
     opacity: 0.8;
@@ -421,7 +418,6 @@
     color: white;
     flex-shrink: 0;
     pointer-events: none;
-    box-shadow: 0 2px 8px rgba(255, 59, 92, 0.4);
 }
 
 .controls {
@@ -521,10 +517,10 @@
 .watchBtn {
     padding: 8px 16px;
     border: 1px solid var(--color-border);
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     background: var(--color-surface-active);
     color: var(--color-text);
-    font-size: 13px;
+    font-size: var(--fs-md);
     font-weight: 500;
     cursor: pointer;
     transition: background 0.15s ease;
@@ -541,12 +537,12 @@
     right: 8px;
     padding: 4px 10px;
     border: none;
-    border-radius: 6px;
+    border-radius: var(--radius-xs);
     background: rgba(0, 0, 0, 0.6);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     color: #fff;
-    font-size: 12px;
+    font-size: var(--fs-sm);
     cursor: pointer;
     transition: background 0.15s ease;
     z-index: 2;

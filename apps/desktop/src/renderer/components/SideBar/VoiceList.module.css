@@ -19,7 +19,7 @@
     border-radius: 50%;
     border: 2px solid transparent;
     background: var(--gradient-brand);
-    font-size: 12px;
+    font-size: var(--fs-sm);
     font-weight: 700;
 }
 
@@ -33,7 +33,7 @@
     overflow: hidden;
     white-space: nowrap;
     text-overflow: ellipsis;
-    font-size: 13px;
+    font-size: var(--fs-md);
 }
 
 .on {

@@ -24,13 +24,21 @@ interface ChatViewProps {
 }
 
 export default function ChatView({ channelId, friend, onBack, showHeader = true }: ChatViewProps) {
-    const { messages, loading, error: errorMessages, send, sending, cooling } = useChannelMessages(channelId);
+    const { messages, loading, error: errorMessages, send, sending, cooling, remove } = useChannelMessages(channelId);
     const { dial, outgoing, joinGroupCall, joinedGroup } = useCallInviteState();
     const { groupId, peers } = useActiveCall();
     const { push } = useToast();
     const peerCall = usePeerCallState(friend.id);
 
     const [chatHidden, setChatHidden] = useState(false);
+
+    async function handleDelete(messageId: string) {
+        try {
+            await remove(messageId);
+        } catch {
+            /* erro já foi toastado no hook */
+        }
+    }
 
     const inGroupCall = joinedGroup !== null && joinedGroup.callGroupId === groupId;
 
@@ -93,6 +101,7 @@ export default function ChatView({ channelId, friend, onBack, showHeader = true 
                         messages={messages}
                         loading={loading}
                         error={errorMessages}
+                        onDelete={handleDelete}
                     />
                     <ChatInput sending={sending} cooling={cooling} send={send} />
                 </>

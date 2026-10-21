@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { NewMessage } from "@concorde/shared";
 import { useAuth } from "../contexts/AuthContext";
 import { useUserSocketEvent } from "../contexts/UserSocketProvider";
+import { useToast } from "../contexts/ToastProvider";
 
 import { api, getErrorMessage } from "../api/api";
 
@@ -27,6 +28,7 @@ export function useChannelMessages(channelId: string | null) {
     const [cooling, setCooling] = useState(false);
     const cooldownTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const { user } = useAuth();
+    const { push: pushToast } = useToast();
     const lastEvent = useUserSocketEvent();
 
     const load = useCallback(async () => {
@@ -57,6 +59,15 @@ export function useChannelMessages(channelId: string | null) {
         if (lastEvent.message.channelId !== channelId) return;
 
         setMessages((current) => appendMessage(current, lastEvent.message));
+    }, [lastEvent, channelId]);
+
+    useEffect(() => {
+        if (!lastEvent || lastEvent.type !== "channel-message-deleted") return;
+        if (lastEvent.channelId !== channelId) return;
+
+        const { messageId } = lastEvent;
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setMessages((current) => current.filter((item) => item.id !== messageId));
     }, [lastEvent, channelId]);
 
     useEffect(() => {
@@ -96,5 +107,19 @@ export function useChannelMessages(channelId: string | null) {
         }
     }, [channelId, sending, cooling, user]);
 
-    return { messages, loading, error, load, send, sending, cooling };
+    const remove = useCallback(async (messageId: string) => {
+        if (!channelId) return;
+
+        try {
+            await api.delete(`/channels/${channelId}/messages/${messageId}`);
+            setMessages((current) => current.some((item) => item.id === messageId)
+                ? current.filter((item) => item.id !== messageId)
+                : current);
+        } catch (error) {
+            pushToast?.(getErrorMessage(error), "error");
+            throw error;
+        }
+    }, [channelId, pushToast]);
+
+    return { messages, loading, error, load, send, sending, cooling, remove };
 }

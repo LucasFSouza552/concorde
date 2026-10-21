@@ -7,6 +7,97 @@
     <title>Concorde</title>
   </head>
   <body>
+    <div id="pre-titlebar">
+      <span class="pre-title">Concorde</span>
+      <div class="pre-controls">
+        <button type="button" id="pre-min" aria-label="Minimizar">&#x2013;</button>
+        <button type="button" id="pre-max" aria-label="Maximizar">&#x25A1;</button>
+        <button type="button" id="pre-close" aria-label="Fechar">&#xD7;</button>
+      </div>
+    </div>
+
+    <style>
+      /* Fallback estático: sobrevive a falhas do React/Vite (título + controles). */
+      #pre-titlebar {
+        display: flex;
+        height: 32px;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        background: #0f0f16;
+        border-bottom: 1px solid #08080d;
+        -webkit-app-region: drag;
+        user-select: none;
+        padding: 0 0 0 8px;
+      }
+
+      #pre-titlebar .pre-title {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #a7a2bd;
+        letter-spacing: 0.02em;
+      }
+
+      #pre-titlebar .pre-title::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #ff2e93 0%, #ee1485 48%, #6b21ff 100%);
+      }
+
+      #pre-titlebar .pre-controls {
+        height: 100%;
+        display: flex;
+        gap: 2px;
+        -webkit-app-region: no-drag;
+      }
+
+      #pre-titlebar .pre-controls button {
+        width: 32px;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        background: transparent;
+        color: #a7a2bd;
+        font-size: 14px;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      #pre-titlebar .pre-controls button:hover {
+        background: #191922;
+        color: #ffffff;
+      }
+
+      #pre-titlebar #pre-close:hover {
+        background: #ff3b5c;
+        color: #ffffff;
+      }
+    </style>
+
+    <script>
+      (function () {
+        var bridge = window.concorde;
+
+        function bind(id, action) {
+          var el = document.getElementById(id);
+          if (el) el.addEventListener("click", action);
+        }
+
+        bind("pre-min", function () { window.concorde && window.concorde.window.minimize(); });
+        bind("pre-max", function () { window.concorde && window.concorde.window.maximize(); });
+        bind("pre-close", function () { window.concorde && window.concorde.window.close(); });
+
+        void bridge;
+      })();
+    </script>
+
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

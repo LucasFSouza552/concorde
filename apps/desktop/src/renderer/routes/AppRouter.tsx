@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { Route, Routes } from 'react-router-dom';
 
 import BootScreen from '../components/BootScreen/BootScreen';
@@ -13,6 +14,10 @@ import "../styles/variables.css";
 
 export default function AppRouter() {
     const { user, serverStatus } = useAuth();
+
+    useEffect(() => {
+        document.getElementById("pre-titlebar")?.remove();
+    }, []);
 
     return (
         <div className={styles.app}>

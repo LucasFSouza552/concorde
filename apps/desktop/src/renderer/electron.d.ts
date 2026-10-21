@@ -31,6 +31,8 @@ declare global {
             }
             app: {
                 getVersion: () => Promise<string>
+                getAutoLaunch: () => Promise<boolean>
+                setAutoLaunch: (enabled: boolean) => Promise<boolean>
             }
             windows: {
                 getPid: (sourceId: string) => Promise<number | null>

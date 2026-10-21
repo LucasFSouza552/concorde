@@ -1,7 +1,7 @@
 import { Context } from "hono";
 
 import { listUserChannels } from "./channels.repository";
-import { createGroupChannel, listChannelMembers, listMessages, resolveDMChannel, sendMessage } from "./channels.service";
+import { createGroupChannel, deleteMessage, listChannelMembers, listMessages, resolveDMChannel, sendMessage } from "./channels.service";
 import { Env } from "../../types/Env";
 
 import { AppError } from "../../utils/AppError";
@@ -72,6 +72,20 @@ export async function listMessagesController(c: AppContext) {
 	const messages = await listMessages(c.env.concorde_users, userId, channelId, limit);
 
 	return c.json({ messages }, 200);
+}
+
+export async function deleteMessageController(c: AppContext) {
+	const userId = c.get("userId");
+	const channelId = c.req.param("id");
+	const messageId = c.req.param("messageId");
+
+	if (!channelId || !messageId) {
+		throw AppError.badRequest("O ID do canal e da mensagem são obrigatórios.");
+	}
+
+	const result = await deleteMessage(c.env, userId, channelId, messageId);
+
+	return c.json({ deleted: result.id }, 200);
 }
 
 export async function listChannelMembersController(c: AppContext) {

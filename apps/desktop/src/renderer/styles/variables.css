@@ -19,38 +19,78 @@
     --color-primary: #ff1493;
     --color-primary-hover: #ff007f;
     --color-primary-ink: #ffffff;
+    --color-primary-soft: rgba(255, 20, 147, 0.12);
 
     /* Status */
-    --color-success: #00ff66;
+    --color-success: #39ff14;
+    --color-success-soft: rgba(57, 255, 20, 0.1);
     --color-danger: #ff3b5c;
     --color-danger-hover: #d92648;
+    --color-danger-soft: rgba(255, 59, 92, 0.1);
     --color-warning: #ffb020;
+    --color-warning-soft: rgba(255, 176, 32, 0.1);
 
-    /* Gradientes */
+    /* Gradiente de identidade (único) */
     --gradient-brand: linear-gradient(135deg,
             #ff2e93 0%,
             #ee1485 48%,
             #6b21ff 100%);
 
-    --gradient-button: linear-gradient(135deg,
-            #c93b8e 0%,
-            #9a4bd6 100%);
-
+    /* Raios */
+    --radius-xs: 6px;
     --radius-sm: 8px;
-    --radius-md: 12px;
-    --radius-lg: 18px;
+    --radius-md: 10px;
+    --radius-lg: 14px;
     --radius-card: 16px;
     --radius-pill: 999px;
+    --radius-round: 50%;
 
-    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.35);
-    --shadow-md: 0 6px 20px rgba(0, 0, 0, 0.4);
-    --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5);
-    --shadow-xl: 0 20px 60px rgba(0, 0, 0, 0.55);
+    /* Sombras: apenas overlays flutuantes */
+    --shadow-overlay: 0 12px 40px rgba(5, 4, 10, 0.55);
+    --shadow-focus: 0 0 0 3px var(--color-primary-soft);
+
+    /* Tipografia */
+    --fs-xs: 11px;
+    --fs-sm: 12px;
+    --fs-md: 13px;
+    --fs-base: 14px;
+    --fs-lg: 15px;
+    --fs-xl: 17px;
+    --fs-2xl: 20px;
+    --fs-3xl: 24px;
+    --fs-display: 28px;
+
+    --lh-tight: 1.2;
+    --lh-normal: 1.5;
 
     --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
 
+    /* Movimento */
+    --dur-fast: 120ms;
+    --dur: 160ms;
+    --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+    --focus-ring: 0 0 0 2px var(--color-background), 0 0 0 4px var(--color-primary);
+
+    /* Espaçamentos */
+    --spacing-2xs: 2px;
     --spacing-xs: 4px;
     --spacing-sm: 8px;
     --spacing-md: 12px;
     --spacing-lg: 16px;
+    --spacing-xl: 20px;
+    --spacing-2xl: 24px;
+    --spacing-3xl: 32px;
+    --spacing-4xl: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }

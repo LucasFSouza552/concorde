@@ -2,9 +2,11 @@ import { NewChannel, NewMessage } from "@concorde/shared";
 import {
 	addChannelUser,
 	createChannel,
+	deleteMessageById,
 	findChannelById,
 	findChannelUser,
 	findDMchannel,
+	findMessageById,
 	findOtherChannelUser,
 	insertMessage,
 	listChannelMembers as listChannelMembersRepo,
@@ -67,6 +69,10 @@ export async function sendMessage(env: Env, userId: string, channelId: string, c
 		throw AppError.badRequest("É necessário informar o conteúdo da mensagem");
 	}
 
+	if (text.length > 3000) {
+		throw AppError.badRequest("A mensagem deve ter no máximo 3000 caracteres");
+	}
+
 	await requireChannelAccess(db, userId, channel);
 
 	if (channel.kind === "dm") {
@@ -109,6 +115,42 @@ export async function sendMessage(env: Env, userId: string, channelId: string, c
 
 	return message;
 
+}
+
+export async function deleteMessage(env: Env, userId: string, channelId: string, messageId: string) {
+	const db = env.concorde_users;
+
+	const channel = await findChannelById(db, channelId);
+	if (!channel) {
+		throw AppError.notFound("Canal não encontrado");
+	}
+
+	await requireChannelAccess(db, userId, channel);
+
+	const message = await findMessageById(db, channelId, messageId);
+	if (!message) {
+		throw AppError.notFound("Mensagem não encontrada");
+	}
+
+	if (message.userId !== userId) {
+		throw AppError.forbidden("Você só pode excluir suas próprias mensagens");
+	}
+
+	await deleteMessageById(db, channelId, messageId);
+
+	const members = await listChannelMembers(db, userId, channelId);
+
+	for (const member of members) {
+		if (member.id === userId) continue;
+
+		const stub = env.USER_SESSIONS.get(env.USER_SESSIONS.idFromName(member.id));
+		await stub.fetch("https://user-session/deliver", {
+			method: "POST",
+			body: JSON.stringify({ type: "channel-message-deleted", channelId, messageId })
+		});
+	}
+
+	return { id: messageId };
 }
 
 export async function listMessages(db: D1Database, userId: string, channelId: string, limit: number) {

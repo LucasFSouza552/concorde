@@ -55,6 +55,7 @@ export type UserSocketServerMessage =
     | { type: "pong" }
     | { type: "user-connected"; userId: string }
     | { type: "channel-message"; message: NewMessage }
+    | { type: "channel-message-deleted"; channelId: string; messageId: string }
     | { type: "call-invite"; invite: CallInvite }
     | { type: "call-accepted"; callId: string }
     | { type: "call-declined"; callId: string }

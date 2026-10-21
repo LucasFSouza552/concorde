@@ -110,6 +110,18 @@ export async function listGroupChannelMembers(db: D1Database, groupId: string) {
 	return results ?? [];
 }
 
+export async function findMessageById(db: D1Database, channelId: string, messageId: string): Promise<NewMessage | null> {
+	return db.prepare(`SELECT id, channelId, userId, kind, content, createdAt FROM messages WHERE id = ? AND channelId = ?`)
+		.bind(messageId, channelId)
+		.first<NewMessage>();
+}
+
+export async function deleteMessageById(db: D1Database, channelId: string, messageId: string) {
+	await db.prepare(`DELETE FROM messages WHERE id = ? AND channelId = ?`)
+		.bind(messageId, channelId)
+		.run();
+}
+
 export async function listChannelMessages(db: D1Database, channelId: string, limit: number) {
 	const { results } = await db
 		.prepare(`SELECT id, channelId, userId, kind, content, createdAt FROM messages WHERE channelId = ? ORDER BY createdAt ASC LIMIT ?`)

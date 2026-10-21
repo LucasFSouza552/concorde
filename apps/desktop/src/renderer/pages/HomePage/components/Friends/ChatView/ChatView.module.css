@@ -11,8 +11,8 @@
 .chatHeader {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px 4px;
+  gap: var(--spacing-md);
+  padding: var(--spacing-md) var(--spacing-xs);
   border-bottom: 1px solid var(--color-border-subtle);
 }
 
@@ -97,6 +97,12 @@
   scrollbar-color: var(--color-surface-active) transparent;
 }
 
+.chatMessages,
+.chatMessages * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
 .callWrap {
     flex: 2 1 0%;
     min-width: 0;
@@ -173,7 +179,7 @@
   place-items: center;
   border-radius: 50%;
   background: var(--gradient-brand);
-  font-size: 14px;
+  font-size: var(--fs-base);
   font-weight: 700;
 }
 
@@ -186,25 +192,76 @@
 
 .messageText {
   margin: 0;
-  font-size: 14px;
+  font-size: var(--fs-base);
   overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .messageHeader {
   display: flex;
   align-items: baseline;
   gap: var(--spacing-xs);
-  font-size: 14px;
+  font-size: var(--fs-base);
 }
 
 .messageHeader small {
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: var(--fs-xs);
   font-weight: 400;
 }
 
+.messagePendingHint {
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.messageDeleteBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex: none;
+
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-pill);
+
+  background: transparent;
+  color: var(--color-text-muted);
+
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  opacity: 0;
+  visibility: hidden;
+  cursor: pointer;
+  transition: opacity var(--dur) var(--ease-out), background-color var(--dur) var(--ease-out), color var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
+}
+
+.messageRow:hover .messageDeleteBtn,
+.messageDeleteBtn:focus-visible {
+  opacity: 0.65;
+  visibility: visible;
+}
+
+.messageDeleteBtn:hover {
+  background: var(--color-danger);
+  border-color: transparent;
+  color: #ffffff;
+  opacity: 1;
+}
+
+.messageDeleteArmed {
+  background: var(--color-danger);
+  color: #ffffff;
+  opacity: 1;
+  visibility: visible;
+}
+
 .chatInput {
+  position: relative;
   display: flex;
+  align-items: flex-end;
   gap: var(--spacing-sm);
   padding: 12px;
   border-top: 1px solid var(--color-border-subtle);
@@ -213,14 +270,38 @@
 .chatField {
   flex: 1;
   min-width: 0;
+  max-height: 160px;
   padding: 12px 16px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-lg);
   background: var(--color-background);
   color: var(--color-text);
   font-family: var(--font-sans);
-  font-size: 14px;
+  font-size: var(--fs-base);
+  line-height: var(--lh-normal);
+  resize: none;
+  overflow-y: auto;
   outline: none;
+  scrollbar-width: thin;
+  scrollbar-gutter: stable;
+  scrollbar-color: var(--color-surface-active) transparent;
+}
+
+.chatField::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chatField::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chatField::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-active);
+}
+
+.chatField::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border);
 }
 
 .chatField::placeholder {
@@ -231,15 +312,38 @@
   border-color: var(--color-primary);
 }
 
+.charCount {
+  position: absolute;
+  top: -22px;
+  right: 12px;
+  z-index: 5;
+
+  padding: 2px 8px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--fs-xs);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.charCountNear {
+  color: var(--color-warning);
+  font-weight: 700;
+}
+
 .sendBtn {
   flex: 0 0 auto;
-  padding: 0 20px;
+  height: 42px;
+  padding: 0 22px;
   border: none;
-  border-radius: var(--radius-pill);
-  background: var(--gradient-button);
+  border-radius: var(--radius-lg);
+  background: var(--color-primary);
   color: var(--color-primary-ink);
   font-family: var(--font-sans);
-  font-size: 13px;
+  font-size: var(--fs-md);
   font-weight: 700;
   cursor: pointer;
   transition: filter 0.15s ease;

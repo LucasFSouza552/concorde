@@ -38,7 +38,9 @@ contextBridge.exposeInMainWorld("concorde", {
         quitAndInstall: () => ipcRenderer.invoke("updates:quit-and-install")
     },
     app: {
-        getVersion: () => ipcRenderer.invoke("app:get-version")
+        getVersion: () => ipcRenderer.invoke("app:get-version"),
+        getAutoLaunch: () => ipcRenderer.invoke("app:get-auto-launch") as Promise<boolean>,
+        setAutoLaunch: (enabled: boolean) => ipcRenderer.invoke("app:set-auto-launch", enabled) as Promise<boolean>
     },
     windows: {
         getPid: (sourceId: string) => ipcRenderer.invoke("window:get-pid", sourceId) as Promise<number | null>

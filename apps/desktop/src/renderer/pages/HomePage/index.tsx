@@ -134,6 +134,13 @@ export default function HomePage() {
                     }}
                     onJoinCall={handleJoinCall}
                     onGoFriends={goFriends}
+                    onOpenFriend={handleOpenFriend}
+                    onGroupDeleted={(groupId) => {
+                        if (selectedGroup?.id === groupId) {
+                            setSelectedGroup(null);
+                            setSection("home");
+                        }
+                    }}
                 />
             )}
             {!sidebarOpen && (

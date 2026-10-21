@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Phone, PhoneIncoming, Users } from "lucide-react";
+import { Users } from "lucide-react";
 
 import CallScreen from "../../../../components/CallScreen/CallScreen";
 import Page from "../../../../components/Page/Page";
@@ -100,31 +100,18 @@ export default function GroupPage({ groupId, name, role, onBack }: GroupPageProp
                         </div>
                     )}
                 </div>
-            ) : activeRoom ? (
-                <button
-                    type="button"
-                    className={styles.callGroupBtn}
-                    onClick={() => joinGroupCall(activeRoom.groupId, groupId)}
-                >
-                    <PhoneIncoming size={16} />
-                    Voltar à chamada
-                </button>
             ) : (
-                <button
-                    type="button"
-                    className={styles.callGroupBtn}
-                    onClick={() => void dialGroup(groupId, members)}
-                >
-                    <Phone size={16} />
-                    Ligar para o grupo
-                </button>
-            )}
-            {!inGroupCall && (
                 <GroupDetail
                     groupId={groupId}
                     name={name}
                     myRole={role}
                     onBack={onBack}
+                    callAction={activeRoom ? "join" : "start"}
+                    callLabel={activeRoom ? "Entrar na chamada" : "Iniciar chamada"}
+                    onCall={() => {
+                        if (activeRoom) joinGroupCall(activeRoom.groupId, groupId);
+                        else void dialGroup(groupId, members);
+                    }}
                 />
             )}
         </Page>

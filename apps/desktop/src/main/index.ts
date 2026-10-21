@@ -14,6 +14,32 @@ interface UpdateStatus {
 
 let mainWindow: BrowserWindow | null = null;
 
+function autoLaunchStorePath() {
+  return path.join(app.getPath("userData"), "auto-launch.json");
+}
+
+function readAutoLaunchPref(): boolean | undefined {
+  try {
+    const raw = fs.readFileSync(autoLaunchStorePath(), "utf8");
+    return JSON.parse(raw).enabled === true;
+  } catch {
+    return undefined;
+  }
+}
+
+function writeAutoLaunchPref(enabled: boolean) {
+  try {
+    fs.writeFileSync(autoLaunchStorePath(), JSON.stringify({ enabled }), "utf8");
+  } catch { /* armazenamento opcional */ }
+}
+
+function applyAutoLaunch(enabled: boolean) {
+  if (app.isPackaged) {
+    app.setLoginItemSettings({ openAtLogin: Boolean(enabled) });
+  }
+  writeAutoLaunchPref(enabled);
+}
+
 function sendUpdateStatus(status: UpdateStatus) {
   mainWindow?.webContents.send("updates:status", status);
 }
@@ -257,6 +283,16 @@ app.on("second-instance", () => {
 app.whenReady().then(() => {
   if (!isPrimaryInstance) return;
 
+  const autoLaunchPref = readAutoLaunchPref();
+
+  if (autoLaunchPref === undefined) {
+    writeAutoLaunchPref(app.isPackaged ? true : false);
+  }
+
+  if (app.isPackaged) {
+    app.setLoginItemSettings({ openAtLogin: autoLaunchPref ?? true });
+  }
+
   Menu.setApplicationMenu(null);
   createWindow();
   setupAutoUpdater();
@@ -296,6 +332,16 @@ app.whenReady().then(() => {
   });
 
   ipcMain.handle("app:get-version", () => app.getVersion());
+
+  ipcMain.handle("app:get-auto-launch", () => {
+    if (!app.isPackaged) return readAutoLaunchPref() ?? false;
+    return app.getLoginItemSettings().openAtLogin;
+  });
+
+  ipcMain.handle("app:set-auto-launch", (_event, enabled: boolean) => {
+    applyAutoLaunch(Boolean(enabled));
+    return app.getLoginItemSettings().openAtLogin;
+  });
 
   setupScreenAudio();
 

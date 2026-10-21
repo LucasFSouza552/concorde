@@ -1,86 +1,131 @@
-.voiceLabel {
-    margin: 8px 0 4px;
-    font-size: 12px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--color-text-muted);
-}
+/* =========================================================
+   Barra de nível 1 (rail) + painel de nível 2 + rodapé fixo
+   ========================================================= */
 
 .aside {
-    min-width: 380px;
-    max-width: 380px;
-
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
 
     height: 100%;
 
-    background: #181820;
+    background: var(--color-surface);
+    border-right: 1px solid var(--color-border-subtle);
+}
 
+.rail {
+    display: flex;
+    flex: none;
+    flex-direction: column;
+    align-items: center;
+
+    width: 68px;
+    gap: 5px;
+    padding: 12px 0;
+
+    background: var(--color-background);
     border-right: 1px solid var(--color-border-subtle);
 
-    padding: 12px;
+    overflow-y: auto;
+    scrollbar-width: none;
 }
 
-.nav {
-    display: flex;
-    flex-direction: column;
-    padding: 4px 2px 12px;
-    gap: 4px;
-
+.rail::-webkit-scrollbar {
+    display: none;
 }
 
-.divisor {
-    border-bottom: 1px solid var(--color-label);
-}
-
-.guildRow {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: center;
-    padding: 4px 0;
-}
-
-.guildBtn {
+.railBtn {
     display: grid;
     place-items: center;
-    align-self: center;
+    flex: none;
 
     position: relative;
-    width: 48px;
-    height: 48px;
+    width: 44px;
+    height: 44px;
     padding: 0;
-    border: 2px solid transparent;
-    border-radius: 50%;
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
 
-    background: var(--color-surface-active);
-    color: var(--color-text);
+    background: transparent;
+    color: var(--color-text-muted);
 
-    font-size: 18px;
-    font-weight: 800;
     cursor: pointer;
-    transition: border-radius 0.15s ease, border-color 0.15s ease, background-color 0.15s ease;
+    transition: background-color var(--dur) var(--ease-out), color var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
 }
 
-.guildBtn:hover {
-    border-radius: 16px;
+.railGuild {
+    background: var(--color-surface-active);
+    border: 1px solid transparent;
+    color: var(--color-text);
+    font-size: var(--fs-lg);
+    font-weight: 800;
+    text-transform: uppercase;
+    overflow: hidden;
+}
+
+.railBtn:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+}
+
+.railGuild:hover {
+    background: var(--color-surface-hover);
+    border-color: var(--color-primary);
+}
+
+.railSelected {
     background: var(--color-primary);
     color: var(--color-primary-ink);
+    border-color: transparent;
 }
 
-.guildSelected {
-    border-radius: 16px;
-    border-color: var(--color-text);
-    background: var(--color-primary);
-    color: var(--color-primary-ink);
+.railDivider {
+    flex: none;
+    width: 28px;
+    margin: 10px 0;
+    border-top: 1px solid var(--color-border-subtle);
 }
 
-.voiceBadge {
+.railSpacer {
+    flex: 1;
+    min-height: 12px;
+}
+
+.railAdd {
+    color: var(--color-text-muted);
+    border-style: dashed;
+    border-color: var(--color-border);
+}
+
+.railAdd:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: transparent;
+}
+
+.railBadge {
     position: absolute;
-    right: -2px;
-    bottom: -2px;
+    top: -4px;
+    right: -6px;
+
+    display: grid;
+    place-items: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: var(--radius-pill);
+
+    background: var(--color-primary);
+    color: var(--color-primary-ink);
+
+    font-size: 10px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.railPip {
+    position: absolute;
+    right: -3px;
+    bottom: -3px;
 
     display: grid;
     place-items: center;
@@ -92,80 +137,95 @@
     color: #06130b;
 }
 
-.roomEmpty {
-    margin: 0;
-    padding: 4px;
-    color: var(--color-text-muted);
-    font-size: 12px;
+.panel {
+    display: flex;
+    flex-direction: column;
+
+    width: 280px;
+    height: 100%;
 }
 
-.userPanel {
+.searchRow {
     display: flex;
     align-items: center;
+    flex: none;
     gap: var(--spacing-sm);
 
-    width: 100%;
-    padding: var(--spacing-sm);
-
-    background: var(--color-surface);
-    border-radius: 10px;
+    padding: 12px;
+    border-bottom: 1px solid var(--color-border-subtle);
 }
 
-.avatar {
-    display: flex;
-    width: 40px;
-    height: 40px;
+.searchIcon {
     flex: none;
-    border-radius: 100%;
-    justify-content: center;
-    align-items: center;
-
-    background: var(--gradient-brand);
-    font-size: 16px;
-    font-weight: 700;
-    user-select: none;
-}
-
-.identity {
-    flex: 1;
-    min-width: 0;
-    display: flex;
-    flex-direction: column;
-}
-
-.username {
-    min-width: 0;
-
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-
-    font-size: 13px;
-    font-weight: 700;
-}
-
-.userHandle {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-
     color: var(--color-text-muted);
-    font-size: 11px;
 }
 
-.actions {
-    display: flex;
-    flex-direction: row;
-    gap: 5px;
-}
-
-.roomPanel {
+.searchField {
     flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    min-width: 0;
+    padding: 7px 0;
+
+    border: none;
+    background: transparent;
+
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+
+    outline: none;
+}
+
+.searchField::placeholder {
+    color: var(--color-text-muted);
+}
+
+.searchAction {
+    display: grid;
+    place-items: center;
+    flex: none;
+
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+
+    background: transparent;
+    color: var(--color-text-muted);
+
+    cursor: pointer;
+    transition: background-color var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+}
+
+.searchAction:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+}
+
+.panelScroll {
+    flex: 1;
     min-height: 0;
     overflow-y: auto;
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+
+    padding: 12px 8px;
+}
+
+.categoryLabel {
+    margin: 4px 8px 4px;
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.panelDivider {
+    margin: 12px 8px;
+    border-top: 1px solid var(--color-border-subtle);
 }
 
 .callsBlock {
@@ -203,10 +263,11 @@
     background: transparent;
     color: var(--color-text);
 
-    font-size: 13px;
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
     text-align: left;
     cursor: pointer;
-    transition: background-color 0.15s ease;
+    transition: background-color var(--dur) var(--ease-out);
 }
 
 .callRow:hover {
@@ -225,7 +286,7 @@
     background: var(--gradient-brand);
     color: var(--color-primary-ink);
 
-    font-size: 12px;
+    font-size: var(--fs-sm);
     font-weight: 700;
     text-transform: uppercase;
 }
@@ -242,7 +303,7 @@
     white-space: nowrap;
     text-overflow: ellipsis;
 
-    font-size: 13px;
+    font-size: var(--fs-md);
     font-weight: 600;
 }
 
@@ -252,7 +313,7 @@
     text-overflow: ellipsis;
 
     color: var(--color-text-muted);
-    font-size: 11px;
+    font-size: var(--fs-xs);
 }
 
 .callJoinIcon {
@@ -273,7 +334,161 @@
     color: var(--color-primary);
 }
 
-/* Seletor de status do usu�rio */
+.dmList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.dmRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    width: 100%;
+    padding: 6px 8px;
+    border: none;
+    border-radius: var(--radius-md);
+
+    background: transparent;
+    color: var(--color-text);
+
+    font-family: var(--font-sans);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--dur) var(--ease-out);
+}
+
+.dmRow:hover {
+    background: var(--color-surface-hover);
+}
+
+.dmAvatar {
+    position: relative;
+    display: grid;
+    place-items: center;
+    flex: none;
+
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+
+    background: var(--gradient-brand);
+    color: var(--color-primary-ink);
+
+    font-size: var(--fs-md);
+    font-weight: 700;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+.dmStatusDot {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+
+    width: 11px;
+    height: 11px;
+    border: 2px solid var(--color-surface);
+    border-radius: 50%;
+}
+
+.dmText {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.dmName {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    font-size: var(--fs-md);
+    font-weight: 600;
+}
+
+.dmSub {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+}
+
+.roomEmpty {
+    margin: 0 8px 8px;
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+}
+
+.userPanel {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+
+    flex: none;
+    width: 100%;
+    padding: 10px 12px;
+
+    background: rgba(255, 255, 255, 0.03);
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+.avatar {
+    display: flex;
+    width: 40px;
+    height: 40px;
+    flex: none;
+    border-radius: 100%;
+    justify-content: center;
+    align-items: center;
+
+    background: var(--gradient-brand);
+    color: var(--color-primary-ink);
+    font-size: var(--fs-xl);
+    font-weight: 700;
+    user-select: none;
+}
+
+.identity {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.username {
+    min-width: 0;
+
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    font-size: var(--fs-md);
+    font-weight: 700;
+}
+
+.userHandle {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+}
+
+.actions {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+}
 
 .avatarWrap {
     position: relative;
@@ -292,7 +507,7 @@
     border-radius: 50%;
 
     cursor: pointer;
-    transition: filter 0.15s ease;
+    transition: filter var(--dur) var(--ease-out);
 }
 
 .statusDot:hover {
@@ -323,7 +538,7 @@
     border-radius: var(--radius-md);
 
     background: var(--color-surface);
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-overlay);
 }
 
 .statusItem {
@@ -340,11 +555,11 @@
     color: var(--color-text);
 
     font-family: var(--font-sans);
-    font-size: 13px;
+    font-size: var(--fs-md);
     font-weight: 600;
     text-align: left;
     cursor: pointer;
-    transition: background-color 0.15s ease;
+    transition: background-color var(--dur) var(--ease-out);
 }
 
 .statusItem:hover {
@@ -365,4 +580,68 @@
     width: 10px;
     height: 10px;
     border-radius: 50%;
+}
+
+
+/* menu de contexto no rail (botao direito) */
+
+.menuBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 90;
+}
+
+.groupMenu {
+    position: fixed;
+    z-index: 91;
+
+    min-width: 180px;
+    padding: 4px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+
+    background: var(--color-surface);
+    box-shadow: var(--shadow-overlay);
+}
+
+.menuItem,
+.menuItemDanger {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+
+    background: transparent;
+    color: var(--color-text);
+
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--dur) var(--ease-out);
+}
+
+.menuItem:hover {
+    background: var(--color-surface-hover);
+}
+
+.menuItemDanger {
+    color: var(--color-danger);
+    opacity: 0.8;
+}
+
+.menuItemDanger:hover:not(:disabled),
+.menuItemDanger.menuItemArmed {
+    background: var(--color-danger);
+    color: #ffffff;
+    opacity: 1;
+}
+
+.menuItemDanger:disabled {
+    opacity: 0.5;
+    cursor: default;
 }

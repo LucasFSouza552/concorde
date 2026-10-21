@@ -7,7 +7,6 @@ import Section from "../../../../components/Section/Section";
 import type { Friend } from "@concorde/shared";
 import AddFriendModal from "./AddFriendModal";
 import CreateGroupModal from "./CreateGroupModal";
-import Feed from "./Feed";
 import HomeActions from "./HomeActions";
 import QuickCallModal from "./QuickCallModal";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -82,7 +81,6 @@ export default function Home({ hidden = false, onOpenFriend, onGoFriends, onJoin
                     <div className={styles.heroText}>
                         <p className={styles.heroDate}>{dateLine}</p>
                         <h1 className={styles.headerTitle}>{greetingFor(now)}, {user?.displayName}</h1>
-                        <p className={styles.headerSubtitle}>Tudo em um só lugar: amigos, chamadas e conversas.</p>
                     </div>
                     <div className={styles.heroStats}>
                         <div className={styles.statCard}>
@@ -240,8 +238,6 @@ export default function Home({ hidden = false, onOpenFriend, onGoFriends, onJoin
                         })}
                     </Section>
                 </div>
-
-                <Feed />
             </div>
 
             {modal === "addFriend" && <AddFriendModal onClose={() => setModal(null)} />}

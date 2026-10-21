@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { ArrowLeft, Crown, LogOut, Plus, Shield, Trash2, User, Users, Volume2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Crown, LogOut, MoreVertical, Phone, PhoneIncoming, Plus, RefreshCw, Search, Shield, User, Users, Volume2 } from "lucide-react";
 
 import { roleLabels, type Friend, type GroupRole } from "@concorde/shared";
 import { useToast } from "../../../../contexts/ToastProvider";
@@ -19,6 +19,10 @@ interface GroupDetailProps {
     onBack: () => void;
     membersVisible?: boolean;
     onToggleMembers?: () => void;
+    /** Chamada no cabeçalho: null = ocultar; "start" = abrir chamada; "join" = entrar na ativa */
+    callAction?: "start" | "join" | null;
+    callLabel?: string;
+    onCall?: () => void;
 }
 
 function roleIcon(role: string) {
@@ -27,16 +31,21 @@ function roleIcon(role: string) {
     return <User size={12} aria-hidden="true" />;
 }
 
-export default function GroupDetail({ groupId, name, myRole, onBack, membersVisible, onToggleMembers }: GroupDetailProps) {
+export default function GroupDetail({ groupId, name, myRole, onBack, membersVisible, onToggleMembers, callAction = null, callLabel, onCall }: GroupDetailProps) {
     const { members, loading, error, load } = useGroupMembers(groupId);
     const { friends, load: loadFriends } = useFriendsList();
-    const [username, setUsername] = useState("");
-    const [inputFocused, setInputFocused] = useState(false);
+    const [search, setSearch] = useState("");
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [addOpen, setAddOpen] = useState(false);
+    const [addQuery, setAddQuery] = useState("");
     const [internalVisible, setInternalVisible] = useState(true);
     const [presenceTick, setPresenceTick] = useState(0);
     const [inCallIds, setInCallIds] = useState<Set<string>>(new Set());
     const [pendingAction, setPendingAction] = useState<"leave" | "dissolve" | null>(null);
     const [optionBusy, setOptionBusy] = useState(false);
+    const [openMenu, setOpenMenu] = useState<"header" | string | null>(null);
+    const menuRef = useRef<HTMLDivElement | null>(null);
+    const openItemRef = useRef<HTMLDivElement | null>(null);
     const lastEvent = useUserSocketEvent();
     const { push } = useToast();
     const canManage = myRole === "owner" || myRole === "admin";
@@ -44,14 +53,19 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
     const showMembers = membersVisible ?? internalVisible;
     const toggleMembers = onToggleMembers ?? (() => setInternalVisible((visible) => !visible));
 
+    const needle = search.trim().toLowerCase();
+    const visibleMembers = needle
+        ? members.filter((member) => member.displayName.toLowerCase().includes(needle) || member.username.toLowerCase().includes(needle))
+        : members;
+
     const memberIds = new Set(members.map((member) => member.id));
-    const query = username.trim().toLowerCase();
+    const addNeedle = addQuery.trim().toLowerCase();
     const suggestions = friends
         .filter((friend) => !memberIds.has(friend.id))
         .filter((friend) =>
-            !query
-            || friend.displayName.toLowerCase().includes(query)
-            || friend.username.toLowerCase().includes(query)
+            !addNeedle
+            || friend.displayName.toLowerCase().includes(addNeedle)
+            || friend.username.toLowerCase().includes(addNeedle)
         );
 
     useEffect(() => {
@@ -82,22 +96,27 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
         setPresenceTick((tick) => tick + 1);
     }, [lastEvent, members]);
 
-    async function handleAdd() {
-        if (!username.trim()) return;
-        try {
-            await api.post(`/groups/${groupId}/members`, { username: username.trim() });
-            setUsername("");
-            await load();
-            push("Membro adicionado.", "success");
-        } catch (error) {
-            push(getErrorMessage(error), "error");
+    useEffect(() => {
+        if (addOpen && friends.length === 0) void loadFriends();
+    }, [addOpen, friends.length, loadFriends]);
+
+    useEffect(() => {
+        function onPointerDown(event: PointerEvent) {
+            const target = event.target as Node;
+            const insideMenu = menuRef.current?.contains(target) || openItemRef.current?.contains(target);
+            if (openMenu !== null && !insideMenu) {
+                setOpenMenu(null);
+            }
         }
-    }
+
+        window.addEventListener("pointerdown", onPointerDown);
+        return () => window.removeEventListener("pointerdown", onPointerDown);
+    }, [openMenu]);
 
     async function addFriend(friend: Friend) {
         try {
             await api.post(`/groups/${groupId}/members`, { username: friend.username });
-            setUsername("");
+            setAddQuery("");
             await load();
             push(`${friend.displayName} adicionado ao grupo.`, "success");
         } catch (error) {
@@ -106,6 +125,7 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
     }
 
     async function handleRemove(userId: string, displayName: string) {
+        setOpenMenu(null);
         try {
             await api.delete(`/groups/${groupId}/members/${userId}`);
             await load();
@@ -116,6 +136,7 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
     }
 
     async function handleRole(userId: string, role: GroupRole) {
+        setOpenMenu(null);
         try {
             await api.patch(`/groups/${groupId}/members/${userId}`, {
                 role: role === "admin" ? "member" : "admin",
@@ -149,86 +170,150 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
         }
     }
 
-    async function performDissolve() {
-        if (optionBusy) return;
-
-        if (pendingAction !== "dissolve") {
-            setPendingAction("dissolve");
-            return;
-        }
-
-        setOptionBusy(true);
-
-        try {
-            await api.delete(`/groups/${groupId}`);
-            notifyGroupsChanged();
-            push(`${name} foi dissolvido.`, "info");
-            onBack();
-        } catch (error) {
-            push(getErrorMessage(error), "error");
-        } finally {
-            setOptionBusy(false);
-            setPendingAction(null);
-        }
-    }
-
     return (
-        <div className={styles.detail}>
-            <div className={styles.detailHeader}>
-                <button type="button" className={styles.backBtn} aria-label="Voltar para grupos" onClick={onBack}>
-                    <ArrowLeft size={18} />
-                </button>
-                <span className={styles.detailAvatar} aria-hidden="true">
-                    {name.trim().charAt(0).toUpperCase() || "?"}
-                </span>
-                <div className={styles.listText}>
-                    <span className={styles.listName}>{name}</span>
-                    <span className={styles.listSub}>
-                        {members.length} {members.length === 1 ? "membro" : "membros"}
+        <div className={styles.detail} style={membersVisible ? { height: "100%" } : undefined}>
+            <header className={styles.gHeader}>
+                <div className={styles.gHeaderMain}>
+                    <button type="button" className={styles.backBtn} aria-label="Voltar para grupos" onClick={onBack}>
+                        <ArrowLeft size={18} />
+                    </button>
+                    <span className={styles.detailAvatar} aria-hidden="true">
+                        {name.trim().charAt(0).toUpperCase() || "?"}
                     </span>
+                    <div className={styles.listText}>
+                        <span className={styles.listName}>{name}</span>
+                        <span className={styles.listSub}>
+                            {members.length} {members.length === 1 ? "membro" : "membros"}
+                        </span>
+                    </div>
                 </div>
-                <span className={styles.roleBadge}>{roleLabels[myRole] ?? myRole}</span>
-                <button
-                    type="button"
-                    className={styles.miniBtn}
-                    aria-label={showMembers ? "Ocultar membros" : "Mostrar membros"}
-                    aria-pressed={showMembers}
-                    title={showMembers ? "Ocultar membros" : "Mostrar membros"}
-                    onClick={toggleMembers}
-                >
-                    <Users size={14} />
-                </button>
-            </div>
+
+                <div className={styles.gHeaderActions}>
+                    {callAction && (
+                        <button type="button" className={styles.gCallBtn} onClick={onCall}>
+                            {callAction === "start" ? <Phone size={14} /> : <PhoneIncoming size={14} />}
+                            {callLabel ?? (callAction === "start" ? "Iniciar chamada" : "Entrar na chamada")}
+                        </button>
+                    )}
+                    <div className={styles.gMoreWrap} ref={menuRef}>
+                        <button
+                            type="button"
+                            className={styles.gMoreBtn}
+                            aria-label="Opções do grupo"
+                            aria-expanded={openMenu === "header"}
+                            onClick={() => setOpenMenu(openMenu === "header" ? null : "header")}
+                        >
+                            <MoreVertical size={16} />
+                        </button>
+                        {openMenu === "header" && (
+                            <div className={styles.gMenu} role="menu">
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    className={styles.gMenuItem}
+                                    onClick={() => { setOpenMenu(null); void load(); }}
+                                >
+                                    <RefreshCw size={14} />
+                                    Atualizar membros
+                                </button>
+                                {members.length > 0 && (showMembers
+                                    ? (
+                                        <button type="button" role="menuitem" className={styles.gMenuItem} onClick={() => { setOpenMenu(null); toggleMembers(); }}>
+                                            <Users size={14} />
+                                            Ocultar membros
+                                        </button>
+                                    )
+                                    : (
+                                        <button type="button" role="menuitem" className={styles.gMenuItem} onClick={() => { setOpenMenu(null); toggleMembers(); }}>
+                                            <Users size={14} />
+                                            Mostrar membros
+                                        </button>
+                                    ))}
+                                {myRole !== "owner" && (
+                                    <button
+                                        type="button"
+                                        role="menuitem"
+                                        disabled={optionBusy}
+                                        className={`${styles.gMenuItem} ${styles.gMenuItemDanger}`}
+                                        onClick={() => { setOpenMenu(null); void performLeave(); }}
+                                    >
+                                        <LogOut size={14} />
+                                        {pendingAction === "leave" ? "Confirmar saída?" : "Sair do grupo"}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </header>
 
             {showMembers && (
-                <>
-                    {canManage && (
-                        <div className={`${styles.joinRow} ${styles.memberAddRow}`}>
-                            <input
-                                className={styles.joinField}
-                                placeholder="Digite para filtrar seus amigos"
-                                value={username}
-                                onChange={(e) => setUsername(e.target.value)}
-                                onFocus={async () => { setInputFocused(true); if (friends.length === 0) await loadFriends(); }}
-                                onBlur={() => setInputFocused(false)}
-                                onKeyDown={(e) => { if (e.key === "Enter") void handleAdd(); }}
-                            />
-                            <button className={styles.joinBtn} onClick={() => void handleAdd()}>
-                                <Plus size={14} /> Adicionar
+                <div className={styles.gBody}>
+                    <div className={styles.gToolbar}>
+                        {searchOpen ? (
+                            <div className={styles.gSearchWrap}>
+                                <Search size={14} aria-hidden="true" className={styles.gSearchIcon} />
+                                <input
+                                    className={styles.gSearchField}
+                                    placeholder="Buscar membros por nome ou @tag"
+                                    value={search}
+                                    autoFocus
+                                    aria-label="Buscar membros"
+                                    onChange={(e) => setSearch(e.target.value)}
+                                    onBlur={() => { if (!search) setSearchOpen(false); }}
+                                    onKeyDown={(event) => {
+                                        if (event.key === "Escape") {
+                                            setSearch("");
+                                            setSearchOpen(false);
+                                            event.currentTarget.blur();
+                                        }
+                                    }}
+                                />
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                className={styles.gSearchToggle}
+                                aria-label="Buscar membros"
+                                title="Buscar membros"
+                                onClick={() => setSearchOpen(true)}
+                            >
+                                <Search size={16} />
                             </button>
-
-                            {inputFocused && (
-                                <div className={styles.memberSuggest}>
+                        )}
+                        {canManage && addOpen ? (
+                            <div className={styles.gAddWrap}>
+                                <Plus size={14} aria-hidden="true" className={styles.gSearchIcon} />
+                                <input
+                                    className={styles.gSearchField}
+                                    placeholder="Buscar amigos por nome ou @tag"
+                                    value={addQuery}
+                                    autoFocus
+                                    aria-label="Buscar amigos para adicionar"
+                                    onChange={(e) => setAddQuery(e.target.value)}
+                                    onBlur={() => { if (!addQuery) setAddOpen(false); }}
+                                    onKeyDown={(event) => {
+                                        if (event.key === "Escape") {
+                                            setAddQuery("");
+                                            setAddOpen(false);
+                                            event.currentTarget.blur();
+                                        }
+                                        if (event.key === "Enter" && suggestions[0]) void addFriend(suggestions[0]);
+                                    }}
+                                />
+                                <div className={styles.gAddMenu} role="list">
                                     {suggestions.length === 0 && (
-                                        <p className={styles.suggestEmpty}>
+                                        <p className={styles.gAddEmpty}>
                                             {friends.length === 0 ? "Nenhum amigo para adicionar." : "Nenhum amigo encontrado."}
                                         </p>
                                     )}
-                                    {suggestions.slice(0, 50).map((friend) => (
+                                    {suggestions.slice(0, 8).map((friend) => (
                                         <button
                                             key={friend.id}
                                             type="button"
-                                            className={styles.suggestRow}
+                                            role="listitem"
+                                            className={styles.gAddRow}
+                                            title={`Adicionar ${friend.displayName}`}
                                             onMouseDown={() => void addFriend(friend)}
                                         >
                                             <span className={styles.listAvatar} aria-hidden="true">
@@ -238,84 +323,102 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                                                 <span className={styles.listName}>{friend.displayName}</span>
                                                 <span className={styles.listSub}>@{friend.username}</span>
                                             </div>
-                                            <Plus size={14} className={styles.suggestAdd} />
+                                            <Plus size={14} className={styles.gAddRowIcon} />
                                         </button>
                                     ))}
                                 </div>
-                            )}
-                        </div>
-                    )}
-
-                    {loading && <p className={styles.empty}>Carregando membros...</p>}
-                    {error && <p className={styles.empty}>{error}</p>}
-                    {members.map((member) => (
-                <div key={member.id} className={styles.memberRow}>
-                    <span className={styles.listAvatar} aria-hidden="true">
-                        {member.displayName.trim().charAt(0).toUpperCase() || "?"}
-                    </span>
-                    <div className={styles.listText}>
-                        <span className={styles.listName}>{member.displayName}</span>
-                        <span className={styles.listSub}>@{member.username}</span>
+                            </div>
+                        ) : (
+                            canManage && (
+                                <button
+                                    type="button"
+                                    className={styles.gSearchToggle}
+                                    aria-label="Adicionar membros"
+                                    title="Adicionar membros"
+                                    onClick={() => setAddOpen(true)}
+                                >
+                                    <Plus size={16} />
+                                </button>
+                            )
+                        )}
                     </div>
-                    {inCallIds.has(member.id) && (
-                        <span className={styles.voiceOn} title="Em chamada">
-                            <Volume2 size={14} />
-                        </span>
-                    )}
-                    <span className={styles.roleBadge}>
-                        {roleIcon(member.role)}
-                        {roleLabels[member.role as GroupRole] ?? member.role}
-                    </span>
-                    {canManage && member.role !== "owner" && (
-                        <>
-                            <button
-                                type="button"
-                                className={styles.miniBtn}
-                                title={member.role === "admin" ? "Rebaixar para membro" : "Promover a admin"}
-                                aria-label={`${member.role === "admin" ? "Rebaixar" : "Promover"} ${member.displayName}`}
-                                onClick={() => void handleRole(member.id, member.role as GroupRole)}
-                            >
-                                {member.role === "admin" ? <User size={14} /> : <Shield size={14} />}
-                            </button>
-                            <button
-                                type="button"
-                                className={`${styles.miniBtn} ${styles.miniDanger}`}
-                                aria-label={`Remover ${member.displayName}`}
-                                onClick={() => void handleRemove(member.id, member.displayName)}
-                            >
-                                <X size={14} />
-                            </button>
-                        </>
-                    )}
-                </div>
-             ))}
-                </>
-            )}
 
-            <div className={styles.detailOptions}>
-                {myRole !== "owner" && (
-                    <button
-                        type="button"
-                        className={`${styles.optionDanger} ${pendingAction === "leave" ? styles.optionArmed : ""}`}
-                        disabled={optionBusy}
-                        onClick={() => void performLeave()}
-                    >
-                        <LogOut size={14} />
-                        {pendingAction === "leave" ? "Confirmar saída?" : "Sair do grupo"}
-                    </button>
-                )}
-                {myRole === "owner" && (
-                    <button
-                        type="button"
-                        className={`${styles.optionDanger} ${pendingAction === "dissolve" ? styles.optionArmed : ""}`}
-                        disabled={optionBusy}
-                        onClick={() => void performDissolve()}
-                    >
-                        <Trash2 size={14} />
-                        {pendingAction === "dissolve" ? "Confirmar? Apaga canais e mensagens." : "Dissolver grupo"}
-                    </button>
-                )}
-            </div>
+                    <div className={styles.gColumns}>
+                        <section className={styles.gMembersCol} aria-label="Membros">
+                            {loading && <p className={styles.empty}>Carregando membros...</p>}
+                            {error && <p className={styles.empty}>{error}</p>}
+                            {!loading && !error && visibleMembers.length === 0 && (
+                                <p className={styles.empty}>{needle ? "Nenhum membro encontrado." : "Nenhum membro."}</p>
+                            )}
+                            {visibleMembers.map((member) => (
+                                <div
+                                    key={member.id}
+                                    className={styles.gMemberItem}
+                                    ref={openMenu === member.id ? openItemRef : undefined}
+                                >
+                                    <div className={styles.gMemberRow}>
+                                        <span className={styles.gMemberAvatarWrap}>
+                                            <span className={styles.listAvatar} aria-hidden="true">
+                                                {member.displayName.trim().charAt(0).toUpperCase() || "?"}
+                                            </span>
+                                            <span
+                                                className={inCallIds.has(member.id) ? styles.gStatusDotOnline : styles.gStatusDotOffline}
+                                                title={inCallIds.has(member.id) ? "Em chamada" : "Não está em chamada"}
+                                            />
+                                        </span>
+                                        <div className={styles.listText}>
+                                            <span className={styles.listName}>{member.displayName}</span>
+                                            <span className={styles.listSub}>@{member.username}</span>
+                                        </div>
+                                        {inCallIds.has(member.id) && (
+                                            <span className={styles.voiceOn} title="Em chamada">
+                                                <Volume2 size={14} />
+                                            </span>
+                                        )}
+                                        <span className={`${styles.roleBadge} ${member.role === "owner" ? styles.roleBadgeOwner : styles.roleBadgeMember}`}>
+                                            {roleIcon(member.role)}
+                                            {roleLabels[member.role as GroupRole] ?? member.role}
+                                        </span>
+                                        {canManage && member.role !== "owner" && (
+                                            <div className={styles.gRowMenuWrap}>
+                                                <button
+                                                    type="button"
+                                                    className={styles.gMoreBtn}
+                                                    aria-label={`Ações para ${member.displayName}`}
+                                                    aria-expanded={openMenu === member.id}
+                                                    onClick={() => setOpenMenu(openMenu === member.id ? null : member.id)}
+                                                >
+                                                    <MoreVertical size={14} />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {openMenu === member.id && canManage && member.role !== "owner" && (
+                                        <div className={styles.gMemberActions} role="toolbar" aria-label={`Ações para ${member.displayName}`}>
+                                            <button
+                                                type="button"
+                                                className={styles.gActionBtn}
+                                                onClick={() => { setOpenMenu(null); void handleRole(member.id, member.role as GroupRole); }}
+                                            >
+                                                {member.role === "admin" ? "Rebaixar" : "Promover"}
+                                            </button>
+                                            <span className={styles.gActionDivider} aria-hidden="true" />
+                                            <button
+                                                type="button"
+                                                className={`${styles.gActionBtn} ${styles.gActionBtnDanger}`}
+                                                onClick={() => { setOpenMenu(null); void handleRemove(member.id, member.displayName); }}
+                                            >
+                                                Remover
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </section>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

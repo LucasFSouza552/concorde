@@ -1,5 +1,13 @@
 * {
     box-sizing: border-box;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+input,
+textarea {
+    user-select: text;
+    -webkit-user-select: text;
 }
 
 html,
@@ -13,13 +21,24 @@ body,
 
 body {
     background:
-        radial-gradient(1200px 500px at 50% -10%, rgba(255, 20, 147, 0.12), transparent 60%),
-        radial-gradient(900px 500px at 88% 110%, rgba(57, 255, 20, 0.06), transparent 60%),
-        radial-gradient(1000px 600px at 8% 115%, rgba(107, 33, 255, 0.14), transparent 60%),
+        radial-gradient(1200px 500px at 50% -10%, rgba(255, 20, 147, 0.09), transparent 60%),
+        radial-gradient(900px 500px at 88% 110%, rgba(57, 255, 20, 0.04), transparent 60%),
+        radial-gradient(1000px 600px at 8% 115%, rgba(107, 33, 255, 0.1), transparent 60%),
         var(--color-background);
 
     color: var(--color-text);
     font-family: var(--font-sans);
+}
+
+:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    outline: none;
 }
 
 

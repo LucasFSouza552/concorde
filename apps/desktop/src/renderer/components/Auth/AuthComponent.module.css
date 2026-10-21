@@ -18,13 +18,24 @@
     border: 0;
     padding: 12px 16px;
     justify-content: center;
-    border-radius: 100px;
     outline: none;
 
     border-radius: var(--radius-pill);
-    background: var(--gradient-button);
+    background: var(--color-primary);
     color: var(--color-primary-ink);
 
+    font-family: var(--font-sans);
+    font-size: var(--fs-base);
+    font-weight: 700;
     cursor: pointer;
+    transition: background-color var(--dur) var(--ease-out);
+}
 
+.submitBtn:hover:not(:disabled) {
+    background: var(--color-primary-hover);
+}
+
+.submitBtn:disabled {
+    opacity: 0.45;
+    cursor: default;
 }
