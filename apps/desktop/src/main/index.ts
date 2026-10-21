@@ -291,6 +291,10 @@ app.whenReady().then(() => {
 
   if (app.isPackaged) {
     app.setLoginItemSettings({ openAtLogin: autoLaunchPref ?? true });
+  } else {
+    // Nunca registrar o electron.exe de dev no início automático;
+    // remove resquícios criados antes do guard isPackaged.
+    app.setLoginItemSettings({ openAtLogin: false });
   }
 
   Menu.setApplicationMenu(null);
