@@ -18,6 +18,10 @@ function autoLaunchStorePath() {
   return path.join(app.getPath("userData"), "auto-launch.json");
 }
 
+function autoLaunchMarkerPath() {
+  return path.join(app.getPath("userData"), "auto-launch-initialized.json");
+}
+
 function readAutoLaunchPref(): boolean | undefined {
   try {
     const raw = fs.readFileSync(autoLaunchStorePath(), "utf8");
@@ -285,12 +289,27 @@ app.whenReady().then(() => {
 
   const autoLaunchPref = readAutoLaunchPref();
 
-  if (autoLaunchPref === undefined) {
-    writeAutoLaunchPref(app.isPackaged ? true : false);
-  }
-
   if (app.isPackaged) {
-    app.setLoginItemSettings({ openAtLogin: autoLaunchPref ?? true });
+    const initialized = (() => {
+      try {
+        fs.accessSync(autoLaunchMarkerPath());
+        return true;
+      } catch {
+        return false;
+      }
+    })();
+
+    // Pref de dev (userData compartilhado) não conta como escolha do usuário;
+    // só vale a preferência depois da primeira execução empacotada.
+    if (!initialized) {
+      writeAutoLaunchPref(true);
+      try {
+        fs.writeFileSync(autoLaunchMarkerPath(), String(Date.now()), "utf8");
+      } catch { /* marcador opcional */ }
+      app.setLoginItemSettings({ openAtLogin: true });
+    } else {
+      app.setLoginItemSettings({ openAtLogin: autoLaunchPref ?? true });
+    }
   } else {
     // Nunca registrar o electron.exe de dev no início automático;
     // remove resquícios criados antes do guard isPackaged.
