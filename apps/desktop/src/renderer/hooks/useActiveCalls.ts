@@ -35,6 +35,7 @@ export interface ActiveCallsResult {
 export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): ActiveCallsResult {
     const [calls, setCalls] = useState<ActiveCallEntry[]>([]);
     const [voiceGroupIds, setVoiceGroupIds] = useState<Set<string>>(new Set());
+    const [members, setMembers] = useState<Map<string, string[]>>(new Map());
     const [refreshKey, setRefreshKey] = useState(0);
     const lastEvent = useUserSocketEvent();
     const { groupId: currentCallId } = useActiveCall();
@@ -43,6 +44,8 @@ export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): Acti
         () => (lastEvent && lastEvent.type === "peer-call-state" ? lastEvent : null),
         [lastEvent],
     );
+
+    const groupsKey = useMemo(() => groups.map((group) => group.id).join(","), [groups]);
 
     useEffect(() => {
         const timer = window.setInterval(
@@ -55,23 +58,36 @@ export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): Acti
         };
     }, []);
 
+    // Lista de membros muda raramente: só recarrega quando a composição de grupos muda.
+    // Cada /groups/:id/members são 2 queries D1, então NÃO pode rodar a cada ciclo.
     useEffect(() => {
         let cancelled = false;
+        const next = new Map<string, string[]>();
 
         void (async () => {
-            const membersByGroup = new Map<string, string[]>();
-
             await Promise.all(groups.map(async (group) => {
                 try {
                     const { data } = await api.get<{ members: { id: string }[] }>(`/groups/${group.id}/members`);
-                    membersByGroup.set(group.id, data.members.map((member) => member.id));
+                    next.set(group.id, data.members.map((member) => member.id));
                 } catch {
                     /* ignore */
                 }
             }));
 
+            if (!cancelled) setMembers(next);
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [groupsKey, groups]);
+
+    useEffect(() => {
+        let cancelled = false;
+
+        void (async () => {
             const userIds = new Set<string>();
-            membersByGroup.forEach((ids) => ids.forEach((id) => userIds.add(id)));
+            members.forEach((ids) => ids.forEach((id) => userIds.add(id)));
             friends.forEach((friend) => userIds.add(friend.id));
 
             const presences = new Map<string, Presence>();
@@ -92,23 +108,23 @@ export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): Acti
             const taken = new Set<string>();
 
             for (const group of groups) {
-                const members = membersByGroup.get(group.id) ?? [];
-                const callId = members
+                const ids = members.get(group.id) ?? [];
+                const membersOfCallId = ids
                     .map((id) => presences.get(id))
                     .find((presence) => presence?.inCall && presence.groupId && presence.concordeGroupId === group.id)
                     ?.groupId;
 
-                if (!callId) continue;
+                if (!membersOfCallId) continue;
 
                 nextVoiceGroups.add(group.id);
 
-                const isCurrent = callId === currentCallId;
-                const count = members.filter((id) => presences.get(id)?.groupId === callId).length;
-                taken.add(callId);
+                const isCurrent = membersOfCallId === currentCallId;
+                const count = ids.filter((id) => presences.get(id)?.groupId === membersOfCallId).length;
+                taken.add(membersOfCallId);
 
                 nextCalls.push({
                     key: `group-${group.id}`,
-                    callGroupId: callId,
+                    callGroupId: membersOfCallId,
                     concordeGroupId: group.id,
                     kind: "group",
                     title: group.name,
@@ -152,7 +168,7 @@ export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): Acti
         return () => {
             cancelled = true;
         };
-    }, [groups, friends, callStateEvent, refreshKey, currentCallId]);
+    }, [groups, friends, members, callStateEvent, refreshKey, currentCallId]);
 
     return { calls, voiceGroupIds };
 }
