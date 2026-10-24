@@ -1,9 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Headphones, HeadphoneOff, Mic, MicOff, PanelLeftClose, PhoneIncoming, Plus, Search, Settings, Trash2, Users, Volume2, House } from "lucide-react";
 
 import IconBtn from "../../components/IconBtn/IconBtn";
 import type { SectionType } from "../../pages/HomePage";
-import type { Friend, GroupRole, UserStatus } from "@concorde/shared";
+import type { Friend, GroupRole } from "@concorde/shared";
 import VoiceList from "./VoiceList";
 import CreateGroupModal from "../../pages/HomePage/components/Home/CreateGroupModal";
 import { useActiveCall } from "../../contexts/ActiveCallProvider";
@@ -12,6 +12,8 @@ import { useUserSocketSend } from "../../contexts/UserSocketProvider";
 import SettingsModal from "../SettingsModal/SettingsModal";
 
 import { STATUS_COLOR, STATUS_LABEL } from "../../utils/status";
+import { setOwnStatus, useOwnStatus } from "../../utils/ownStatus";
+import { useUserSocketEvent } from "../../contexts/UserSocketProvider";
 import { api, getErrorMessage } from "../../api/api";
 import { useToast } from "../../contexts/ToastProvider";
 import { notifyGroupsChanged } from "../../hooks/useGroupsList";
@@ -54,8 +56,31 @@ export default function SideBar({ section, setSection, sidebarOpen = true, onTog
     const [menuArmed, setMenuArmed] = useState(false);
     const [deletingGroup, setDeletingGroup] = useState(false);
     const send = useUserSocketSend();
-    const [status, setStatus] = useState<UserStatus>("online");
+    const status = useOwnStatus();
     const [statusMenuOpen, setStatusMenuOpen] = useState(false);
+    const lastEvent = useUserSocketEvent();
+    const kickedHandledRef = useRef<typeof lastEvent>(null);
+
+    useEffect(() => {
+        if (!lastEvent) return;
+        if (lastEvent.type !== "group-kicked") return;
+        // `lastEvent` persiste até o próximo evento: dedupe por identidade
+        // para não repetir o toast quando as deps do efeito mudam.
+        if (kickedHandledRef.current === lastEvent) return;
+        kickedHandledRef.current = lastEvent;
+
+        const { groupId, groupName, reason } = lastEvent;
+
+        const message = reason === "removed"
+            ? `Você foi removido de ${groupName}.`
+            : reason === "dissolved"
+                ? `O grupo ${groupName} foi dissolvido.`
+                : `Você saiu de ${groupName}.`;
+
+        push(message, "info");
+        void reloadGroups();
+        onGroupDeleted?.(groupId);
+    }, [lastEvent, push, reloadGroups, onGroupDeleted]);
 
     useEffect(() => {
         void reloadGroups();
@@ -287,7 +312,7 @@ export default function SideBar({ section, setSection, sidebarOpen = true, onTog
                                             aria-checked={status === option}
                                             className={`${styles.statusItem} ${status === option ? styles.statusItemSelected : ""}`}
                                             onClick={() => {
-                                                setStatus(option);
+                                                setOwnStatus(option);
                                                 setStatusMenuOpen(false);
                                                 send({ type: "set-status", status: option });
                                             }}

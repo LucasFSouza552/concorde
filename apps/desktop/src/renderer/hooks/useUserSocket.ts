@@ -5,6 +5,7 @@ import { useAuth } from "../contexts/AuthContext";
 
 import { WS_BASE_URL } from "../api/api";
 import { getStoredToken } from "../api/session";
+import { getOwnStatus } from "../utils/ownStatus";
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
@@ -60,6 +61,9 @@ export function useUserSocket() {
                 }
                 if (lastStatus.current) {
                     ws.send(JSON.stringify(lastStatus.current));
+                } else if (getOwnStatus() !== "online") {
+                    // Aplica o status persistido no servidor (cold start).
+                    ws.send(JSON.stringify({ type: "set-status", status: getOwnStatus() }));
                 }
                 stopHeartbeat();
                 heartbeatTimer = setInterval(() => {

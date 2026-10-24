@@ -44,6 +44,8 @@ export function useChannelMessages(channelId: string | null) {
             const { data } = await api.get<{ messages: NewMessage[] }>(`/channels/${channelId}/messages?limit=50`);
             setMessages(data.messages);
         } catch (error) {
+            // Sem acesso (ex.: removido do grupo ou canal): não exibe histórico obsoleto.
+            setMessages([]);
             setError(getErrorMessage(error));
         } finally {
             setLoading(false);

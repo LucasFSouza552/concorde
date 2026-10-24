@@ -930,8 +930,6 @@
     letter-spacing: 0.04em;
 }
 
-/* -- Bloco 2 � A��es r�pidas ---------------------------------------- */
-
 .quickActions {
     display: grid;
     grid-template-columns: repeat(3, 1fr);

@@ -5,6 +5,7 @@ import { playSound } from "../audio/sounds";
 import { useActiveCall } from "../contexts/ActiveCallProvider";
 import { useAuth } from "../contexts/AuthContext";
 import { useUserSocketConnected, useUserSocketEvent, useUserSocketSend } from "../contexts/UserSocketProvider";
+import { useOwnStatus } from "../utils/ownStatus";
 
 import { api } from "../api/api";
 
@@ -25,6 +26,7 @@ export function useCallInvite() {
     const { user } = useAuth();
 
     const lastEvent = useUserSocketEvent();
+    const ownStatus = useOwnStatus();
     const timeoutRef = useRef<number | null>(null);
     const announcedRef = useRef<{ groupId: string | null; concordeGroupId: string | null } | undefined>(undefined);
     const socketConnected = useUserSocketConnected();
@@ -193,12 +195,15 @@ export function useCallInvite() {
         setJoinedGroup(null);
     }
 
+    // Status "ocupado" = modo não perturbe: o convite chega e fica visível, mas sem som.
     useEffect(() => {
         if (!incoming) return;
+        if (ownStatus === "busy") return;
+
         playSound("ring");
         const interval = window.setInterval(() => playSound("ring"), 2000);
         return () => clearInterval(interval);
-    }, [incoming]);
+    }, [incoming, ownStatus]);
 
     useEffect(() => {
         if (!lastEvent) return;

@@ -32,6 +32,7 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
     const screenAudioTrackIds = new Set<string>();
     const shareTransceivers = new Map<string, RTCRtpTransceiver[]>();
     const shareReceiveDesired = new Map<string, boolean>();
+    const shareSharingPeers = new Map<string, boolean>();
 
 
     async function applyMicSendParams(connection: RTCPeerConnection) {
@@ -249,6 +250,7 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         negotiating.delete(peerId);
         shareTransceivers.delete(peerId);
         shareReceiveDesired.delete(peerId);
+        shareSharingPeers.delete(peerId);
         refreshScreenBitrates();
     }
 
@@ -356,18 +358,36 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
     }
 
     function applyShareReceive(peerId: string) {
-        const list = shareTransceivers.get(peerId);
-        if (!list?.length) return;
-
         const connection = connections.get(peerId);
         if (!connection) return;
 
-        const enabled = shareReceiveDesired.get(peerId) ?? true;
+        const desired = shareReceiveDesired.get(peerId) ?? true;
+        const sharing = shareSharingPeers.get(peerId) ?? false;
+        let list = shareTransceivers.get(peerId);
+
+        // Late joiner: o compartilhador pode ser o answerer da negociação,
+        // então as m-lines de tela nunca entraram no SDP. Cria receptores
+        // (video + audio) e renegocia — o answer anexa os senders remotos.
+        if (sharing && desired && !list?.length) {
+            try {
+                const created = [
+                    connection.addTransceiver("video", { direction: "recvonly" }),
+                    connection.addTransceiver("audio", { direction: "recvonly" }),
+                ];
+                shareTransceivers.set(peerId, created);
+                list = created;
+            } catch (err) {
+                console.warn("[WebRTC] Falha ao criar receptores de compartilhamento:", err);
+            }
+        }
+
+        if (!list?.length) return;
+
         let changed = false;
 
         for (const transceiver of list) {
             const sends = !!transceiver.sender.track;
-            const target: RTCRtpTransceiverDirection = enabled
+            const target: RTCRtpTransceiverDirection = desired
                 ? (sends ? "sendrecv" : "recvonly")
                 : (sends ? "sendonly" : "inactive");
             if (transceiver.direction === target) continue;
@@ -397,8 +417,9 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         connection.addEventListener("signalingstatechange", onChange);
     }
 
-    function setShareReceiveEnabled(peerId: string, enabled: boolean) {
+    function setShareReceiveEnabled(peerId: string, enabled: boolean, sharing = false) {
         shareReceiveDesired.set(peerId, enabled);
+        shareSharingPeers.set(peerId, sharing);
         applyShareReceive(peerId);
     }
 
@@ -410,6 +431,7 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         screenAudioTrackIds.clear();
         shareTransceivers.clear();
         shareReceiveDesired.clear();
+        shareSharingPeers.clear();
     }
 
     return {
