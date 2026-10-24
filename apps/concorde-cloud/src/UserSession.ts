@@ -1,4 +1,5 @@
-import { findFriendsByStatus } from "./features/friends/friends.repository";
+import { findFriendship, findFriendsByStatus } from "./features/friends/friends.repository";
+import { findGroupAudienceForUser, hasSharedGroup } from "./features/groups/groups.repository";
 import { UserSocketClientMessage, UserSocketServerMessage, type UserStatus } from "@concorde/shared";
 import { Env } from "./types/Env";
 
@@ -33,7 +34,17 @@ export class UserSession {
 		}
 
 		if (url.pathname.endsWith("/presence")) {
-			return Response.json(this.presence());
+			// Identidade do consultante: exclusivamente o header verificado
+			// pelo gateway (x-verified-user). Chamada direta ao DO → 401.
+			const callerId = request.headers.get("x-verified-user");
+
+			if (!callerId) {
+				return Response.json({ message: "Token de acesso não foi enviado." }, { status: 401 });
+			}
+
+			const targetId = url.pathname.split("/").filter(Boolean)[1] ?? "";
+
+			return Response.json(await this.presence(callerId, targetId));
 		}
 
 		if (request.headers.get("Upgrade") !== "websocket") {
@@ -155,34 +166,65 @@ export class UserSession {
 		}
 	}
 
-	private async notifyStatus(userId: string, status: UserStatus): Promise<void> {
-		let friends = [];
+	private async notifyAudience(userId: string, message: UserSocketServerMessage): Promise<void> {
+		let audience: { id: string }[] = [];
 
 		try {
-			friends = await findFriendsByStatus(this.env.concorde_users, userId, "accepted");
+			const [friends, coMembers] = await Promise.all([
+				findFriendsByStatus(this.env.concorde_users, userId, "accepted"),
+				findGroupAudienceForUser(this.env.concorde_users, userId)
+			]);
+
+			const seen = new Set<string>([userId]);
+			audience = [...friends, ...coMembers].filter((person) => {
+				if (seen.has(person.id)) return false;
+				seen.add(person.id);
+				return true;
+			});
 		} catch {
 			return;
 		}
 
-		const message = JSON.stringify({
-			type: "peer-status",
-			userId,
-			status
-		} satisfies UserSocketServerMessage);
+		const body = JSON.stringify(message);
 
-		for (const friend of friends) {
+		for (const person of audience) {
 			try {
-				const stub = this.env.USER_SESSIONS.get(this.env.USER_SESSIONS.idFromName(friend.id));
+				const stub = this.env.USER_SESSIONS.get(this.env.USER_SESSIONS.idFromName(person.id));
 				await stub.fetch("https://user-session/deliver", {
 					method: "POST",
-					body: message
+					body
 				});
 			} catch {
 			}
 		}
 	}
 
-	private presence(): PresenceProps {
+	private async notifyStatus(userId: string, status: UserStatus): Promise<void> {
+		await this.notifyAudience(userId, {
+			type: "peer-status",
+			userId,
+			status
+		});
+	}
+
+	/**
+	 * Chamador (callerId) sempre do token verificado; alvo da rota (targetId).
+	 * Consultante sem permissão recebe presença genérica objeto-offline
+	 * (mesma forma, sempre igual) para não servir de enumerador —
+	 * diferente de 401, que é só para falha de autenticação.
+	 */
+	private async presence(callerId: string, targetId: string): Promise<PresenceProps> {
+		// Sem permissão → forma estática, independente do estado real.
+		if (callerId !== targetId && !(await this.isVisibleTo(callerId, targetId))) {
+			return {
+				status: "offline",
+				online: false,
+				inCall: false,
+				groupId: null,
+				concordeGroupId: null
+			};
+		}
+
 		let groupId: string | null = null;
 		let concordeGroupId: string | null = null;
 		let status: UserStatus = "online";
@@ -213,33 +255,26 @@ export class UserSession {
 
 	}
 
-	private async notifyCallState(userId: string, groupId: string | null, concordeGroupId: string | null): Promise<void> {
-		let friends = [];
-
+	private async isVisibleTo(callerId: string, targetId: string): Promise<boolean> {
 		try {
-			friends = await findFriendsByStatus(this.env.concorde_users, userId, "accepted");
-		} catch {
-			return;
-		}
+			const [friendship, sharedGroup] = await Promise.all([
+				findFriendship(this.env.concorde_users, callerId, targetId),
+				hasSharedGroup(this.env.concorde_users, callerId, targetId)
+			]);
 
-		const message = JSON.stringify({
+			return !!friendship || sharedGroup;
+		} catch {
+			return false;
+		}
+	}
+
+	private async notifyCallState(userId: string, groupId: string | null, concordeGroupId: string | null): Promise<void> {
+		await this.notifyAudience(userId, {
 			type: "peer-call-state",
 			userId,
 			groupId,
 			concordeGroupId
-		} satisfies UserSocketServerMessage);
-
-		for (const friend of friends) {
-			try {
-				const stub = this.env.USER_SESSIONS.get(this.env.USER_SESSIONS.idFromName(friend.id));
-				await stub.fetch("https://user-session/deliver", {
-					method: "POST",
-					body: message
-				});
-			} catch {
-
-			}
-		}
+		});
 	}
 
 	async webSocketClose(socket: WebSocket) {

@@ -113,6 +113,20 @@ export async function countGroups(db: D1Database, userId: string): Promise<numbe
 	return row?.total ?? 0;
 }
 
+export async function findGroupAudienceForUser(db: D1Database, userId: string): Promise<{ id: string }[]> {
+	const { results } = await db.prepare(`
+        SELECT DISTINCT u.id
+        FROM group_members me
+        JOIN group_members m2 ON m2.groupId = me.groupId
+        JOIN users u ON u.id = m2.userId
+        WHERE me.userId = ? AND m2.userId != ?
+    `)
+		.bind(userId, userId)
+		.all<{ id: string }>();
+
+	return results ?? [];
+}
+
 export async function deleteGroup(db: D1Database, groupId: string): Promise<void> {
 	await db.batch([
 		db.prepare(
@@ -151,4 +165,19 @@ export async function listGroupMembers(db: D1Database, groupId: string): Promise
 		.all<GroupMemberWithUser>();
 
 	return result.results;
+}
+
+/** True se os dois usuários compartilham ao menos um grupo (consulta direta, LIMIT 1). */
+export async function hasSharedGroup(db: D1Database, userId: string, otherId: string): Promise<boolean> {
+	const row = await db.prepare(`
+		SELECT 1 AS shared
+		FROM group_members me
+		JOIN group_members other ON other.groupId = me.groupId
+		WHERE me.userId = ? AND other.userId = ?
+		LIMIT 1
+	`)
+		.bind(userId, otherId)
+		.first<{ shared: number }>();
+
+	return row !== null;
 }

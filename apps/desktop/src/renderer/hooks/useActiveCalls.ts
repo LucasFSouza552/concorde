@@ -1,18 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
 
-import type { Friend, GroupWithRole } from "@concorde/shared";
+import type { Friend, GroupWithRole, PresenceBatchResponse, UserPresence } from "@concorde/shared";
 
 import { useActiveCall } from "../contexts/ActiveCallProvider";
-import { useUserSocketEvent } from "../contexts/UserSocketProvider";
+import { useUserSocketConnected, useUserSocketEvent } from "../contexts/UserSocketProvider";
 
 import { api } from "../api/api";
 
-const ACTIVE_CALLS_REFRESH_MS = 15_000;
+// Deltas chegaram por WS; o sweep é rede de segurança lenta para poupar cota.
+const SAFETY_REFRESH_MS = 15 * 60_000;
 
-interface Presence {
-    inCall: boolean;
-    groupId: string | null;
-    concordeGroupId: string | null;
+export interface Presence {
+    status?: string;
+    inCall?: boolean;
+    groupId?: string | null;
+    concordeGroupId?: string | null;
 }
 
 export interface ActiveCallEntry {
@@ -33,30 +35,13 @@ export interface ActiveCallsResult {
 }
 
 export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): ActiveCallsResult {
-    const [calls, setCalls] = useState<ActiveCallEntry[]>([]);
-    const [voiceGroupIds, setVoiceGroupIds] = useState<Set<string>>(new Set());
+    const [presences, setPresences] = useState<Map<string, Presence>>(new Map());
     const [members, setMembers] = useState<Map<string, string[]>>(new Map());
-    const [refreshKey, setRefreshKey] = useState(0);
+    const connected = useUserSocketConnected();
     const lastEvent = useUserSocketEvent();
     const { groupId: currentCallId } = useActiveCall();
 
-    const callStateEvent = useMemo(
-        () => (lastEvent && lastEvent.type === "peer-call-state" ? lastEvent : null),
-        [lastEvent],
-    );
-
     const groupsKey = useMemo(() => groups.map((group) => group.id).join(","), [groups]);
-
-    useEffect(() => {
-        const timer = window.setInterval(
-            () => setRefreshKey((current) => current + 1),
-            ACTIVE_CALLS_REFRESH_MS,
-        );
-
-        return () => {
-            window.clearInterval(timer);
-        };
-    }, []);
 
     // Lista de membros muda raramente: só recarrega quando a composição de grupos muda.
     // Cada /groups/:id/members são 2 queries D1, então NÃO pode rodar a cada ciclo.
@@ -82,93 +67,138 @@ export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): Acti
         };
     }, [groupsKey, groups]);
 
+    // Snapshot completo de presença apenas quando muda quem monitorar, ao
+    // (re)conectar o WebSocket e numa rede de segurança lenta — o resto são deltas.
     useEffect(() => {
+        const ids = new Set<string>();
+        members.forEach((groupIds) => groupIds.forEach((id) => ids.add(id)));
+        friends.forEach((friend) => ids.add(friend.id));
+
         let cancelled = false;
 
-        void (async () => {
-            const userIds = new Set<string>();
-            members.forEach((ids) => ids.forEach((id) => userIds.add(id)));
-            friends.forEach((friend) => userIds.add(friend.id));
+        const refresh = async () => {
+            const fetched = new Map<string, Presence>();
+            const idsList = [...ids];
 
-            const presences = new Map<string, Presence>();
-
-            await Promise.all([...userIds].map(async (userId) => {
+            if (idsList.length <= 1) {
+                await Promise.all(idsList.map(async (id) => {
+                    try {
+                        const { data } = await api.get<UserPresence>(`/user/${id}/presence`);
+                        fetched.set(id, data);
+                    } catch {
+                        /* ignore */
+                    }
+                }));
+            } else {
                 try {
-                    const { data } = await api.get<Presence>(`/user/${userId}/presence`);
-                    presences.set(userId, data);
+                    const { data } = await api.post<PresenceBatchResponse>("/user/presence/batch", { ids: idsList });
+
+                    for (const [userId, presence] of Object.entries(data.presences)) {
+                        fetched.set(userId, presence);
+                    }
                 } catch {
                     /* ignore */
                 }
-            }));
+            }
 
             if (cancelled) return;
 
-            const nextCalls: ActiveCallEntry[] = [];
-            const nextVoiceGroups = new Set<string>();
-            const taken = new Set<string>();
+            // Merge sobre o estado atual: não descarta deltas recebidos enquanto fetchia.
+            setPresences((current) => new Map([...current, ...fetched]));
+        };
 
-            for (const group of groups) {
-                const ids = members.get(group.id) ?? [];
-                const membersOfCallId = ids
-                    .map((id) => presences.get(id))
-                    .find((presence) => presence?.inCall && presence.groupId && presence.concordeGroupId === group.id)
-                    ?.groupId;
+        void refresh();
 
-                if (!membersOfCallId) continue;
-
-                nextVoiceGroups.add(group.id);
-
-                const isCurrent = membersOfCallId === currentCallId;
-                const count = ids.filter((id) => presences.get(id)?.groupId === membersOfCallId).length;
-                taken.add(membersOfCallId);
-
-                nextCalls.push({
-                    key: `group-${group.id}`,
-                    callGroupId: membersOfCallId,
-                    concordeGroupId: group.id,
-                    kind: "group",
-                    title: group.name,
-                    subtitle: isCurrent
-                        ? "Você está na chamada"
-                        : count > 1 ? `${count} na chamada` : "Em chamada",
-                    isCurrent,
-                    group,
-                });
-            }
-
-            for (const friend of friends) {
-                const presence = presences.get(friend.id);
-
-                if (!presence?.inCall || !presence.groupId) continue;
-                if (presence.concordeGroupId !== null) continue;
-                if (taken.has(presence.groupId)) continue;
-
-                taken.add(presence.groupId);
-
-                nextCalls.push({
-                    key: `dm-${friend.id}`,
-                    callGroupId: presence.groupId,
-                    concordeGroupId: null,
-                    kind: "dm",
-                    title: friend.displayName,
-                    subtitle: presence.groupId === currentCallId
-                        ? "Você está na chamada"
-                        : "Chamada em andamento",
-                    isCurrent: presence.groupId === currentCallId,
-                    friend,
-                });
-            }
-
-            nextCalls.sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent));
-
-            setCalls(nextCalls);
-            setVoiceGroupIds(nextVoiceGroups);
-        })();
+        const timer = window.setInterval(() => {
+            void refresh();
+        }, SAFETY_REFRESH_MS);
 
         return () => {
             cancelled = true;
+            window.clearInterval(timer);
         };
-    }, [groups, friends, members, callStateEvent, refreshKey, currentCallId]);
+    }, [members, friends, connected]);
+
+    // Deltas em tempo real por WS, aplicados no ato — sem polling.
+    useEffect(() => {
+        if (!lastEvent) return;
+        if (lastEvent.type !== "peer-status" && lastEvent.type !== "peer-call-state") return;
+
+        // peer-status só altera status; NÃO pode zerar o estado de chamada.
+        const patch: Partial<Presence> = lastEvent.type === "peer-status"
+            ? { status: lastEvent.status }
+            : { inCall: lastEvent.groupId !== null, groupId: lastEvent.groupId ?? null, concordeGroupId: lastEvent.concordeGroupId ?? null };
+
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        setPresences((current) => {
+            const next = new Map(current);
+            next.set(lastEvent.userId, { ...current.get(lastEvent.userId), ...patch });
+            return next;
+        });
+    }, [lastEvent]);
+
+    const { calls, voiceGroupIds } = useMemo(() => {
+        const nextCalls: ActiveCallEntry[] = [];
+        const nextVoiceGroups = new Set<string>();
+        const taken = new Set<string>();
+
+        for (const group of groups) {
+            const ids = members.get(group.id) ?? [];
+            const membersOfCallId = ids
+                .map((id) => presences.get(id))
+                .find((presence) => presence?.inCall && presence.groupId && presence.concordeGroupId === group.id)
+                ?.groupId;
+
+            if (!membersOfCallId) continue;
+
+            nextVoiceGroups.add(group.id);
+
+            const isCurrent = membersOfCallId === currentCallId;
+            const count = ids.filter((id) => presences.get(id)?.groupId === membersOfCallId).length;
+            taken.add(membersOfCallId);
+
+            nextCalls.push({
+                key: `group-${group.id}`,
+                callGroupId: membersOfCallId,
+                concordeGroupId: group.id,
+                kind: "group",
+                title: group.name,
+                subtitle: isCurrent
+                    ? "Você está na chamada"
+                    : count > 1 ? `${count} na chamada` : "Em chamada",
+                isCurrent,
+                group,
+            });
+        }
+
+        for (const friend of friends) {
+            const presence = presences.get(friend.id);
+
+            if (!presence?.inCall || !presence.groupId) continue;
+            if (presence.concordeGroupId !== null) continue;
+            // Chamada 1:1 é privada: só aparece se VOCÊ está nela — o
+            // groupId do amigo precisa ser o da SUA chamada atual.
+            if (presence.groupId !== currentCallId) continue;
+            if (taken.has(presence.groupId)) continue;
+
+            taken.add(presence.groupId);
+
+            nextCalls.push({
+                key: `dm-${friend.id}`,
+                callGroupId: presence.groupId,
+                concordeGroupId: null,
+                kind: "dm",
+                title: friend.displayName,
+                subtitle: "Você está na chamada",
+                isCurrent: true,
+                friend,
+            });
+        }
+
+        nextCalls.sort((a, b) => Number(b.isCurrent) - Number(a.isCurrent));
+
+        return { calls: nextCalls, voiceGroupIds: nextVoiceGroups };
+    }, [groups, members, friends, presences, currentCallId]);
 
     return { calls, voiceGroupIds };
 }

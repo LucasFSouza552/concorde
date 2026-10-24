@@ -134,15 +134,17 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
             />
             {preview ? (
                 <CallGrid tiles={tiles} />
-            ) : status !== "connected" ? (
-                <span>Conectando...</span>
-            ) : focusedTile ? (
-                <FocusStage tileId={focusedTile.id} node={focusedTile.node} />
+            ) : status === "connected" ? (
+                focusedTile ? (
+                    <FocusStage tileId={focusedTile.id} node={focusedTile.node} />
+                ) : (
+                    <CallGrid
+                        tiles={tiles}
+                        ringingNames={ringing && outgoing.status === "dialing" ? [outgoing.toDisplayName] : ringingNames}
+                    />
+                )
             ) : (
-                <CallGrid
-                    tiles={tiles}
-                    ringingNames={ringing && outgoing.status === "dialing" ? [outgoing.toDisplayName] : ringingNames}
-                />
+                <span>{status === "failed" ? "Conexão com a chamada falhou. Saia e entre novamente." : "Conectando..."}</span>
             )}
 
             {preview ? (

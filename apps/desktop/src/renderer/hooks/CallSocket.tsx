@@ -1,6 +1,6 @@
 import type { ClientMessage, ForwardedDirectMessage, Peer, ServerMessage } from "@concorde/shared";
 
-export type CallStatus = "idle" | "connecting" | "connected";
+export type CallStatus = "idle" | "connecting" | "connected" | "failed";
 
 interface CallSocketOptions {
     userId: string;
@@ -19,8 +19,9 @@ export interface CallSocket {
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 10000;
+const MAX_RECONNECT_ATTEMPTS = 10;
 
-export function createCallSocket(url: string, options: CallSocketOptions): CallSocket {
+export function createCallSocket(buildUrl: () => string, options: CallSocketOptions): CallSocket {
     let closedByUs = false;
     let retryTimer: ReturnType<typeof setTimeout> | null = null;
     let attempt = 0;
@@ -31,7 +32,8 @@ export function createCallSocket(url: string, options: CallSocketOptions): CallS
 
         options.onStatus("connecting");
 
-        const ws = new WebSocket(url);
+        // A URL pode mudar entre tentativas (ex.: access token renovado pelo refresh).
+        const ws = new WebSocket(buildUrl());
         socket = ws;
 
         ws.addEventListener("open", () => {
@@ -73,6 +75,15 @@ export function createCallSocket(url: string, options: CallSocketOptions): CallS
                 return;
             }
             console.log("[call-socket] fechou:", event.code, event.reason || "(sem motivo)", "limpo:", event.wasClean);
+
+            if (attempt >= MAX_RECONNECT_ATTEMPTS) {
+                // Cap de tentativas: evita loop infinito (e burn de cota no provider)
+                // quando o handshake falha permanentemente (ex.: sessão inválida).
+                console.error(`[call-socket] desistindo após ${MAX_RECONNECT_ATTEMPTS} tentativas.`);
+                options.onStatus("failed");
+                return;
+            }
+
             options.onStatus("connecting");
             const delay = Math.min(RECONNECT_BASE_MS * 2 ** attempt, RECONNECT_MAX_MS) * (0.5 + Math.random());
             attempt += 1;

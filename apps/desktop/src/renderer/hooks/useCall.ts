@@ -9,7 +9,7 @@ import { playSound } from "../audio/sounds";
 import { useToast } from "../contexts/ToastProvider";
 
 import { WS_BASE_URL } from "../api/api";
-import { getSession } from "../api/session";
+import { getStoredToken, getSession } from "../api/session";
 
 interface UseCallResult {
     status: CallStatus;
@@ -87,7 +87,8 @@ export function useCall(groupId: string | null): UseCallResult {
             }
         }
 
-        socketRef.current = createCallSocket(`${WS_BASE_URL}/call/${groupId}`, {
+        socketRef.current = createCallSocket(
+            () => `${WS_BASE_URL}/call/${groupId}?token=${encodeURIComponent(getStoredToken() ?? "")}`, {
             userId: session.user.id,
             username: session.user.displayName,
 
@@ -222,7 +223,7 @@ export function useCall(groupId: string | null): UseCallResult {
     useEffect(() => {
         peers.forEach((peer) => {
             const enabled = !peerSharing[peer.userId] || watchingShareIds.has(peer.userId);
-            managerRef.current?.setShareReceiveEnabled(peer.userId, enabled);
+            managerRef.current?.setShareReceiveEnabled(peer.userId, enabled, Boolean(peerSharing[peer.userId]));
         });
     }, [peers, peerSharing, watchingShareIds]);
 
