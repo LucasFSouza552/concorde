@@ -2,31 +2,29 @@ import type { LoginResponse } from "@concorde/shared";
 
 const STORAGE_KEY = "concorde:session";
 
-function isTokenExpired(token: string) {
-    try {
-        const payload = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-
-        return Date.now() >= JSON.parse(atob(payload)).exp * 1000;
-    } catch {
-        return true;
-    }
-}
-
-export function getSession(): LoginResponse | null {
+/** Sessão crua do storage, mesmo com access token vencido (o refresh pode ser válido). */
+export function getStoredSession(): LoginResponse | null {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
 
     try {
-        const session = JSON.parse(raw) as LoginResponse;
-
-        return isTokenExpired(session.token) ? null : session;
+        return JSON.parse(raw) as LoginResponse;
     } catch {
         return null;
     }
 }
 
+/** Compatibilidade: considera tudo que existe no storage (o interceptor resolve 401). */
+export function getSession(): LoginResponse | null {
+    return getStoredSession();
+}
+
 export function getStoredToken(): string | null {
-    return getSession()?.token ?? null;
+    return getStoredSession()?.token ?? null;
+}
+
+export function getStoredRefreshToken(): string | null {
+    return getStoredSession()?.refreshToken ?? null;
 }
 
 export function saveSession(session: LoginResponse) {

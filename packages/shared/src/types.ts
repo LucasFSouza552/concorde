@@ -13,6 +13,7 @@ export interface User {
 export interface LoginResponse {
     user: User;
     token: string;
+    refreshToken: string;
 }
 
 export interface ApiError {
@@ -34,6 +35,18 @@ export interface Friend {
     id: string;
     username: string;
     displayName: string;
+}
+
+export interface UserPresence {
+    status: UserStatus;
+    online: boolean;
+    inCall: boolean;
+    groupId: string | null;
+    concordeGroupId: string | null;
+}
+
+export interface PresenceBatchResponse {
+    presences: Record<string, UserPresence>;
 }
 
 export interface Friendship {
@@ -61,7 +74,8 @@ export type UserSocketServerMessage =
     | { type: "call-declined"; callId: string }
     | { type: "call-cancelled"; callId: string }
     | { type: "peer-status"; userId: string; status: UserStatus }
-    | { type: "peer-call-state"; userId: string; groupId: string | null; concordeGroupId?: string | null };;
+    | { type: "peer-call-state"; userId: string; groupId: string | null; concordeGroupId?: string | null }
+    | { type: "group-kicked"; groupId: string; groupName: string; reason: "removed" | "left" | "dissolved" };
 
 // Group
 

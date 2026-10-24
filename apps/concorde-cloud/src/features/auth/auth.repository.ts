@@ -74,3 +74,53 @@ export async function updateUserPassword(db: D1Database, id: string, passwordHas
 		.bind(passwordHash, passwordSalt, id)
 		.run();
 }
+
+export interface AuthSessionRecord {
+	id: string;
+	userId: string;
+	refreshHash: string;
+	createdAt: number;
+	expiresAt: number;
+	lastUsedAt: number;
+}
+
+export async function createAuthSession(db: D1Database, userId: string, refreshHash: string, expiresAt: number) {
+	const id = crypto.randomUUID();
+	const createdAt = Date.now();
+
+	await db
+		.prepare(`
+			INSERT INTO auth_sessions (id, userId, refreshHash, createdAt, expiresAt, lastUsedAt)
+			VALUES (?, ?, ?, ?, ?, ?)
+		`)
+		.bind(id, userId, refreshHash, createdAt, expiresAt, createdAt)
+		.run();
+
+	return id;
+}
+
+export async function getAuthSessionById(db: D1Database, id: string): Promise<AuthSessionRecord | null> {
+	return await db
+		.prepare("SELECT * FROM auth_sessions WHERE id = ?")
+		.bind(id)
+		.first<AuthSessionRecord>();
+}
+
+export async function rotateAuthSession(db: D1Database, id: string, refreshHash: string, expiresAt: number) {
+	await db
+		.prepare("UPDATE auth_sessions SET refreshHash = ?, expiresAt = ?, lastUsedAt = ? WHERE id = ?")
+		.bind(refreshHash, expiresAt, Date.now(), id)
+		.run();
+}
+
+export async function revokeAuthSession(db: D1Database, id: string) {
+	await db.prepare("DELETE FROM auth_sessions WHERE id = ?").bind(id).run();
+}
+
+export async function revokeAuthSessionsForUser(db: D1Database, userId: string) {
+	await db.prepare("DELETE FROM auth_sessions WHERE userId = ?").bind(userId).run();
+}
+
+export async function purgeExpiredAuthSessions(db: D1Database) {
+	await db.prepare("DELETE FROM auth_sessions WHERE expiresAt < ?").bind(Date.now()).run();
+}

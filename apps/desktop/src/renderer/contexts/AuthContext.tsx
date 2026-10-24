@@ -10,7 +10,7 @@ import {
 import type { LoginResponse, RegisterData, Credentials, User } from "@concorde/shared";
 
 import { api, getErrorMessage, isUnauthorized } from '../api/api';
-import { clearSession, getSession, saveSession } from "../api/session";
+import { clearSession, getStoredSession, saveSession } from "../api/session";
 
 export type ServerStatus = "booting" | "online" | "offline";
 
@@ -43,7 +43,7 @@ interface AuthProviderProps {
 const AuthContext = createContext<AuthContextData | undefined>(undefined);
 
 export function AuthProvider({ children }: AuthProviderProps) {
-    const [session, setSession] = useState(getSession);
+    const [session, setSession] = useState(getStoredSession);
     const user = session?.user ?? null;
     const token = session?.token ?? null;
     const [error, setError] = useState<string | null>(null);
@@ -62,12 +62,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     async function validateSession(): Promise<boolean> {
-        const stored = getSession();
+        const stored = getStoredSession();
         if (!stored) return false;
 
         try {
             const { data } = await api.get<User>("/auth/me");
-            setSession({ user: data, token: stored.token });
+            setSession({ user: data, token: stored.token, refreshToken: stored.refreshToken });
             return true;
         } catch (error) {
             if (isUnauthorized(error)) {
@@ -83,7 +83,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const startedAt = Date.now();
 
         async function boot() {
-            const stored = getSession();
+            const stored = getStoredSession();
 
             if (!stored) {
                 setBootStep("Conectando ao servidor...");
@@ -113,7 +113,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     async function retryConnection() {
         setAttempts((count) => count + 1);
         setBootStep("Reconectando ao servidor...");
-        const stored = getSession();
+        const stored = getStoredSession();
         const ok = stored ? await validateSession() : await checkServer();
         if (ok) {
             setServerStatus("online");
@@ -147,7 +147,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             const response = await api.post<LoginResponse>("/auth/login", userForm);
 
             saveSession(response.data);
-            setSession({ user: response.data.user, token: response.data.token });
+            setSession(response.data);
         } catch (error) {
             const message = getErrorMessage(error);
             setError(message ?? "Não foi possivel entrar")
@@ -160,7 +160,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             const response = await api.post<LoginResponse>("/auth/register", userForm);
 
             saveSession(response.data);
-            setSession({ user: response.data.user, token: response.data.token });
+            setSession(response.data);
         } catch (error) {
             const message = getErrorMessage(error);
             setError(message ?? "Não foi possivel registrar")
@@ -169,6 +169,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     function logout() {
+        // melhor-esforço: revoga a sessão no servidor usando o refresh token
+        const refreshToken = session?.refreshToken;
+
+        if (refreshToken) {
+            void api.post("/auth/logout", { refreshToken }).catch(() => { });
+        }
+
+        clearSession();
         setSession(null);
     }
 

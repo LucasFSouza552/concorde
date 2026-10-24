@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 
-import { loginController, meController, registerController, updatePasswordController, updateProfileController } from "./auth.controller";
+import { loginController, logoutController, meController, refreshController, registerController, updatePasswordController, updateProfileController } from "./auth.controller";
 import { authMiddleware } from "../../middleware/auth";
 import type { Env } from "../../types/Env";
 
@@ -13,6 +13,10 @@ auth.get("/", async (c) => {
 auth.post("/login", loginController);
 
 auth.post("/register", registerController);
+
+auth.post("/refresh", refreshController);
+
+auth.post("/logout", logoutController);
 
 auth.get("/me", authMiddleware, meController);
 

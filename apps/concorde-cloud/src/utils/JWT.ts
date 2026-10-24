@@ -9,7 +9,7 @@ export async function createToken(userId: string, secret: string) {
 			typ: "JWT"
 		})
 		.setIssuedAt()
-		.setExpirationTime("7d")
+		.setExpirationTime("2h")
 		.sign(secretKey);
 }
 

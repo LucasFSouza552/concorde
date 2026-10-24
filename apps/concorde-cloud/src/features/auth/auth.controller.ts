@@ -3,7 +3,7 @@ import { Context } from "hono";
 import { AppError } from "../../utils/AppError";
 import { Env } from "../../types/Env";
 
-import { changeDisplayName, changePassword, getCurrentUser, loginUser, registerUser } from "./auth.service";
+import { changeDisplayName, changePassword, getCurrentUser, loginUser, logoutSession, refreshSession, registerUser } from "./auth.service";
 
 export async function registerController(c: Context) {
 
@@ -19,6 +19,34 @@ export async function loginController(c: Context) {
 	const user = await loginUser(c.env.concorde_users, c.env.JWT_SECRET, data);
 	return c.json(user);
 
+}
+
+export async function refreshController(c: Context) {
+	const body = await c.req.json<{ refreshToken?: unknown }>().catch(() => ({ refreshToken: undefined }));
+
+	const result = await refreshSession(c.env.concorde_users, c.env.JWT_SECRET, body?.refreshToken);
+
+	return c.json(result);
+}
+
+export async function logoutController(c: Context<{ Bindings: Env; Variables: { userId?: string } }>) {
+	const body = await c.req.json<{ refreshToken?: unknown }>().catch(() => ({ refreshToken: undefined }));
+
+	let userId: string | null = null;
+	const authorization = c.req.header("Authorization");
+
+	if (authorization?.startsWith("Bearer ")) {
+		try {
+			const { verifyToken } = await import("../../utils/JWT");
+			userId = await verifyToken(authorization.slice("Bearer ".length), c.env.JWT_SECRET);
+		} catch {
+			userId = null;
+		}
+	}
+
+	await logoutSession(c.env.concorde_users, userId, body?.refreshToken);
+
+	return c.json({ status: "logged-out" });
 }
 
 export async function meController(c: Context<{ Bindings: Env; Variables: { userId: string } }>) {
