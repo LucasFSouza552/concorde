@@ -59,7 +59,6 @@
     font-size: var(--fs-lg);
     font-weight: 800;
     text-transform: uppercase;
-    overflow: hidden;
 }
 
 .railBtn:hover {

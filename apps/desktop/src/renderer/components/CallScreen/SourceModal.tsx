@@ -19,15 +19,52 @@ const resolutions = [
 
 const frameRates = [15, 30, 60];
 
+/**
+ * Preferências persistidas do compartilhamento (aba/resolução/fps).
+ * O checkbox de som NÃO é persistido de propósito: compartilhar áudio
+ * exige consentimento explícito a cada início.
+ */
+const SHARE_PREFS_KEY = "concorde:share";
+
+interface SharePrefs {
+    tab?: "screens" | "windows";
+    res?: number;
+    fps?: number;
+}
+
+function loadSharePrefs(): SharePrefs {
+    try {
+        return JSON.parse(localStorage.getItem(SHARE_PREFS_KEY) ?? "{}") as SharePrefs;
+    } catch {
+        return {};
+    }
+}
+
+function saveSharePrefs(prefs: SharePrefs) {
+    try {
+        localStorage.setItem(SHARE_PREFS_KEY, JSON.stringify(prefs));
+    } catch { /* storage indisponível: segue default */ }
+}
+
 export default function SourceModal({ onClose, onStart }: SourceModalProps) {
+    const saved = loadSharePrefs();
+
     const [sources, setSources] = useState<DesktopSource[]>([]);
     const [loading, setLoading] = useState(true);
-    const [tab, setTab] = useState<"screens" | "windows">("screens");
+    const [tab, setTab] = useState<"screens" | "windows">(saved.tab === "windows" ? "windows" : "screens");
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [shareAudio, setShareAudio] = useState(false);
 
-    const [selectedRes, setSelectedRes] = useState(1);
-    const [selectedFps, setSelectedFps] = useState(1);
+    const [selectedRes, setSelectedRes] = useState(
+        saved.res !== undefined && saved.res >= 0 && saved.res < resolutions.length ? saved.res : 1
+    );
+    const [selectedFps, setSelectedFps] = useState(
+        saved.fps !== undefined && saved.fps >= 0 && saved.fps < frameRates.length ? saved.fps : 1
+    );
+
+    useEffect(() => {
+        saveSharePrefs({ tab, res: selectedRes, fps: selectedFps });
+    }, [tab, selectedRes, selectedFps]);
 
     useEffect(() => {
         let cancelled = false;
