@@ -85,6 +85,7 @@ export async function removeGroupMemberController(c: AppContext) {
 
 	await removeGroupMember(
 		c.env.concorde_users,
+		c.env,
 		actorId,
 		groupId,
 		targetUserId
@@ -126,7 +127,7 @@ export async function leaveGroupController(c: AppContext) {
 		throw AppError.badRequest("Grupo é obrigatório.");
 	}
 
-	await leaveGroup(c.env.concorde_users, groupId, userId);
+	await leaveGroup(c.env.concorde_users, c.env, groupId, userId);
 
 	return c.json({ status: "left" }, 200);
 }
@@ -139,7 +140,7 @@ export async function dissolveGroupController(c: AppContext) {
 		throw AppError.badRequest("Grupo é obrigatório.");
 	}
 
-	await dissolveGroup(c.env.concorde_users, groupId, userId);
+	await dissolveGroup(c.env.concorde_users, c.env, groupId, userId);
 
 	return c.json({ status: "dissolved" }, 200);
 }

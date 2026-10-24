@@ -18,6 +18,8 @@ import {
 	findFriendship
 } from "../friends/friends.repository";
 import { requireFriendship } from "../friends/friends.service";
+import { deliverToUser } from "../calls/calls.service";
+import { Env } from "../../types/Env";
 
 import { AppError } from "../../utils/AppError";
 
@@ -110,7 +112,7 @@ export async function addGroupMember(db: D1Database, actorId: string, groupId: s
 	});
 }
 
-export async function removeGroupMember(db: D1Database, actorId: string, groupId: string, targetUserId: string) {
+export async function removeGroupMember(db: D1Database, env: Env, actorId: string, groupId: string, targetUserId: string) {
 	const group = await findGroupById(db, groupId);
 
 	if (!group) {
@@ -142,6 +144,13 @@ export async function removeGroupMember(db: D1Database, actorId: string, groupId
 	if (!removed) {
 		throw AppError.notFound("Membro não encontrado.");
 	}
+
+	await deliverToUser(env, targetUserId, {
+		type: "group-kicked",
+		groupId,
+		groupName: group.name,
+		reason: "removed"
+	});
 }
 
 export async function changeGroupMemberRole(db: D1Database, actorId: string, groupId: string, targetUserId: string, role: "admin" | "member") {
@@ -183,7 +192,7 @@ export async function listGroupMembers(db: D1Database, actorId: string, groupId:
 	return listGroupMembersRepo(db, groupId);
 }
 
-export async function leaveGroup(db: D1Database, groupId: string, userId: string) {
+export async function leaveGroup(db: D1Database, env: Env, groupId: string, userId: string) {
 	const group = await findGroupById(db, groupId);
 
 	if (!group) {
@@ -211,9 +220,16 @@ export async function leaveGroup(db: D1Database, groupId: string, userId: string
 	if (!removed) {
 		throw AppError.notFound("Membro não encontrado.");
 	}
+
+	await deliverToUser(env, userId, {
+		type: "group-kicked",
+		groupId,
+		groupName: group.name,
+		reason: "left"
+	});
 }
 
-export async function dissolveGroup(db: D1Database, groupId: string, userId: string) {
+export async function dissolveGroup(db: D1Database, env: Env, groupId: string, userId: string) {
 	const group = await findGroupById(db, groupId);
 
 	if (!group) {
@@ -222,5 +238,16 @@ export async function dissolveGroup(db: D1Database, groupId: string, userId: str
 
 	await requireGroupRole(db, groupId, userId, ["owner"]);
 
+	const members = await listGroupMembersRepo(db, groupId);
+
 	await deleteGroup(db, groupId);
+
+	await Promise.all(members.map((member) =>
+		deliverToUser(env, member.id, {
+			type: "group-kicked",
+			groupId,
+			groupName: group.name,
+			reason: "dissolved"
+		}).catch(() => { })
+	));
 }

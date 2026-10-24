@@ -3,13 +3,14 @@ import { Env } from "../../types/Env";
 import { getUserById } from "../auth/auth.repository";
 import { findFriendship } from "../friends/friends.repository";
 import { requireFriendship } from "../friends/friends.service";
+import { findGroupMember } from "../groups/groups.repository";
 
 import { AppError } from "../../utils/AppError";
 
 export const CALL_INVITE_TTL_MS = 30_000;
 export const GROUP_CALL_MAX_MEMBERS = 6;
 
-async function deliverToUser(env: Env, userId: string, message: UserSocketServerMessage): Promise<void> {
+export async function deliverToUser(env: Env, userId: string, message: UserSocketServerMessage): Promise<void> {
 	const id = env.USER_SESSIONS.idFromName(userId);
 	const stub = env.USER_SESSIONS.get(id);
 
@@ -100,7 +101,7 @@ export async function createGroupCallInvite(env: Env, fromUserId: string, toUser
 		throw AppError.badRequest("Informe ao menos um participante");
 	}
 
-	if (targets.length > GROUP_CALL_MAX_MEMBERS) {
+	if (targets.length > GROUP_CALL_MAX_MEMBERS && !concordeGroupId) {
 		throw AppError.badRequest(`Limite de ${GROUP_CALL_MAX_MEMBERS} participantes por chamada.`);
 	}
 
@@ -108,20 +109,50 @@ export async function createGroupCallInvite(env: Env, fromUserId: string, toUser
 	const fromUser = await getUserById(db, fromUserId);
 	if (!fromUser) throw AppError.notFound("Usuário não encontrado.");
 
+	if (concordeGroupId) {
+		// Chamada de grupo: a permissão vem do grupo, não de amizade direta.
+		const callerMembership = await findGroupMember(db, concordeGroupId, fromUserId);
+		if (!callerMembership) {
+			throw AppError.forbidden("Você não participa deste grupo.");
+		}
+	}
+
+	const deliverable: { toUserId: string; toDisplayName: string }[] = [];
+
 	for (const toUserId of targets) {
 		const toUser = await getUserById(db, toUserId);
-		if (!toUser) throw AppError.notFound("Usuário não encontrado.");
+		if (!toUser) continue;
 
-		if (toUser.friendsOnly) {
-			await requireFriendship(db, fromUserId, toUserId, "Somente amigos podem participar da chamada.");
+		if (toUser.friendsOnly && !concordeGroupId) {
+			try {
+				await requireFriendship(db, fromUserId, toUserId, "Somente amigos podem participar da chamada.");
+			} catch {
+				// Não é amigo e sem grupo: apenas não recebe o convite.
+				continue;
+			}
 		}
+
+		if (concordeGroupId) {
+			const membership = await findGroupMember(db, concordeGroupId, toUserId);
+
+			// Não é membro do grupo: não recebe o convite.
+			if (!membership) continue;
+
+			// friendsOnly não bloqueia convites de grupo.
+		}
+
+		deliverable.push({ toUserId, toDisplayName: toUser.displayName });
+	}
+
+	if (deliverable.length === 0) {
+		throw AppError.badRequest("Nenhum participante elegível para a chamada.");
 	}
 
 	const now = Date.now();
 	const groupId = crypto.randomUUID();
 	const invites: GroupCallInviteResult["invites"] = [];
 
-	for (const toUserId of targets) {
+	for (const target of deliverable) {
 		const invite: CallInvite = {
 			callId: crypto.randomUUID(),
 			groupId,
@@ -131,8 +162,8 @@ export async function createGroupCallInvite(env: Env, fromUserId: string, toUser
 			createdAt: now,
 			expiresAt: now + CALL_INVITE_TTL_MS
 		};
-		invites.push({ ...invite, toUserId });
-		await deliverToUser(env, toUserId, { type: "call-invite", invite });
+		invites.push({ ...invite, toUserId: target.toUserId });
+		await deliverToUser(env, target.toUserId, { type: "call-invite", invite });
 	}
 
 	return { groupId, invites };
