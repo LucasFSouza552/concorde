@@ -1,14 +1,14 @@
 :root {
-    --color-background: #121218;
+    --color-background: #0f0c17;
 
-    /* Superfícies */
-    --color-surface: #1b1b24;
-    --color-surface-hover: #252530;
-    --color-surface-active: #302f42;
+    /* Superfícies (tom roxo sutil) */
+    --color-surface: #1a1626;
+    --color-surface-hover: #241d33;
+    --color-surface-active: #2e2647;
 
     /* Bordas */
     --color-border-subtle: rgba(255, 255, 255, 0.06);
-    --color-border: #30283f;
+    --color-border: #2c2440;
 
     /* Texto */
     --color-text: #ffffff;
@@ -35,6 +35,9 @@
             #ff2e93 0%,
             #ee1485 48%,
             #6b21ff 100%);
+
+    /* Brilho synthwave discreto (apenas em elementos ativos) */
+    --glow-brand: 0 0 16px rgba(255, 46, 147, 0.18);
 
     /* Raios */
     --radius-xs: 6px;
@@ -82,15 +85,4 @@
     --spacing-2xl: 24px;
     --spacing-3xl: 32px;
     --spacing-4xl: 44px;
-}
-
-@media (prefers-reduced-motion: reduce) {
-
-    *,
-    *::before,
-    *::after {
-        animation-duration: 0.01ms !important;
-        animation-iteration-count: 1 !important;
-        transition-duration: 0.01ms !important;
-    }
 }

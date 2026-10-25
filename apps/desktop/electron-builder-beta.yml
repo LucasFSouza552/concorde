@@ -1,6 +1,8 @@
 appId: com.concorde.app.beta
 productName: Concorde Beta
 artifactName: Concorde-Beta-Setup-${version}.${ext}
+compression: maximum
+afterPack: build/afterPack.cjs
 files:
   - out/**/*
 directories:
