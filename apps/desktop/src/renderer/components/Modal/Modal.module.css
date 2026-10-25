@@ -5,10 +5,17 @@
     padding: 30px;
 
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: center;
 
     background-color: #0000007a;
+    animation: overlayIn 150ms ease-out;
+}
+
+@keyframes overlayIn {
+    from {
+        opacity: 0;
+    }
 }
 
 .modal {
@@ -22,6 +29,14 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     background: var(--color-surface);
+    animation: modalIn 180ms var(--ease-out);
+}
+
+@keyframes modalIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px) scale(0.97);
+    }
 }
 
 .header {
