@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { AppWindow, Monitor, ScreenShare, X } from "lucide-react";
+import { AppWindow, Minimize2, Monitor, ScreenShare, X } from "lucide-react";
 import { createPortal } from "react-dom";
 
 import type { DesktopSource, ScreenQuality } from "@concorde/shared";
 
 import styles from "./SourceModal.module.css";
+import { Skeleton } from "../Skeleton/Skeleton";
 
 interface SourceModalProps {
     onClose: () => void;
@@ -160,7 +161,14 @@ export default function SourceModal({ onClose, onStart }: SourceModalProps) {
                     </button>
                 </nav>
 
-                {loading && <span className={styles.hint}>Carregando telas e janelas...</span>}
+                {loading && (
+                    <div className={styles.grid}>
+                        <Skeleton width="100%" height="78px" radius={10} />
+                        <Skeleton width="100%" height="78px" radius={10} />
+                        <Skeleton width="100%" height="78px" radius={10} />
+                        <Skeleton width="100%" height="78px" radius={10} />
+                    </div>
+                )}
 
                 {!loading && visible.length === 0 && (
                     <span className={styles.hint}>Nenhuma fonte encontrada.</span>
@@ -175,11 +183,24 @@ export default function SourceModal({ onClose, onStart }: SourceModalProps) {
                             aria-pressed={selectedId === source.id}
                             onClick={() => handleSelect(source.id)}
                         >
-                            <img className={styles.thumbnail} src={source.thumbnail} alt={source.name} />
+                            {source.minimized ? (
+                                <span className={styles.thumbEmpty} aria-hidden="true">
+                                    <Minimize2 size={22} />
+                                    <span className={styles.thumbMinTag}>Minimizada</span>
+                                </span>
+                            ) : (
+                                <img className={styles.thumbnail} src={source.thumbnail} alt={source.name} />
+                            )}
                             <span className={styles.sourceName}>{source.name}</span>
                         </button>
                     ))}
                 </div>
+
+                {tab === "windows" && visible.some((s) => s.minimized) && (
+                    <p className={styles.hint}>
+                        Janelas minimizadas entram na chamada em branco — restaure e mexa nelas para o conteúdo aparecer.
+                    </p>
+                )}
 
                 {tab === "windows" && (
                     <>

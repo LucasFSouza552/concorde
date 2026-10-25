@@ -350,7 +350,8 @@ app.whenReady().then(() => {
       id: source.id,
       name: source.name,
       thumbnail: source.thumbnail.toDataURL(),
-      isScreen: source.id.startsWith("screen:")
+      isScreen: source.id.startsWith("screen:"),
+      minimized: !source.id.startsWith("screen:") && source.thumbnail.isEmpty()
     }));
   });
 

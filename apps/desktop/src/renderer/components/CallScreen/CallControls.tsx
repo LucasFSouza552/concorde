@@ -40,7 +40,7 @@ export default function CallControls({ chatAvailable = false, chatOpen = false, 
     }
 
     return (
-        <div className={styles.controls}>
+        <div className={`${styles.controls} ${screenStream ? styles.controlsPinned : ""}`.trim()}>
             {chatAvailable && onToggleChat && (
                 <span className={styles.chatCorner}>
                     <button
@@ -73,15 +73,26 @@ export default function CallControls({ chatAvailable = false, chatOpen = false, 
             >
                 {deafened ? <HeadphoneOff size={18} /> : <Headphones size={18} />}
             </button>
-            <button
-                type="button"
-                className={styles.controlBtn}
-                aria-label={screenStream ? "Parar de compartilhar" : "Compartilhar tela"}
-                aria-pressed={!!screenStream}
-                onClick={() => void handleShare()}
-            >
-                {screenStream ? <MonitorOff size={18} /> : <Monitor size={18} />}
-            </button>
+            {screenStream ? (
+                <button
+                    type="button"
+                    className={styles.stopSharePill}
+                    aria-pressed="true"
+                    title="Parar de compartilhar sua tela"
+                    onClick={() => void handleShare()}
+                >
+                    <MonitorOff size={18} /> Parar compartilhamento
+                </button>
+            ) : (
+                <button
+                    type="button"
+                    className={styles.controlBtn}
+                    aria-label="Compartilhar tela"
+                    onClick={() => void handleShare()}
+                >
+                    <Monitor size={18} />
+                </button>
+            )}
             {hasScreenAudio && (
                 <button
                     type="button"
