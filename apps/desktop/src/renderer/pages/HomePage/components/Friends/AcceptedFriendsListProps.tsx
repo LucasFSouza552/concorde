@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { EllipsisVertical, MessageCircle, Phone, RotateCcw } from "lucide-react";
 
 import InlineError from "../../../../components/InlineError/InlineError";
+import { SkeletonList } from "../../../../components/Skeleton/Skeleton";
 import type { Friend } from "@concorde/shared";
 import type { FriendPresence } from "../../../../hooks/useFriendsPresence";
 import UserIdentity from "./UserIdentity";
@@ -52,7 +53,7 @@ export default function AcceptedFriendsList({ friends, presences, title = "Meus 
                 </button>
             </header>
 
-            {loading && <span>Carregando...</span>}
+            {loading && <SkeletonList rows={4} rowHeight={40} />}
             {!loading && error && <InlineError message={error} />}
             {!loading && !error && friends.length === 0 && (
                 <p>{title === "Meus amigos" ? "Você ainda não tem amigos." : "Nenhum amigo disponível agora."}</p>

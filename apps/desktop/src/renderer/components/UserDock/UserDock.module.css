@@ -1,0 +1,411 @@
+.footer {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+
+    flex: none;
+    max-width: 100%;
+    padding: 12px 14px;
+
+    background: rgba(255, 255, 255, 0.03);
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+/* perfil (estilo do footer antigo) */
+
+.profile {
+    position: relative;
+
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+
+    flex: none;
+    max-width: 220px;
+}
+
+.avatarWrap {
+    position: relative;
+    flex: none;
+}
+
+.avatar {
+    display: flex;
+    width: 46px;
+    height: 46px;
+    flex: none;
+    border-radius: 100%;
+    justify-content: center;
+    align-items: center;
+
+    background: var(--gradient-brand);
+    color: var(--color-primary-ink);
+    font-size: var(--fs-xl);
+    font-weight: 700;
+    user-select: none;
+}
+
+.identity {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.username {
+    min-width: 0;
+
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    font-size: var(--fs-md);
+    font-weight: 700;
+}
+
+.userHandle {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+}
+
+/* mensagem de status personalizada */
+.userMsg {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    max-width: 200px;
+
+    color: var(--color-primary);
+    font-size: var(--fs-xs);
+    font-style: italic;
+}
+
+/* divisores entre perfil | controles | abas */
+
+.divider {
+    align-self: stretch;
+    width: 1px;
+    flex: none;
+    margin: 4px 0;
+
+    background: var(--color-border-subtle);
+}
+
+.controls {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+
+    flex: none;
+}
+
+/* abas de conversas recentes (estilo navegador) */
+
+.tabs {
+    align-self: stretch;
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+
+    overflow-x: auto;
+    scrollbar-width: thin;
+    padding: 2px 0;
+}
+
+.tabs::-webkit-scrollbar {
+    height: 6px;
+}
+
+.tabs::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 3px;
+}
+
+.tabsEmpty {
+    flex: 1;
+    align-self: center;
+    text-align: center;
+
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+    user-select: none;
+}
+
+.tab {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+
+    flex: none;
+    max-width: 180px;
+    min-width: 110px;
+
+    padding: 0 4px 0 8px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-xs) var(--radius-xs) var(--radius-sm) var(--radius-sm);
+
+    background: var(--color-surface);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background-color var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+}
+
+.tab:hover {
+    background: var(--color-surface-hover);
+}
+
+.tab:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.tabActive,
+.tabActive:hover {
+    position: relative;
+    background: var(--color-surface-active);
+    color: var(--color-text);
+}
+
+.tabAvatar {
+    position: relative;
+
+    display: flex;
+    width: 20px;
+    height: 20px;
+    flex: none;
+    justify-content: center;
+    align-items: center;
+    border-radius: 100%;
+
+    background: var(--color-surface-hover);
+    font-size: var(--fs-sm);
+    font-weight: 700;
+}
+
+/* pontinho sutil de "gente falando nesta conversa" no canto do avatar da aba */
+.tabCallDot {
+    position: absolute;
+    right: -4px;
+    bottom: -4px;
+
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+
+    background: var(--color-success, #34c759);
+    box-shadow: 0 0 0 2px var(--color-surface);
+}
+
+.tabActive .tabAvatar {
+    background: var(--gradient-brand);
+    color: var(--color-primary-ink);
+}
+
+.tabTitle {
+    flex: 1;
+    min-width: 0;
+
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+
+    font-size: var(--fs-base);
+    font-weight: 600;
+    text-align: left;
+}
+
+.tabClose {
+    display: flex;
+    flex: none;
+    justify-content: center;
+    align-items: center;
+
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+
+    background: transparent;
+    color: inherit;
+    font-size: 11px;
+    line-height: 1;
+    opacity: 0.55;
+    cursor: pointer;
+    transition: opacity var(--dur) var(--ease-out), background-color var(--dur) var(--ease-out);
+}
+
+.tabClose:hover {
+    opacity: 1;
+    background: var(--color-surface);
+}
+
+/* botão + para adicionar conversas */
+.tabAdd {
+    display: grid;
+    place-items: center;
+    align-self: center;
+    flex: none;
+
+    width: 38px;
+    height: 38px;
+    padding: 0;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: 50%;
+
+    background: var(--color-surface);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-surface) 60%, transparent);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background-color var(--dur) var(--ease-out), color var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out);
+}
+
+.tabAdd:hover {
+    background: var(--color-surface-hover);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 25%, transparent);
+    color: var(--color-primary);
+}
+
+.tabAdd:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+/* menu de status */
+
+.statusDot {
+    position: absolute;
+    right: -2px;
+    bottom: -2px;
+
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: 3px solid var(--color-surface);
+    border-radius: 50%;
+
+    cursor: pointer;
+    transition: filter var(--dur) var(--ease-out);
+}
+
+.statusDot:hover {
+    filter: brightness(1.25);
+}
+
+.statusDot:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+}
+
+.statusBackdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1200;
+}
+
+.statusMenu {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 10px);
+    z-index: 1201;
+
+    min-width: 220px;
+    padding: 6px;
+
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+
+    background: var(--color-surface);
+    box-shadow: var(--shadow-overlay);
+}
+
+/* campo de status personalizado no topo do menu */
+
+.statusMsgWrap {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    margin-bottom: 6px;
+    padding: 8px;
+    border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.statusMsgLabel {
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    user-select: none;
+}
+
+.statusMsgInput {
+    width: 100%;
+    padding: 7px 9px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+
+    background: var(--color-background);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+
+    outline: none;
+    transition: border-color var(--dur) var(--ease-out);
+}
+
+.statusMsgInput::placeholder {
+    color: var(--color-text-muted);
+}
+
+.statusMsgInput:focus-visible {
+    border-color: var(--color-primary);
+}
+
+.statusItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+
+    padding: 8px 10px;
+    border: none;
+    border-radius: var(--radius-sm);
+
+    background: transparent;
+    color: var(--color-text);
+
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    font-weight: 600;
+    text-align: left;
+    cursor: pointer;
+    transition: background-color var(--dur) var(--ease-out);
+}
+
+.statusItem:hover {
+    background: var(--color-surface-hover);
+}
+
+.statusItem:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+}
+
+.statusItemSelected {
+    background: var(--color-surface-active);
+}
+
+.statusDotStatic {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+}

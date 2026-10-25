@@ -1,31 +1,52 @@
-.container {
+﻿.container {
     width: 100%;
     height: 100%;
 
     position: relative;
     display: flex;
-    overflow-y: auto;
+    flex-direction: column;
+    overflow: hidden;
 }
 
-.expandBtn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex: none;
+.contentRow {
+    flex: 1;
+    min-height: 0;
 
-    width: 28px;
+    position: relative;
+    display: flex;
+    overflow: hidden;
+}
+
+/* Ã­cone Ãºnico no canto superior direito: abre/fecha o painel de conversas */
+
+.cornerBtn {
+    position: absolute;
+    top: 16px;
+    right: 10px;
+    z-index: 20;
+
+    display: grid;
+    place-items: center;
+
+    width: 32px;
+    height: 32px;
     padding: 0;
-    border: none;
-    border-right: 1px solid var(--color-border-subtle);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-pill);
 
     background: var(--color-surface);
     color: var(--color-text-muted);
     cursor: pointer;
-    transition: color 0.15s ease, background-color 0.15s ease;
+    transition: background-color var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
 }
 
-.expandBtn:hover {
+.cornerBtn:hover {
     background: var(--color-surface-hover);
     color: var(--color-text);
+}
+
+.cornerBtn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
 }
 

@@ -1,4 +1,4 @@
-import { Phone, UserPlus, UsersRound } from "lucide-react";
+import { MessageSquarePlus, Phone, UserPlus, UsersRound } from "lucide-react";
 
 import styles from "./Home.module.css";
 
@@ -6,9 +6,10 @@ interface HomeActionsProps {
     onAddFriend: () => void;
     onQuickCall: () => void;
     onCreateGroup: () => void;
+    onStartChat: () => void;
 }
 
-export default function HomeActions({ onAddFriend, onQuickCall, onCreateGroup }: HomeActionsProps) {
+export default function HomeActions({ onAddFriend, onQuickCall, onCreateGroup, onStartChat }: HomeActionsProps) {
     return (
         <div className={styles.quickActions}>
             <button type="button" className={styles.actionCard} onClick={onAddFriend}>
@@ -16,6 +17,14 @@ export default function HomeActions({ onAddFriend, onQuickCall, onCreateGroup }:
                 <span className={styles.actionText}>
                     <strong className={styles.actionTitle}>Adicionar Amigo</strong>
                     <small className={styles.actionSub}>Busque por nome de usuário</small>
+                </span>
+            </button>
+
+            <button type="button" className={styles.actionCard} onClick={onStartChat}>
+                <MessageSquarePlus size={22} aria-hidden="true" className={styles.actionIcon} />
+                <span className={styles.actionText}>
+                    <strong className={styles.actionTitle}>Iniciar Conversa</strong>
+                    <small className={styles.actionSub}>Abra o painel de conversas</small>
                 </span>
             </button>
 

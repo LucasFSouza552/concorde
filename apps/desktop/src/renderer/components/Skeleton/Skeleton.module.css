@@ -1,0 +1,42 @@
+/* placeholder shimmer para carregamentos assíncronos */
+
+.skeleton {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    flex: none;
+
+    background: var(--color-surface-active);
+    border-radius: var(--radius-sm);
+}
+
+.skeleton::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.07), transparent);
+    animation: skeletonShimmer 1.5s var(--dur, 1.5s) infinite;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 4px 2px;
+}
+
+.stack {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    width: 100%;
+}
+
+@keyframes skeletonShimmer {
+    to {
+        transform: translateX(100%);
+    }
+}

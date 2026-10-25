@@ -6,14 +6,24 @@
   min-height: 0;
   height: 100%;
   background: var(--color-surface);
+  animation: chatIn 200ms var(--ease-out);
+}
+
+@keyframes chatIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
 }
 
 .chatHeader {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-md);
-  padding: var(--spacing-md) var(--spacing-xs);
-  border-bottom: 1px solid var(--color-border-subtle);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md) var(--spacing-xs);
+    /* reserva o canto superior direito para o botão fixo da barra lateral */
+    padding-right: 48px;
+    border-bottom: 1px solid var(--color-border-subtle);
 }
 
 .backBtn {

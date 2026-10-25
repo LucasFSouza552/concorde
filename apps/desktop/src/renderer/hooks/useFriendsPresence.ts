@@ -165,9 +165,10 @@ function applyDelta(event: UserSocketServerMessage) {
         inCall: false,
         groupId: null,
         concordeGroupId: null,
+        customMessage: null,
         ...existing,
         ...(event.type === "peer-status"
-            ? { status: event.status }
+            ? { status: event.status, customMessage: event.customMessage ?? null }
             : {
                 inCall: event.groupId !== null,
                 groupId: event.groupId ?? null,

@@ -3,6 +3,7 @@ import { Trash2 } from "lucide-react";
 
 import type { Friend } from "@concorde/shared";
 import { useAuth } from "../../../../../contexts/AuthContext";
+import { SkeletonList } from "../../../../../components/Skeleton/Skeleton";
 
 import { ConvertTimeStampToDateTime } from "../../../../../utils/timeConverter";
 import type { LocalMessage } from "../../../../../hooks/useChannelMessages";
@@ -57,7 +58,7 @@ export default function MessageList({ channelId, friend, messages, loading, erro
 
     return (
         <>
-            {loading && <span>Carregando...</span>}
+            {loading && <SkeletonList rows={4} rowHeight={40} />}
             {error && <p>{error}</p>}
             <div ref={listRef} className={styles.chatMessages}>
                 {[...messages].map((message) => {

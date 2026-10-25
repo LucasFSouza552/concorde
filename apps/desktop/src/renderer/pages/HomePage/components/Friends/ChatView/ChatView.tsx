@@ -21,9 +21,11 @@ interface ChatViewProps {
     friend: Friend;
     onBack?: () => void;
     showHeader?: boolean;
+    /** Chamadas são renderizadas fora (CallUri central): aqui só chat. */
+    centered?: boolean;
 }
 
-export default function ChatView({ channelId, friend, onBack, showHeader = true }: ChatViewProps) {
+export default function ChatView({ channelId, friend, onBack, showHeader = true, centered = false }: ChatViewProps) {
     const { messages, loading, error: errorMessages, send, sending, cooling, remove } = useChannelMessages(channelId);
     const { dial, outgoing, joinGroupCall, joinedGroup } = useCallInviteState();
     const { groupId, peers } = useActiveCall();
@@ -48,10 +50,10 @@ export default function ChatView({ channelId, friend, onBack, showHeader = true 
         (peers.some((peer) => peer.userId === friend.id) ||
             (outgoing.status === "dialing" && outgoing.toUserId === friend.id));
 
-    const showCall = inCallWithFriend || (!inGroupCall && groupId !== null && peers.length === 0);
+    const showCall = centered ? false : (inCallWithFriend || (!inGroupCall && groupId !== null && peers.length === 0));
     const directPeerCall = peerCall && peerCall.concordeGroupId === null ? peerCall : null;
-    const showPreview = !showCall && !inCallWithFriend && directPeerCall !== null;
-    const callVisible = showCall || showPreview;
+    const showPreview = centered ? false : (!showCall && !inCallWithFriend && directPeerCall !== null);
+    const callVisible = centered ? false : (showCall || showPreview);
 
     async function handleCall(friend: Friend) {
         try {
@@ -83,14 +85,16 @@ export default function ChatView({ channelId, friend, onBack, showHeader = true 
                     )}
                     <UserIdentity displayName={friend.displayName} username={friend.username} large />
 
-                    <button
-                        type="button"
-                        className={`${styles.iconBtn} ${styles.callBtn}`}
-                        aria-label={`Ligar para ${friend.displayName}`}
-                        onClick={() => handleCall(friend)}
-                    >
-                        <Phone />
-                    </button>
+                    {!callVisible && !inCallWithFriend && (
+                        <button
+                            type="button"
+                            className={`${styles.iconBtn} ${styles.callBtn}`}
+                            aria-label={`Ligar para ${friend.displayName}`}
+                            onClick={() => handleCall(friend)}
+                        >
+                            <Phone />
+                        </button>
+                    )}
                 </header>
             )}
             {!chatHidden && (

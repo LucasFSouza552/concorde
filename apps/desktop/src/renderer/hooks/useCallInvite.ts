@@ -8,6 +8,7 @@ import { useUserSocketConnected, useUserSocketEvent, useUserSocketSend } from ".
 import { useOwnStatus } from "../utils/ownStatus";
 
 import { api } from "../api/api";
+import { useToast } from "../contexts/ToastProvider";
 
 export const CALL_RING_TIMEOUT_MS = 30_000;
 
@@ -27,6 +28,7 @@ export function useCallInvite() {
 
     const lastEvent = useUserSocketEvent();
     const ownStatus = useOwnStatus();
+    const { push } = useToast();
     const timeoutRef = useRef<number | null>(null);
     const announcedRef = useRef<{ groupId: string | null; concordeGroupId: string | null } | undefined>(undefined);
     const socketConnected = useUserSocketConnected();
@@ -216,6 +218,9 @@ export function useCallInvite() {
                 } else if (!waiting || waiting.callId === lastEvent.invite.callId) {
                     setWaiting(lastEvent.invite);
                 } else {
+                    // Já há chamada e chamada em espera: recusa com feedback
+                    // em vez de declinar silenciosamente.
+                    push(`Chamada de ${lastEvent.invite.fromDisplayName} foi ignorada.`, "info");
                     void api.post(`/calls/${lastEvent.invite.callId}/decline`, {
                         callerId: lastEvent.invite.fromUserId
                     }).catch(() => { });

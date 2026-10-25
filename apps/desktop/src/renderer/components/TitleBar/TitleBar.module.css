@@ -21,12 +21,13 @@
     letter-spacing: 0.02em;
 }
 
-.title::before {
-    content: '';
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+.brandWord {
     background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 700;
+    letter-spacing: 0.04em;
 }
 
 .windowControls {

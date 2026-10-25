@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Crown, LogOut, MoreVertical, Phone, PhoneIncoming, Plus, RefreshCw, Search, Shield, User, Users, Volume2 } from "lucide-react";
+import { ArrowLeft, Crown, LogOut, MoreVertical, Phone, PhoneIncoming, Plus, RefreshCw, Search, Shield, User, UserPlus, Users, Volume2 } from "lucide-react";
 
-import { roleLabels, type Friend, type GroupRole } from "@concorde/shared";
+import { roleLabels, type Friend, type GroupRole, type PresenceBatchResponse } from "@concorde/shared";
 import { useToast } from "../../../../contexts/ToastProvider";
 import { useUserSocketEvent } from "../../../../contexts/UserSocketProvider";
 
 import { api, getErrorMessage } from "../../../../api/api";
+import { SkeletonList } from "../../../../components/Skeleton/Skeleton";
 import { useFriendsList } from "../../../../hooks/useFriendsList";
 import { useGroupMembers } from "../../../../hooks/useGroupMembers";
 import { notifyGroupsChanged } from "../../../../hooks/useGroupsList";
@@ -35,15 +36,17 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
     const { members, loading, error, load } = useGroupMembers(groupId);
     const { friends, load: loadFriends } = useFriendsList();
     const [search, setSearch] = useState("");
-    const [searchOpen, setSearchOpen] = useState(false);
     const [addOpen, setAddOpen] = useState(false);
     const [addQuery, setAddQuery] = useState("");
     const [internalVisible, setInternalVisible] = useState(true);
     const [presenceTick, setPresenceTick] = useState(0);
     const [inCallIds, setInCallIds] = useState<Set<string>>(new Set());
+    const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set());
+    const [presenceMessages, setPresenceMessages] = useState<Map<string, string | null>>(new Map());
     const [pendingAction, setPendingAction] = useState<"leave" | "dissolve" | null>(null);
     const [optionBusy, setOptionBusy] = useState(false);
     const [openMenu, setOpenMenu] = useState<"header" | string | null>(null);
+    const [pendingRemove, setPendingRemove] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement | null>(null);
     const openItemRef = useRef<HTMLDivElement | null>(null);
     const lastEvent = useUserSocketEvent();
@@ -72,17 +75,32 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
         let cancelled = false;
 
         void (async () => {
-            const checks = await Promise.all(members.map(async (member) => {
-                try {
-                    const { data } = await api.get<{ inCall: boolean; concordeGroupId: string | null }>(`/user/${member.id}/presence`);
-                    return data.inCall && data.concordeGroupId === groupId ? member.id : null;
-                } catch {
-                    return null;
-                }
-            }));
-
-            if (cancelled) return;
-            setInCallIds(new Set(checks.filter((id): id is string => id !== null)));
+            // 1 batch (1 request) em vez de 1 GET por membro.
+            if (members.length === 0) {
+                setInCallIds(new Set());
+                return;
+            }
+            try {
+                const { data } = await api.post<PresenceBatchResponse>("/user/presence/batch", {
+                    ids: members.map((member) => member.id),
+                });
+                if (cancelled) return;
+                const inCall = new Set<string>();
+                const online = new Set<string>();
+                const messages = new Map<string, string | null>();
+                members.forEach((member) => {
+                    const presence = data.presences[member.id];
+                    if (!presence) return;
+                    if (presence?.inCall && presence.concordeGroupId === groupId) inCall.add(member.id);
+                    if (presence.status && presence.status !== "offline" && presence.status !== "invisible") online.add(member.id);
+                    messages.set(member.id, presence.customMessage ?? null);
+                });
+                setInCallIds(inCall);
+                setOnlineIds(online);
+                setPresenceMessages(messages);
+            } catch {
+                // Falhou: mantém o estado anterior até o próximo tick/evento.
+            }
         })();
 
         return () => {
@@ -96,6 +114,20 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
         setPresenceTick((tick) => tick + 1);
     }, [lastEvent, members]);
 
+    // Fechar o menu desarma a exclusão pendente (2 cliques): ver callbacks.
+    // Escape fecha o menu aberto de ações.
+    useEffect(() => {
+        if (openMenu === null) return;
+        function handleKey(event: KeyboardEvent) {
+            if (event.key === "Escape") {
+                setOpenMenu(null);
+                setPendingRemove(null);
+            }
+        }
+        window.addEventListener("keydown", handleKey);
+        return () => window.removeEventListener("keydown", handleKey);
+    }, [openMenu]);
+
     useEffect(() => {
         if (addOpen && friends.length === 0) void loadFriends();
     }, [addOpen, friends.length, loadFriends]);
@@ -106,6 +138,7 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
             const insideMenu = menuRef.current?.contains(target) || openItemRef.current?.contains(target);
             if (openMenu !== null && !insideMenu) {
                 setOpenMenu(null);
+                setPendingRemove(null);
             }
         }
 
@@ -126,6 +159,7 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
 
     async function handleRemove(userId: string, displayName: string) {
         setOpenMenu(null);
+        setPendingRemove(null);
         try {
             await api.delete(`/groups/${groupId}/members/${userId}`);
             await load();
@@ -135,8 +169,17 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
         }
     }
 
+    function requestRemove(member: { id: string; displayName: string }) {
+        if (pendingRemove !== member.id) {
+            setPendingRemove(member.id);
+            return;
+        }
+        void handleRemove(member.id, member.displayName);
+    }
+
     async function handleRole(userId: string, role: GroupRole) {
         setOpenMenu(null);
+        setPendingRemove(null);
         try {
             await api.patch(`/groups/${groupId}/members/${userId}`, {
                 role: role === "admin" ? "member" : "admin",
@@ -183,7 +226,10 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                     <div className={styles.listText}>
                         <span className={styles.listName}>{name}</span>
                         <span className={styles.listSub}>
-                            {members.length} {members.length === 1 ? "membro" : "membros"}
+                            Membros: {members.length}
+                        </span>
+                        <span className={styles.gHeaderDesc}>
+                            Convide amigos, converse por voz e gerencie o grupo.
                         </span>
                     </div>
                 </div>
@@ -211,20 +257,20 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                                     type="button"
                                     role="menuitem"
                                     className={styles.gMenuItem}
-                                    onClick={() => { setOpenMenu(null); void load(); }}
+                                    onClick={() => { setOpenMenu(null); setPendingRemove(null); void load(); }}
                                 >
                                     <RefreshCw size={14} />
                                     Atualizar membros
                                 </button>
                                 {members.length > 0 && (showMembers
                                     ? (
-                                        <button type="button" role="menuitem" className={styles.gMenuItem} onClick={() => { setOpenMenu(null); toggleMembers(); }}>
+                                        <button type="button" role="menuitem" className={styles.gMenuItem} onClick={() => { setOpenMenu(null); setPendingRemove(null); toggleMembers(); }}>
                                             <Users size={14} />
                                             Ocultar membros
                                         </button>
                                     )
                                     : (
-                                        <button type="button" role="menuitem" className={styles.gMenuItem} onClick={() => { setOpenMenu(null); toggleMembers(); }}>
+                                        <button type="button" role="menuitem" className={styles.gMenuItem} onClick={() => { setOpenMenu(null); setPendingRemove(null); toggleMembers(); }}>
                                             <Users size={14} />
                                             Mostrar membros
                                         </button>
@@ -235,7 +281,7 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                                         role="menuitem"
                                         disabled={optionBusy}
                                         className={`${styles.gMenuItem} ${styles.gMenuItemDanger}`}
-                                        onClick={() => { setOpenMenu(null); void performLeave(); }}
+                                        onClick={() => { setOpenMenu(null); setPendingRemove(null); void performLeave(); }}
                                     >
                                         <LogOut size={14} />
                                         {pendingAction === "leave" ? "Confirmar saída?" : "Sair do grupo"}
@@ -250,37 +296,22 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
             {showMembers && (
                 <div className={styles.gBody}>
                     <div className={styles.gToolbar}>
-                        {searchOpen ? (
-                            <div className={styles.gSearchWrap}>
+                        <div className={styles.gSearchWrap}>
                                 <Search size={14} aria-hidden="true" className={styles.gSearchIcon} />
                                 <input
                                     className={styles.gSearchField}
-                                    placeholder="Buscar membros por nome ou @tag"
+                                    placeholder="Pesquisar membros do grupo..."
                                     value={search}
-                                    autoFocus
-                                    aria-label="Buscar membros"
+                                    aria-label="Pesquisar membros"
                                     onChange={(e) => setSearch(e.target.value)}
-                                    onBlur={() => { if (!search) setSearchOpen(false); }}
                                     onKeyDown={(event) => {
                                         if (event.key === "Escape") {
                                             setSearch("");
-                                            setSearchOpen(false);
                                             event.currentTarget.blur();
                                         }
                                     }}
                                 />
                             </div>
-                        ) : (
-                            <button
-                                type="button"
-                                className={styles.gSearchToggle}
-                                aria-label="Buscar membros"
-                                title="Buscar membros"
-                                onClick={() => setSearchOpen(true)}
-                            >
-                                <Search size={16} />
-                            </button>
-                        )}
                         {canManage && addOpen ? (
                             <div className={styles.gAddWrap}>
                                 <Plus size={14} aria-hidden="true" className={styles.gSearchIcon} />
@@ -332,12 +363,13 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                             canManage && (
                                 <button
                                     type="button"
-                                    className={styles.gSearchToggle}
-                                    aria-label="Adicionar membros"
-                                    title="Adicionar membros"
+                                    className={styles.gInviteBtn}
+                                    aria-label="Convidar membros"
+                                    title="Convidar membros"
                                     onClick={() => setAddOpen(true)}
                                 >
-                                    <Plus size={16} />
+                                    <UserPlus size={15} />
+                                    Convidar membros
                                 </button>
                             )
                         )}
@@ -345,76 +377,95 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
 
                     <div className={styles.gColumns}>
                         <section className={styles.gMembersCol} aria-label="Membros">
-                            {loading && <p className={styles.empty}>Carregando membros...</p>}
+                            {loading && <SkeletonList rows={4} rowHeight={44} />}
                             {error && <p className={styles.empty}>{error}</p>}
                             {!loading && !error && visibleMembers.length === 0 && (
                                 <p className={styles.empty}>{needle ? "Nenhum membro encontrado." : "Nenhum membro."}</p>
                             )}
-                            {visibleMembers.map((member) => (
-                                <div
-                                    key={member.id}
-                                    className={styles.gMemberItem}
-                                    ref={openMenu === member.id ? openItemRef : undefined}
-                                >
-                                    <div className={styles.gMemberRow}>
-                                        <span className={styles.gMemberAvatarWrap}>
-                                            <span className={styles.listAvatar} aria-hidden="true">
-                                                {member.displayName.trim().charAt(0).toUpperCase() || "?"}
+                            {visibleMembers.length > 0 && (() => {
+                                const renderMember = (member: (typeof members)[number]) => (
+                                    <div
+                                        key={member.id}
+                                        className={styles.gMemberItem}
+                                        ref={openMenu === member.id ? openItemRef : undefined}
+                                    >
+                                        <div className={styles.gMemberRow}>
+                                            <span className={styles.gMemberAvatarWrap}>
+                                                <span className={styles.listAvatar} aria-hidden="true">
+                                                    {member.displayName.trim().charAt(0).toUpperCase() || "?"}
+                                                </span>
+                                                <span
+                                                    className={inCallIds.has(member.id) ? styles.gStatusDotOnline : onlineIds.has(member.id) ? styles.gStatusDotIdle : styles.gStatusDotOffline}
+                                                    title={inCallIds.has(member.id) ? "Em chamada" : onlineIds.has(member.id) ? "Online" : "Offline"}
+                                                />
                                             </span>
-                                            <span
-                                                className={inCallIds.has(member.id) ? styles.gStatusDotOnline : styles.gStatusDotOffline}
-                                                title={inCallIds.has(member.id) ? "Em chamada" : "Não está em chamada"}
-                                            />
-                                        </span>
-                                        <div className={styles.listText}>
-                                            <span className={styles.listName}>{member.displayName}</span>
-                                            <span className={styles.listSub}>@{member.username}</span>
+                                            <div className={styles.listText}>
+                                                <span className={styles.listName}>{member.displayName}</span>
+                                                <span
+                                                    className={presenceMessages.get(member.id) ? styles.listSubMsg : styles.listSub}
+                                                    title={presenceMessages.get(member.id) ?? `@${member.username}`}
+                                                >
+                                                    {presenceMessages.get(member.id) || `@${member.username}`}
+                                                </span>
+                                            </div>
+                                            {inCallIds.has(member.id) && (
+                                                <span className={styles.voiceOn} title="Em chamada">
+                                                    <Volume2 size={14} />
+                                                </span>
+                                            )}
+                                            <span className={`${styles.roleBadge} ${member.role === "owner" ? styles.roleBadgeOwner : member.role === "admin" ? styles.roleBadgeAdmin : styles.roleBadgeMember}`}>
+                                                {roleIcon(member.role)}
+                                                {roleLabels[member.role as GroupRole] ?? member.role}
+                                            </span>
+                                            {canManage && member.role !== "owner" && (
+                                                <div className={styles.gRowMenuWrap}>
+                                                    <button
+                                                        type="button"
+                                                        className={styles.gMoreBtn}
+                                                        aria-label={`Ações para ${member.displayName}`}
+                                                        aria-expanded={openMenu === member.id}
+                                                        onClick={() => setOpenMenu(openMenu === member.id ? null : member.id)}
+                                                    >
+                                                        <MoreVertical size={14} />
+                                                    </button>
+                                                </div>
+                                            )}
                                         </div>
-                                        {inCallIds.has(member.id) && (
-                                            <span className={styles.voiceOn} title="Em chamada">
-                                                <Volume2 size={14} />
-                                            </span>
-                                        )}
-                                        <span className={`${styles.roleBadge} ${member.role === "owner" ? styles.roleBadgeOwner : styles.roleBadgeMember}`}>
-                                            {roleIcon(member.role)}
-                                            {roleLabels[member.role as GroupRole] ?? member.role}
-                                        </span>
-                                        {canManage && member.role !== "owner" && (
-                                            <div className={styles.gRowMenuWrap}>
+
+                                        {openMenu === member.id && canManage && member.role !== "owner" && (
+                                            <div className={styles.gMemberActions} role="toolbar" aria-label={`Ações para ${member.displayName}`}>
                                                 <button
                                                     type="button"
-                                                    className={styles.gMoreBtn}
-                                                    aria-label={`Ações para ${member.displayName}`}
-                                                    aria-expanded={openMenu === member.id}
-                                                    onClick={() => setOpenMenu(openMenu === member.id ? null : member.id)}
+                                                    className={styles.gActionBtn}
+                                                    onClick={() => { setOpenMenu(null); setPendingRemove(null); void handleRole(member.id, member.role as GroupRole); }}
                                                 >
-                                                    <MoreVertical size={14} />
+                                                    {member.role === "admin" ? "Rebaixar" : "Promover"}
+                                                </button>
+                                                <span className={styles.gActionDivider} aria-hidden="true" />
+                                                <button
+                                                    type="button"
+                                                    className={`${styles.gActionBtn} ${styles.gActionBtnDanger}`}
+                                                    onClick={() => { requestRemove(member); }}
+                                                >
+                                                    {pendingRemove === member.id ? "Confirmar?" : "Remover"}
                                                 </button>
                                             </div>
                                         )}
                                     </div>
+                                );
 
-                                    {openMenu === member.id && canManage && member.role !== "owner" && (
-                                        <div className={styles.gMemberActions} role="toolbar" aria-label={`Ações para ${member.displayName}`}>
-                                            <button
-                                                type="button"
-                                                className={styles.gActionBtn}
-                                                onClick={() => { setOpenMenu(null); void handleRole(member.id, member.role as GroupRole); }}
-                                            >
-                                                {member.role === "admin" ? "Rebaixar" : "Promover"}
-                                            </button>
-                                            <span className={styles.gActionDivider} aria-hidden="true" />
-                                            <button
-                                                type="button"
-                                                className={`${styles.gActionBtn} ${styles.gActionBtnDanger}`}
-                                                onClick={() => { setOpenMenu(null); void handleRemove(member.id, member.displayName); }}
-                                            >
-                                                Remover
-                                            </button>
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
+                                const onlineMembers = visibleMembers.filter((member) => onlineIds.has(member.id) || inCallIds.has(member.id));
+                                const offlineMembers = visibleMembers.filter((member) => !onlineMembers.includes(member));
+
+                                return (
+                                    <>
+                                        <h4 className={styles.gSectionLabel}>Membros on-line ({onlineMembers.length})</h4>
+                                        {onlineMembers.map(renderMember)}
+                                        <h4 className={styles.gSectionLabel}>Membros off-line ({offlineMembers.length})</h4>
+                                        {offlineMembers.map(renderMember)}
+                                    </>
+                                );
+                            })()}
                         </section>
                     </div>
                 </div>

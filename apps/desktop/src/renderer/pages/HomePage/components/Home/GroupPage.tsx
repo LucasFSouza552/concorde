@@ -3,7 +3,7 @@ import { Users } from "lucide-react";
 
 import CallScreen from "../../../../components/CallScreen/CallScreen";
 import Page from "../../../../components/Page/Page";
-import type { GroupRole } from "@concorde/shared";
+import type { GroupRole, PresenceBatchResponse, UserPresence } from "@concorde/shared";
 import GroupDetail from "./GroupDetail";
 import { useCallInviteState } from "../../../../contexts/CallInviteProvider";
 import { useUserSocketEvent } from "../../../../contexts/UserSocketProvider";
@@ -40,24 +40,32 @@ export default function GroupPage({ groupId, name, role, onBack }: GroupPageProp
         let cancelled = false;
 
         void (async () => {
-            const checks = await Promise.all(members.map(async (member) => {
-                try {
-                    const { data } = await api.get<{ inCall: boolean; groupId: string | null; concordeGroupId: string | null }>(`/user/${member.id}/presence`);
-                    return { member, data };
-                } catch {
-                    return null;
+            // 1 batch (1 request) em vez de 1 GET por membro.
+            if (members.length === 0) {
+                setActiveRoom(null);
+                return;
+            }
+            try {
+                const { data } = await api.post<PresenceBatchResponse>("/user/presence/batch", {
+                    ids: members.map((member) => member.id),
+                });
+                if (cancelled) return;
+
+                let found: { member: (typeof members)[number]; presence: UserPresence } | undefined;
+                for (const member of members) {
+                    const presence = data.presences[member.id];
+                    if (presence?.inCall && presence.groupId && presence.concordeGroupId === groupId) {
+                        found = { member, presence };
+                        break;
+                    }
                 }
-            }));
 
-            if (cancelled) return;
-
-            const found = checks.find(
-                (check) => check && check.data.inCall && check.data.groupId && check.data.concordeGroupId === groupId
-            );
-
-            setActiveRoom(found && found.data.groupId
-                ? { groupId: found.data.groupId, byName: found.member.displayName }
-                : null);
+                setActiveRoom(found?.presence.groupId
+                    ? { groupId: found.presence.groupId, byName: found.member.displayName }
+                    : null);
+            } catch {
+                // Falhou: mantém o estado anterior até o próximo tick/evento.
+            }
         })();
 
         return () => {

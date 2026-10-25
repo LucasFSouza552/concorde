@@ -1,6 +1,7 @@
 import { Check, X, RotateCcw } from "lucide-react";
 
 import InlineError from "../../../../components/InlineError/InlineError";
+import { SkeletonList } from "../../../../components/Skeleton/Skeleton";
 import type { Friend } from "@concorde/shared";
 import UserIdentity from "./UserIdentity";
 
@@ -28,7 +29,7 @@ export default function IncomingRequestsList({ requests, loading, error, onAccep
                     <RotateCcw />
                 </button>
             </header>
-            {loading && <span>Carregando...</span>}
+            {loading && <SkeletonList rows={3} rowHeight={40} />}
             {!loading && error && <InlineError message={error} />}
             {!loading && !error && requests.length === 0 && (
                 <p>Nenhuma solicitação pendente.</p>

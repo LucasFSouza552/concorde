@@ -1,18 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Headphones, HeadphoneOff, Mic, MicOff, PanelLeftClose, PhoneIncoming, Plus, Search, Settings, Trash2, Users, Volume2, House } from "lucide-react";
+import { MessageCircle, MoreVertical, Phone, PhoneIncoming, Plus, Search, Trash2, UserPlus, UsersRound, Volume2 } from "lucide-react";
 
-import IconBtn from "../../components/IconBtn/IconBtn";
-import type { SectionType } from "../../pages/HomePage";
 import type { Friend, GroupRole } from "@concorde/shared";
-import VoiceList from "./VoiceList";
+import AddFriendModal from "../../pages/HomePage/components/Home/AddFriendModal";
 import CreateGroupModal from "../../pages/HomePage/components/Home/CreateGroupModal";
-import { useActiveCall } from "../../contexts/ActiveCallProvider";
-import { useAuth } from "../../contexts/AuthContext";
-import { useUserSocketSend } from "../../contexts/UserSocketProvider";
-import SettingsModal from "../SettingsModal/SettingsModal";
-
-import { STATUS_COLOR, STATUS_LABEL } from "../../utils/status";
-import { setOwnStatus, useOwnStatus } from "../../utils/ownStatus";
+import IncomingRequestsList from "../../pages/HomePage/components/Friends/IncomingRequestsList";
+import { useCallInviteState } from "../../contexts/CallInviteProvider";
 import { useUserSocketEvent } from "../../contexts/UserSocketProvider";
 import { api, getErrorMessage } from "../../api/api";
 import { useToast } from "../../contexts/ToastProvider";
@@ -22,42 +15,36 @@ import { useFriendsList } from "../../hooks/useFriendsList";
 import { useFriendsPresence } from "../../hooks/useFriendsPresence";
 import { useGroupsList } from "../../hooks/useGroupsList";
 import { useIncomingRequests } from "../../hooks/useIncomingRequests";
+import { STATUS_COLOR } from "../../utils/status";
 
 import styles from "./SideBar.module.css";
 
-const SETTABLE_STATUSES = ["online", "away", "busy", "invisible"] as const;
+type PanelTab = "friends" | "groups" | "pending";
 
 interface SideBarProps {
-    section: SectionType;
-    setSection: (section: SectionType) => void;
-    sidebarOpen?: boolean;
-    onToggleSidebar?: () => void;
-    selectedGroupId: string | null;
-    onSelectGroup: (group: { id: string; name: string; role: GroupRole }) => void;
+    /** Amigo com conversa aberta no centro, para destaque na lista. */
+    activeFriendId: string | null;
+    onOpenFriend: (friend: Friend) => void;
+    onOpenGroup: (group: { id: string; name: string; role: GroupRole }) => void;
     onJoinCall: (call: ActiveCallEntry) => void;
-    onGoFriends?: () => void;
-    onOpenFriend?: (friend: Friend) => void;
     onGroupDeleted?: (groupId: string) => void;
 }
 
-export default function SideBar({ section, setSection, sidebarOpen = true, onToggleSidebar, selectedGroupId, onSelectGroup, onJoinCall, onGoFriends, onOpenFriend, onGroupDeleted }: SideBarProps) {
-    const { micMuted, deafened, toggleMic, toggleDeafen } = useActiveCall();
-    const { user } = useAuth();
-    const { requests } = useIncomingRequests();
+export default function SideBar({ activeFriendId, onOpenFriend, onOpenGroup, onJoinCall, onGroupDeleted }: SideBarProps) {
+    const { requests, accept, decline, loadRequests, loading: loadingRequests, error: errorRequests } = useIncomingRequests();
     const { groups, load: reloadGroups } = useGroupsList();
-    const { friends } = useFriendsList();
-    const { calls: activeCalls, voiceGroupIds } = useActiveCalls(groups, friends);
+    const { friends, load: reloadFriends } = useFriendsList();
+    const { calls: activeCalls } = useActiveCalls(groups, friends);
     const presences = useFriendsPresence(friends);
+    const { dial } = useCallInviteState();
     const { push } = useToast();
-    const [settingsOpen, setSettingsOpen] = useState(false);
+    const [tab, setTab] = useState<PanelTab>("friends");
     const [createOpen, setCreateOpen] = useState(false);
+    const [addOpen, setAddOpen] = useState(false);
     const [query, setQuery] = useState("");
     const [groupMenu, setGroupMenu] = useState<{ x: number; y: number; group: { id: string; name: string; role: GroupRole } } | null>(null);
     const [menuArmed, setMenuArmed] = useState(false);
     const [deletingGroup, setDeletingGroup] = useState(false);
-    const send = useUserSocketSend();
-    const status = useOwnStatus();
-    const [statusMenuOpen, setStatusMenuOpen] = useState(false);
     const lastEvent = useUserSocketEvent();
     const kickedHandledRef = useRef<typeof lastEvent>(null);
 
@@ -82,25 +69,34 @@ export default function SideBar({ section, setSection, sidebarOpen = true, onTog
         onGroupDeleted?.(groupId);
     }, [lastEvent, push, reloadGroups, onGroupDeleted]);
 
-    useEffect(() => {
-        void reloadGroups();
-    }, [section, reloadGroups]);
-
-    const effectiveMicMuted = micMuted || deafened;
     const needle = query.trim().toLowerCase();
+    // fora do JSX: dentro do ramo "else" do ternário TS estreita variáveis nulas.
     const filteredFriends = needle
         ? friends.filter((f) => f.displayName.toLowerCase().includes(needle) || f.username.toLowerCase().includes(needle))
         : friends;
+    const filteredGroups = needle
+        ? groups.filter((g) => g.name.toLowerCase().includes(needle))
+        : groups;
 
-    function handleSelect(group: { id: string; name: string; role: GroupRole }) {
-        onSelectGroup(group);
-        setSection("group");
+    function openGroup(group: { id: string; name: string; role: GroupRole }) {
+        onOpenGroup(group);
     }
 
     function closeGroupMenu() {
         setGroupMenu(null);
         setMenuArmed(false);
     }
+
+    // Escape fecha o menu de contexto do grupo.
+    useEffect(() => {
+        if (!groupMenu) return;
+        function handleKey(event: KeyboardEvent) {
+            if (event.key !== "Escape") return;
+            closeGroupMenu();
+        }
+        window.addEventListener("keydown", handleKey);
+        return () => window.removeEventListener("keydown", handleKey);
+    }, [groupMenu]);
 
     async function deleteGroup(group: { id: string; name: string; role: GroupRole }) {
         if (deletingGroup) return;
@@ -114,242 +110,251 @@ export default function SideBar({ section, setSection, sidebarOpen = true, onTog
             closeGroupMenu();
             void reloadGroups();
         } catch (error) {
+            // Desarma o menu, mantendo-o aberto para nova tentativa consciente.
+            setMenuArmed(false);
             push(getErrorMessage(error), "error");
         } finally {
             setDeletingGroup(false);
         }
     }
 
+const TABS: { id: PanelTab; label: string }[] = [
+    { id: "friends", label: "Amigos" },
+    { id: "groups", label: "Grupos" },
+    { id: "pending", label: "Pendentes" },
+];
+
+const ROLE_LABEL: Record<GroupRole, string> = {
+    owner: "Líder",
+    admin: "Admin",
+    member: "Membro",
+};
+
     return (
-        <aside className={styles.aside}>
+        <aside className={styles.aside} aria-label="Painel de conversas">
+            <div className={styles.searchRow}>
+                <Search size={14} aria-hidden="true" className={styles.searchIcon} />
+                <input
+                    type="text"
+                    className={styles.searchField}
+                    value={query}
+                    placeholder="Buscar amigos"
+                    aria-label="Buscar amigos"
+                    onChange={(e) => setQuery(e.target.value)}
+                />
+            </div>
 
-            <nav className={styles.rail} aria-label="Navegação global">
-                <button
-                    type="button"
-                    className={`${styles.railBtn} ${section === "home" ? styles.railSelected : ""}`}
-                    title="Início"
-                    aria-label="Início"
-                    aria-current={section === "home" ? "page" : undefined}
-                    onClick={() => setSection("home")}
-                >
-                    <House size={20} />
-                </button>
-                <button
-                    type="button"
-                    className={`${styles.railBtn} ${section === "friends" ? styles.railSelected : ""}`}
-                    title="Amigos"
-                    aria-label="Amigos"
-                    aria-current={section === "friends" ? "page" : undefined}
-                    onClick={onGoFriends ?? (() => setSection("friends"))}
-                >
-                    <Users size={20} />
-                    {requests.length > 0 && (
-                        <span className={styles.railBadge} aria-label={`${requests.length} pedidos pendentes`}>
-                            {requests.length > 9 ? "9+" : requests.length}
-                        </span>
-                    )}
-                </button>
-
-                <span className={styles.railDivider} aria-hidden="true" />
-
-                {groups.map((group) => (
-                    <button
-                        key={group.id}
-                        type="button"
-                        className={`${styles.railBtn} ${styles.railGuild} ${selectedGroupId === group.id && section === "group" ? styles.railSelected : ""}`}
-                        title={group.name}
-                        aria-label={`Abrir grupo ${group.name}`}
-                        aria-current={selectedGroupId === group.id && section === "group" ? "page" : undefined}
-                        onClick={() => handleSelect(group)}
-                        onContextMenu={(event) => {
-                            event.preventDefault();
-                            setMenuArmed(false);
-                            setGroupMenu({
-                                x: Math.min(event.clientX, window.innerWidth - 200),
-                                y: Math.min(event.clientY, window.innerHeight - 130),
-                                group,
-                            });
-                        }}
-                    >
-                        {group.name.trim().charAt(0).toUpperCase() || "?"}
-                        {voiceGroupIds.has(group.id) && (
-                            <span className={styles.railPip} title="Chamada ativa">
-                                <Volume2 size={10} />
-                            </span>
-                        )}
-                    </button>
-                ))}
-
-                <span className={styles.railSpacer} aria-hidden="true" />
-
-                <button
-                    type="button"
-                    className={`${styles.railBtn} ${styles.railAdd}`}
-                    title="Criar grupo"
-                    aria-label="Criar grupo"
-                    onClick={() => setCreateOpen(true)}
-                >
-                    <Plus size={20} />
-                </button>
-            </nav>
-
-            <section className={styles.panel} aria-label="Navegação local">
-                <div className={styles.searchRow}>
-                    <Search size={14} aria-hidden="true" className={styles.searchIcon} />
-                    <input
-                        type="text"
-                        className={styles.searchField}
-                        value={query}
-                        placeholder="Buscar conversas"
-                        aria-label="Buscar conversas"
-                        onChange={(e) => setQuery(e.target.value)}
-                    />
-                    {onToggleSidebar && (
+            <>
+                <nav className={styles.segmentRow} role="tablist" aria-label="Alternar painel">
+                        {TABS.map((entry) => (
+                            <button
+                                key={entry.id}
+                                type="button"
+                                role="tab"
+                                aria-selected={tab === entry.id}
+                                className={`${styles.segmentBtn} ${tab === entry.id ? styles.segmentBtnActive : ""}`}
+                                onClick={() => setTab(entry.id)}
+                            >
+                                {entry.label}
+                                {entry.id === "pending" && requests.length > 0 && (
+                                    <span className={styles.segmentBadge}>{requests.length}</span>
+                                )}
+                            </button>
+                        ))}
                         <button
                             type="button"
-                            className={styles.searchAction}
-                            title={sidebarOpen ? "Ocultar barra lateral" : "Mostrar barra lateral"}
-                            aria-label={sidebarOpen ? "Ocultar barra lateral" : "Mostrar barra lateral"}
-                            onClick={onToggleSidebar}
+                            className={styles.segmentAddBtn}
+                            title="Adicionar amigo"
+                            aria-label="Adicionar amigo"
+                            onClick={() => setAddOpen(true)}
                         >
-                            <PanelLeftClose size={16} />
+                            <UserPlus size={15} />
                         </button>
-                    )}
-                </div>
+                    </nav>
 
-                <div className={styles.panelScroll}>
-                    <h4 className={styles.categoryLabel}>Chamadas ativas</h4>
-                    {activeCalls.length > 0 ? (
-                        <div className={styles.callsBlock}>
-                            {activeCalls.map((call) => (
-                                <div key={call.key} className={styles.callGroup}>
-                                    <button
-                                        type="button"
-                                        className={`${styles.callRow} ${call.isCurrent ? styles.callRowCurrent : ""}`}
-                                        title={call.isCurrent ? `Ir para ${call.title}` : `Entrar em ${call.title}`}
-                                        onClick={() => onJoinCall(call)}
-                                    >
-                                        <span className={styles.callAvatar}>
-                                            {call.title.trim().charAt(0).toUpperCase() || "?"}
-                                        </span>
-                                        <span className={styles.callText}>
-                                            <span className={styles.callTitle}>{call.title}</span>
-                                            <span className={styles.callSub}>{call.subtitle}</span>
-                                        </span>
-                                        {call.isCurrent
-                                            ? <Volume2 size={16} className={styles.callLiveIcon} aria-hidden="true" />
-                                            : <PhoneIncoming size={16} className={styles.callJoinIcon} aria-hidden="true" />}
-                                    </button>
-                                    {call.isCurrent && (
-                                        <div className={styles.callVoices}>
-                                            <VoiceList />
-                                        </div>
-                                    )}
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <p className={styles.roomEmpty}>Nenhuma chamada ativa agora.</p>
-                    )}
+                    <div className={styles.panelScroll}>
+                        {tab === "friends" && (
+                            filteredFriends.length > 0 ? (
+                                <ul className={styles.dmList}>
+                                    {filteredFriends.map((friend) => {
+                                        const presence = presences.get(friend.id);
+                                        const chatActive = activeFriendId === friend.id;
+                                        const friendInCall = Boolean(presence?.inCall);
+                                        return (
+                                            <li key={friend.id}>
+                                                <div className={`${styles.dmRow} ${chatActive ? styles.dmRowActive : ""}`.trim()}>
+                                                    <button
+                                                        type="button"
+                                                        className={styles.dmMain}
+                                                        title={`Conversar com ${friend.displayName}`}
+                                                        onClick={() => onOpenFriend(friend)}
+                                                    >
+                                                        <span className={styles.dmAvatar}>
+                                                            {friend.displayName.trim().charAt(0).toUpperCase()}
+                                                            <span
+                                                                className={styles.dmStatusDot}
+                                                                style={{ background: STATUS_COLOR[presence?.status ?? "offline"] }}
+                                                                title={presence?.status ?? "offline"}
+                                                            />
+                                                        </span>
+                                                        <span className={styles.dmText}>
+                                                            <span className={styles.dmName}>{friend.displayName}</span>
+                                                            <span
+                                                                className={presences.get(friend.id)?.customMessage ? styles.dmSubMsg : styles.dmSub}
+                                                                title={presences.get(friend.id)?.customMessage ?? `@${friend.username}`}
+                                                            >
+                                                                {presences.get(friend.id)?.customMessage || `@${friend.username}`}
+                                                            </span>
+                                                        </span>
+                                                        {friendInCall && (
+                                                            <span className={styles.dmLiveBadge} title="Em chamada agora">
+                                                                <Phone size={12} aria-hidden="true" />
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                    <span className={styles.rowActions}>
+                                                        <button
+                                                            type="button"
+                                                            className={styles.rowActionBtn}
+                                                            title={`Ligar para ${friend.displayName}`}
+                                                            aria-label={`Ligar para ${friend.displayName}`}
+                                                            onClick={() => void dial(friend)}
+                                                        >
+                                                            <Phone size={15} aria-hidden="true" />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className={styles.rowActionBtn}
+                                                            title={`Mensagem para ${friend.displayName}`}
+                                                            aria-label={`Mensagem para ${friend.displayName}`}
+                                                            onClick={() => onOpenFriend(friend)}
+                                                        >
+                                                            <MessageCircle size={15} aria-hidden="true" />
+                                                        </button>
+                                                    </span>
+                                                </div>
+                                            </li>
+                                        );
+                                    })}
+                                </ul>
+                            ) : (
+                                <p className={styles.roomEmpty}>{needle ? "Nada encontrado." : "Adicione amigos para conversar."}</p>
+                            )
+                        )}
 
-                    <span className={styles.panelDivider} aria-hidden="true" />
-
-                    <h4 className={styles.categoryLabel}>Conversas</h4>
-                    {filteredFriends.length > 0 ? (
-                        <ul className={styles.dmList}>
-                            {filteredFriends.map((friend) => (
-                                <li key={friend.id}>
-                                    <button
-                                        type="button"
-                                        className={styles.dmRow}
-                                        title={`Conversar com ${friend.displayName}`}
-                                        onClick={() => onOpenFriend ? onOpenFriend(friend) : onGoFriends?.()}
-                                    >
-                                        <span className={styles.dmAvatar}>
-                                            {friend.displayName.trim().charAt(0).toUpperCase()}
-                                            <span
-                                                className={styles.dmStatusDot}
-                                                style={{ background: STATUS_COLOR[presences.get(friend.id)?.status ?? "offline"] }}
-                                                title={presences.get(friend.id)?.status ?? "offline"}
-                                            />
-                                        </span>
-                                        <span className={styles.dmText}>
-                                            <span className={styles.dmName}>{friend.displayName}</span>
-                                            <span className={styles.dmSub}>@{friend.username}</span>
-                                        </span>
-                                    </button>
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className={styles.roomEmpty}>{needle ? "Nada encontrado." : "Adicione amigos para conversar."}</p>
-                    )}
-                </div>
-
-                <footer className={styles.userPanel}>
-                    <div className={styles.avatarWrap}>
-                        <div className={styles.avatar}>{(user?.displayName ?? "?").trim().charAt(0).toUpperCase()}</div>
-
-                        <button
-                            type="button"
-                            className={styles.statusDot}
-                            style={{ background: STATUS_COLOR[status] }}
-                            title={`Status: ${STATUS_LABEL[status]}`}
-                            aria-label={`Alterar status (atual: ${STATUS_LABEL[status]})`}
-                            aria-expanded={statusMenuOpen}
-                            onClick={() => setStatusMenuOpen((open) => !open)}
-                        />
-
-                        {statusMenuOpen && (
+                        {tab === "groups" && (
                             <>
-                                <div className={styles.statusBackdrop} onClick={() => setStatusMenuOpen(false)} />
-                                <div className={styles.statusMenu} role="menu">
-                                    {SETTABLE_STATUSES.map((option) => (
-                                        <button
-                                            key={option}
-                                            type="button"
-                                            role="menuitemradio"
-                                            aria-checked={status === option}
-                                            className={`${styles.statusItem} ${status === option ? styles.statusItemSelected : ""}`}
-                                            onClick={() => {
-                                                setOwnStatus(option);
-                                                setStatusMenuOpen(false);
-                                                send({ type: "set-status", status: option });
-                                            }}
-                                        >
-                                            <span className={styles.statusDotStatic} style={{ background: STATUS_COLOR[option] }} />
-                                            {STATUS_LABEL[option]}
-                                        </button>
-                                    ))}
-                                </div>
+                                {activeCalls.length > 0 && (
+                                    <>
+                                        <h4 className={styles.categoryLabel}>Chamadas ativas</h4>
+                                        <div className={styles.callsBlock}>
+                                            {activeCalls.map((call) => (
+                                                <button
+                                                    key={call.key}
+                                                    type="button"
+                                                    className={`${styles.callRow} ${call.isCurrent ? styles.callRowCurrent : ""}`}
+                                                    title={call.isCurrent ? `Ir para ${call.title}` : `Entrar em ${call.title}`}
+                                                    onClick={() => onJoinCall(call)}
+                                                >
+                                                    <span className={styles.callAvatar}>
+                                                        {call.title.trim().charAt(0).toUpperCase() || "?"}
+                                                    </span>
+                                                    <span className={styles.callText}>
+                                                        <span className={styles.callTitle}>{call.title}</span>
+                                                        <span className={styles.callSub}>{call.subtitle}</span>
+                                                    </span>
+                                                    {call.isCurrent
+                                                        ? <Volume2 size={16} className={styles.callLiveIcon} aria-hidden="true" />
+                                                        : <PhoneIncoming size={16} className={styles.callJoinIcon} aria-hidden="true" />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                        <span className={styles.panelDivider} aria-hidden="true" />
+                                    </>
+                                )}
+
+                                {filteredGroups.length > 0 ? (
+                                    <ul className={styles.dmList}>
+                                        {filteredGroups.map((group) => {
+                                            const groupInCall = activeCalls.some((call) => call.group?.id === group.id);
+                                            return (
+                                                <li key={group.id}>
+                                                <div className={styles.dmRow}>
+                                                    <button
+                                                        type="button"
+                                                        className={styles.dmMain}
+                                                        title={`Abrir grupo ${group.name}`}
+                                                        onClick={() => openGroup(group)}
+                                                    >
+                                                        <span className={styles.groupAvatar} aria-hidden="true">
+                                                            <UsersRound size={14} />
+                                                        </span>
+                                                        <span className={styles.dmText}>
+                                                            <span className={styles.dmName}>{group.name}</span>
+                                                            <span className={styles.dmSub}>
+                                                                {group.memberCount === 1 ? "1 membro" : `${group.memberCount} membros`} · {ROLE_LABEL[group.role]}
+                                                            </span>
+                                                        </span>
+                                                        {groupInCall && (
+                                                            <span className={styles.dmLiveBadge} title="Chamada em andamento no grupo">
+                                                                <Phone size={12} aria-hidden="true" />
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                    <span className={styles.rowActions}>
+                                                        <button
+                                                            type="button"
+                                                            className={styles.rowActionBtn}
+                                                            title={`Opções do grupo ${group.name}`}
+                                                            aria-label={`Opções do grupo ${group.name}`}
+                                                            onClick={(event) => {
+                                                                const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
+                                                                setMenuArmed(false);
+                                                                setGroupMenu({
+                                                                    x: Math.min(rect.left, window.innerWidth - 200),
+                                                                    y: Math.min(rect.bottom + 4, window.innerHeight - 130),
+                                                                    group,
+                                                                });
+                                                            }}
+                                                        >
+                                                            <MoreVertical size={15} aria-hidden="true" />
+                                                        </button>
+                                                    </span>
+                                                </div>
+                                                </li>
+                                                );
+                                            })}
+                                        </ul>
+                                ) : (
+                                    <p className={styles.roomEmpty}>{needle ? "Nada encontrado." : "Crie um grupo para conversar em equipe."}</p>
+                                )}
+
+                                <button
+                                    type="button"
+                                    className={styles.createGroupBtn}
+                                    onClick={() => setCreateOpen(true)}
+                                >
+                                    <Plus size={16} aria-hidden="true" />
+                                    Criar grupo
+                                </button>
                             </>
                         )}
+
+                        {tab === "pending" && (
+                            <IncomingRequestsList
+                                requests={requests}
+                                loading={loadingRequests}
+                                error={errorRequests}
+                                onAccept={async (friendId: string) => {
+                                    await accept(friendId);
+                                    reloadFriends();
+                                }}
+                                onDecline={(friendId: string) => decline(friendId)}
+                                onReload={() => void loadRequests()}
+                            />
+                        )}
                     </div>
-                    <div className={styles.identity}>
-                        <span className={styles.username}>{user?.displayName}</span>
-                        <span className={styles.userHandle}>@{user?.username}</span>
-                    </div>
-                    <div className={styles.actions}>
-                        <IconBtn
-                            id="mute"
-                            name={effectiveMicMuted ? "Desmutar" : "Silenciar"}
-                            icon={effectiveMicMuted ? MicOff : Mic}
-                            handleClick={toggleMic}
-                            active={effectiveMicMuted}
-                            tone="danger"
-                        />
-                        <IconBtn
-                            id="muteAudio"
-                            name={deafened ? "Ativar áudio" : "Desativar áudio"}
-                            icon={deafened ? HeadphoneOff : Headphones}
-                            handleClick={toggleDeafen}
-                            active={deafened}
-                            tone="danger"
-                        />
-                        <IconBtn id="config" name="Configurações" icon={Settings} handleClick={() => setSettingsOpen(true)} />
-                    </div>
-                </footer>
-            </section>
+                </>
 
             {groupMenu && (
                 <>
@@ -363,9 +368,9 @@ export default function SideBar({ section, setSection, sidebarOpen = true, onTog
                             type="button"
                             role="menuitem"
                             className={styles.menuItem}
-                            onClick={() => { handleSelect(groupMenu.group); closeGroupMenu(); }}
+                            onClick={() => { openGroup(groupMenu.group); closeGroupMenu(); }}
                         >
-                            Abrir grupo
+                            <UsersRound size={14} /> Abrir grupo
                         </button>
                         {groupMenu.group.role === "owner" && (
                             <button
@@ -386,12 +391,10 @@ export default function SideBar({ section, setSection, sidebarOpen = true, onTog
                 </>
             )}
 
-            {settingsOpen && (
-                <SettingsModal onClose={() => setSettingsOpen(false)} />
-            )}
+            {addOpen && <AddFriendModal onClose={() => setAddOpen(false)} />}
             {createOpen && (
                 <CreateGroupModal onClose={() => setCreateOpen(false)} onCreated={() => void reloadGroups()} />
             )}
         </aside>
-    )
+    );
 }

@@ -23,6 +23,8 @@ interface FriendsProps {
     onSelectFriend: (selectedFriend: Friend | null) => void;
     selectedFriend: Friend | null;
     hidden: boolean;
+    /** Abre conversa pelo HomePage: garante criação de aba no dock. */
+    onOpenFriend?: (friend: Friend) => void;
 }
 
 type FriendsTab = "available" | "all" | "requests" | "add";
@@ -41,10 +43,11 @@ function statusRank(status: UserStatus | undefined) {
 }
 
 function isAvailable(status: UserStatus | undefined) {
-    return status !== undefined && status !== "offline";
+    // Invisível deve parecer offline nos filtros de disponibilidade.
+    return status !== undefined && status !== "offline" && status !== "invisible";
 }
 
-export default function Friends({ activeChannelId, onActiveChannel, onSelectFriend, selectedFriend, hidden = false }: FriendsProps) {
+export default function Friends({ activeChannelId, onActiveChannel, onSelectFriend, selectedFriend, hidden = false, onOpenFriend }: FriendsProps) {
     const { friends, loading, load, remove, error: errorFriendsList } = useFriendsList();
     const { query, add, setQuery, state } = useFriendRequest();
     const { accept, decline, requests, loadRequests, loading: loadingRequests, error: errorRequests } = useIncomingRequests();
@@ -75,18 +78,25 @@ export default function Friends({ activeChannelId, onActiveChannel, onSelectFrie
         await load();
     }
 
-    async function handleOpenChat(friend: Friend) {
-        try {
-            const { data } = await api.post<{ channel: { id: string } }>(
-                "/channels/dm",
-                { toUserId: friend.id }
-            );
-
-            onSelectFriend(friend);
-            onActiveChannel(data.channel.id);
-        } catch (error) {
-            push(getErrorMessage(error), "error");
+    function handleOpenChat(friend: Friend) {
+        // Roteia pelo HomePage para abrir a conversa em aba dock.
+        if (onOpenFriend) {
+            onOpenFriend(friend);
+            return;
         }
+        void (async () => {
+            try {
+                const { data } = await api.post<{ channel: { id: string } }>(
+                    "/channels/dm",
+                    { toUserId: friend.id }
+                );
+
+                onSelectFriend(friend);
+                onActiveChannel(data.channel.id);
+            } catch (error) {
+                push(getErrorMessage(error), "error");
+            }
+        })();
     }
 
     function handleCloseChat() {

@@ -8,6 +8,7 @@ import TitleBar from '../components/TitleBar';
 import AuthPage from '../pages/AuthPage';
 import HomePage from '../pages/HomePage';
 import { useAuth } from '../contexts/AuthContext';
+import { UIProvider } from '../contexts/UIContext';
 
 import styles from '../styles/globals.module.css';
 import "../styles/variables.css";
@@ -20,19 +21,21 @@ export default function AppRouter() {
     }, []);
 
     return (
-        <div className={styles.app}>
-            <TitleBar />
-            {serverStatus === "booting" ? (
-                <BootScreen />
-            ) : serverStatus === "offline" ? (
-                <OfflineScreen />
-            ) : (
-                <Routes>
-                    <Route path="/" element={user ? <HomePage /> : <AuthPage />} />
-                    <Route path="*" element={<AuthPage />} />
-                </Routes>
-            )}
-            <CallBanner />
-        </div>
+        <UIProvider>
+            <div className={styles.app}>
+                <TitleBar />
+                {serverStatus === "booting" ? (
+                    <BootScreen />
+                ) : serverStatus === "offline" ? (
+                    <OfflineScreen />
+                ) : (
+                    <Routes>
+                        <Route path="/" element={user ? <HomePage /> : <AuthPage />} />
+                        <Route path="*" element={<AuthPage />} />
+                    </Routes>
+                )}
+                <CallBanner />
+            </div>
+        </UIProvider>
     );
 }
