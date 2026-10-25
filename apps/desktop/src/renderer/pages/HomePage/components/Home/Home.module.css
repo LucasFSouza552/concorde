@@ -246,6 +246,14 @@
     font-weight: 800;
     line-height: var(--lh-tight);
     letter-spacing: -0.02em;
+
+    background: linear-gradient(90deg,
+            var(--color-text) 0%,
+            #ff2e93 70%,
+            #a855f7 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 .statCard {
@@ -355,8 +363,10 @@
     gap: var(--spacing-md);
     flex-wrap: wrap;
 
-    padding: var(--spacing-xs) 0 var(--spacing-md);
-    border-bottom: 1px solid var(--color-border-subtle);
+    padding: var(--spacing-md);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    background: var(--color-surface);
 }
 
 .gHeaderMain {
@@ -709,11 +719,14 @@
     border-radius: var(--radius-md);
 
     background: var(--color-surface);
-    transition: background-color var(--dur) var(--ease-out);
+    transition: background-color var(--dur) var(--ease-out), transform var(--dur) var(--ease-out), box-shadow var(--dur) var(--ease-out), border-color var(--dur) var(--ease-out);
 }
 
 .gMemberItem:hover {
     background: var(--color-surface-hover);
+    border-color: var(--color-border);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25);
 }
 
 .gMemberRow {
@@ -755,9 +768,27 @@
     background: var(--color-surface-active);
 }
 
+.gStatusDotIdle {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--color-surface);
+    border-radius: 50%;
+
+    background: var(--color-warning, #f5a623);
+}
+
 .roleBadgeOwner {
     background: rgba(139, 92, 246, 0.14);
     color: #b79bff;
+}
+
+.roleBadgeAdmin {
+    background: rgba(34, 211, 238, 0.14);
+    color: #7fd9ee;
 }
 
 .roleBadgeMember {
@@ -778,6 +809,14 @@
     gap: var(--spacing-sm);
     flex: 1;
     min-height: 0;
+    animation: detailIn 200ms var(--ease-out);
+}
+
+@keyframes detailIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
 }
 
 .detailHeader {
@@ -813,16 +852,72 @@
     place-items: center;
     flex: none;
 
-    width: 36px;
-    height: 36px;
+    width: 44px;
+    height: 44px;
+    border: 2px solid rgba(255, 255, 255, 0.22);
     border-radius: 50%;
+    box-shadow: 0 0 0 4px rgba(255, 46, 147, 0.12), 0 0 18px rgba(139, 92, 246, 0.25);
 
     background: var(--gradient-brand);
     color: var(--color-primary-ink);
-    font-size: var(--fs-md);
+    font-size: var(--fs-lg);
     font-weight: 800;
     text-transform: uppercase;
     user-select: none;
+}
+
+/* descrição suave sob o contador de membros */
+.gHeaderDesc {
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+    opacity: 0.85;
+}
+
+/* rótulos de seção da lista de membros */
+.gSectionLabel {
+    margin: var(--spacing-sm) 0 2px;
+
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    user-select: none;
+}
+
+/* botão rotulado de convite, destaque de ação primária */
+.gInviteBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+
+    flex: none;
+    padding: 8px 14px;
+    border: none;
+    border-radius: var(--radius-pill);
+
+    background: var(--gradient-brand);
+    color: var(--color-primary-ink);
+
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    font-weight: 700;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: filter var(--dur) var(--ease-out);
+}
+
+.gInviteBtn:hover {
+    filter: brightness(1.12);
+}
+
+.gInviteBtn:active {
+    filter: brightness(0.95);
+}
+
+.gInviteBtn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
 }
 
 .memberRow {
@@ -913,6 +1008,12 @@
     font-size: var(--fs-sm);
 }
 
+.listSubMsg {
+    color: var(--color-primary);
+    font-size: var(--fs-sm);
+    font-style: italic;
+}
+
 .roleBadge {
     display: inline-flex;
     align-items: center;
@@ -932,8 +1033,236 @@
 
 .quickActions {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--spacing-lg);
+}
+
+/* tela inicial compacta: só identidade + 4 ações */
+
+.start {
+    position: relative;
+    z-index: 1;
+
+    flex: 1;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-2xl);
+}
+
+/* seletor de teste dos ambientes */
+
+.phaseSwitch {
+    position: absolute;
+    bottom: var(--spacing-lg);
+    left: var(--spacing-lg);
+    z-index: 10;
+
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+
+    padding: 4px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-pill);
+
+    background: var(--color-surface);
+    user-select: none;
+}
+
+.phaseSwitchLabel {
+    padding-left: var(--spacing-sm);
+
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+}
+
+.phaseBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+
+    padding: 5px 10px;
+    border: none;
+    border-radius: var(--radius-pill);
+
+    background: transparent;
+    color: var(--color-text-muted);
+
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+}
+
+.phaseBtn:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+}
+
+.phaseBtnActive,
+.phaseBtnActive:hover {
+    background: var(--color-surface-active);
+    color: var(--color-primary);
+}
+
+/* ambiente por horário: amanhecer, dia e noite */
+/* as classes são aplicadas em camadas empilhadas (.phaseLayer) que fazem cross-fade */
+
+.phaseStage {
+    position: relative;
+    isolation: isolate;
+}
+
+.phaseBackdrop {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+}
+
+.phaseLayer {
+    position: absolute;
+    inset: 0;
+
+    opacity: 0;
+    transition: opacity 900ms ease-in-out;
+}
+
+/* flash suave ao escolher o ambiente manualmente (por cima do cross-fade) */
+.phaseFlash {
+    position: absolute;
+    inset: 0;
+
+    background: radial-gradient(70% 45% at 50% 0%, rgba(255, 255, 255, 0.16), transparent 72%);
+    animation: phaseFlashPulse 900ms ease-in-out both;
+}
+
+@keyframes phaseFlashPulse {
+    0% {
+        opacity: 0;
+    }
+
+    35% {
+        opacity: 1;
+    }
+
+    100% {
+        opacity: 0;
+    }
+}
+
+.phaseLayerOn {
+    opacity: 1;
+}
+
+.startDawn {
+    /* sol nascendo: a luz sobe de baixo da tela */
+    background:
+        radial-gradient(30% 24% at 50% 100%, rgba(255, 195, 80, 0.62) 0%, rgba(255, 130, 55, 0.30) 60%, transparent 85%),
+        radial-gradient(90% 60% at 50% 115%, rgba(255, 150, 80, 0.35), transparent 80%),
+        linear-gradient(0deg, rgba(255, 140, 70, 0.18), transparent 62%);
+}
+
+.startDay {
+    background:
+        radial-gradient(85% 60% at 50% -12%, rgba(110, 145, 255, 0.45), transparent 72%),
+        linear-gradient(180deg, rgba(120, 150, 255, 0.26), rgba(140, 110, 255, 0.08) 55%, transparent 68%);
+}
+
+.startNight {
+    background:
+        radial-gradient(2px 2px at 12% 22%, rgba(255, 255, 255, 0.55), transparent 100%),
+        radial-gradient(2px 2px at 32% 14%, rgba(255, 255, 255, 0.35), transparent 100%),
+        radial-gradient(2px 2px at 55% 26%, rgba(255, 255, 255, 0.45), transparent 100%),
+        radial-gradient(2px 2px at 78% 16%, rgba(255, 255, 255, 0.35), transparent 100%),
+        radial-gradient(2px 2px at 90% 34%, rgba(255, 255, 255, 0.5), transparent 100%),
+        radial-gradient(2px 2px at 22% 38%, rgba(255, 255, 255, 0.3), transparent 100%),
+        radial-gradient(2px 2px at 66% 40%, rgba(255, 255, 255, 0.3), transparent 100%),
+        radial-gradient(70% 50% at 50% 0%, rgba(90, 60, 160, 0.22), transparent 70%),
+        linear-gradient(180deg, rgba(8, 4, 20, 0.45), transparent 60%);
+}
+
+/* relógio e data no topo direito */
+
+.startClock {
+    position: absolute;
+    top: var(--spacing-lg);
+    right: var(--spacing-lg);
+
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
+
+    user-select: none;
+}
+
+.startClockShift {
+    /* painel fechado: abre espaço para o botão flutuante no canto */
+    right: 56px;
+}
+
+.startClockDate {
+    color: var(--color-text-muted);
+    font-size: var(--fs-sm);
+    text-transform: capitalize;
+}
+
+.startClockTime {
+    color: var(--color-text);
+    font-size: var(--fs-2xl);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.04em;
+}
+
+/* saudação conforme o horário */
+
+.startGreeting {
+    margin: 0;
+    color: var(--color-text);
+    font-size: var(--fs-xl);
+    font-weight: 600;
+}
+
+.startHeader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-xs);
+    text-align: center;
+}
+
+.startLogo {
+    width: 68px;
+    height: auto;
+    margin-bottom: var(--spacing-xs);
+
+    user-select: none;
+    filter: drop-shadow(0 4px 22px rgba(139, 92, 246, 0.35));
+}
+
+.startTitle {
+    margin: 0;
+    font-size: var(--fs-3xl);
+    font-weight: 800;
+    letter-spacing: 0.02em;
+
+    background: var(--gradient-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.startSub {
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: var(--fs-md);
 }
 
 @media (max-width: 900px) {
