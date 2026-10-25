@@ -12,7 +12,7 @@ import { useToast } from "../../contexts/ToastProvider";
 import { notifyGroupsChanged } from "../../hooks/useGroupsList";
 import { useActiveCalls, type ActiveCallEntry } from "../../hooks/useActiveCalls";
 import { useFriendsList } from "../../hooks/useFriendsList";
-import { useFriendsPresence } from "../../hooks/useFriendsPresence";
+import { useFriendsPresence, type FriendPresence } from "../../hooks/useFriendsPresence";
 import { useGroupsList } from "../../hooks/useGroupsList";
 import { useIncomingRequests } from "../../hooks/useIncomingRequests";
 import { STATUS_COLOR } from "../../utils/status";
@@ -78,8 +78,70 @@ export default function SideBar({ activeFriendId, onOpenFriend, onOpenGroup, onJ
         ? groups.filter((g) => g.name.toLowerCase().includes(needle))
         : groups;
 
+    const isOnline = (presence?: FriendPresence) =>
+        Boolean(presence && presence.status !== "offline" && presence.status !== "invisible");
+
+    const onlineFriends = filteredFriends.filter((f) => isOnline(presences.get(f.id)));
+    const offlineFriends = filteredFriends.filter((f) => !isOnline(presences.get(f.id)));
+
     function openGroup(group: { id: string; name: string; role: GroupRole }) {
         onOpenGroup(group);
+    }
+
+    function renderFriend(friend: Friend) {
+        const presence = presences.get(friend.id);
+        const chatActive = activeFriendId === friend.id;
+        const friendInCall = Boolean(presence?.inCall);
+        return (
+            <li key={friend.id}>
+                <div className={`${styles.dmRow} ${chatActive ? styles.dmRowActive : ""}`.trim()}>
+                    <button
+                        type="button"
+                        className={styles.dmMain}
+                        title={`Conversar com ${friend.displayName}`}
+                        onClick={() => onOpenFriend(friend)}
+                    >
+                        <span className={styles.dmAvatar}>
+                            {friend.displayName.trim().charAt(0).toUpperCase()}
+                            <span
+                                className={styles.dmStatusDot}
+                                style={{ background: STATUS_COLOR[presence?.status ?? "offline"] }}
+                                title={presence?.status ?? "offline"}
+                            />
+                        </span>
+                        <span className={styles.dmText}>
+                            <span className={styles.dmName}>{friend.displayName}</span>
+                            <span className={styles.dmSub}>@{friend.username}</span>
+                        </span>
+                        {friendInCall && (
+                            <span className={styles.dmLiveBadge} title="Em chamada agora">
+                                <Phone size={12} aria-hidden="true" />
+                            </span>
+                        )}
+                    </button>
+                    <span className={styles.rowActions}>
+                        <button
+                            type="button"
+                            className={styles.rowActionBtn}
+                            title={`Ligar para ${friend.displayName}`}
+                            aria-label={`Ligar para ${friend.displayName}`}
+                            onClick={() => void dial(friend)}
+                        >
+                            <Phone size={15} aria-hidden="true" />
+                        </button>
+                        <button
+                            type="button"
+                            className={styles.rowActionBtn}
+                            title={`Mensagem para ${friend.displayName}`}
+                            aria-label={`Mensagem para ${friend.displayName}`}
+                            onClick={() => onOpenFriend(friend)}
+                        >
+                            <MessageCircle size={15} aria-hidden="true" />
+                        </button>
+                    </span>
+                </div>
+            </li>
+        );
     }
 
     function closeGroupMenu() {
@@ -175,68 +237,28 @@ const ROLE_LABEL: Record<GroupRole, string> = {
                     <div className={styles.panelScroll}>
                         {tab === "friends" && (
                             filteredFriends.length > 0 ? (
-                                <ul className={styles.dmList}>
-                                    {filteredFriends.map((friend) => {
-                                        const presence = presences.get(friend.id);
-                                        const chatActive = activeFriendId === friend.id;
-                                        const friendInCall = Boolean(presence?.inCall);
-                                        return (
-                                            <li key={friend.id}>
-                                                <div className={`${styles.dmRow} ${chatActive ? styles.dmRowActive : ""}`.trim()}>
-                                                    <button
-                                                        type="button"
-                                                        className={styles.dmMain}
-                                                        title={`Conversar com ${friend.displayName}`}
-                                                        onClick={() => onOpenFriend(friend)}
-                                                    >
-                                                        <span className={styles.dmAvatar}>
-                                                            {friend.displayName.trim().charAt(0).toUpperCase()}
-                                                            <span
-                                                                className={styles.dmStatusDot}
-                                                                style={{ background: STATUS_COLOR[presence?.status ?? "offline"] }}
-                                                                title={presence?.status ?? "offline"}
-                                                            />
-                                                        </span>
-                                                        <span className={styles.dmText}>
-                                                            <span className={styles.dmName}>{friend.displayName}</span>
-                                                            <span
-                                                                className={presences.get(friend.id)?.customMessage ? styles.dmSubMsg : styles.dmSub}
-                                                                title={presences.get(friend.id)?.customMessage ?? `@${friend.username}`}
-                                                            >
-                                                                {presences.get(friend.id)?.customMessage || `@${friend.username}`}
-                                                            </span>
-                                                        </span>
-                                                        {friendInCall && (
-                                                            <span className={styles.dmLiveBadge} title="Em chamada agora">
-                                                                <Phone size={12} aria-hidden="true" />
-                                                            </span>
-                                                        )}
-                                                    </button>
-                                                    <span className={styles.rowActions}>
-                                                        <button
-                                                            type="button"
-                                                            className={styles.rowActionBtn}
-                                                            title={`Ligar para ${friend.displayName}`}
-                                                            aria-label={`Ligar para ${friend.displayName}`}
-                                                            onClick={() => void dial(friend)}
-                                                        >
-                                                            <Phone size={15} aria-hidden="true" />
-                                                        </button>
-                                                        <button
-                                                            type="button"
-                                                            className={styles.rowActionBtn}
-                                                            title={`Mensagem para ${friend.displayName}`}
-                                                            aria-label={`Mensagem para ${friend.displayName}`}
-                                                            onClick={() => onOpenFriend(friend)}
-                                                        >
-                                                            <MessageCircle size={15} aria-hidden="true" />
-                                                        </button>
-                                                    </span>
-                                                </div>
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
+                                <div className={styles.friendsSections}>
+                                    {onlineFriends.length > 0 && (
+                                        <section>
+                                            <h4 className={styles.categoryLabel}>
+                                                {`Online — ${onlineFriends.length}`}
+                                            </h4>
+                                            <ul className={styles.dmList}>
+                                                {onlineFriends.map(renderFriend)}
+                                            </ul>
+                                        </section>
+                                    )}
+                                    {offlineFriends.length > 0 && (
+                                        <section>
+                                            <h4 className={styles.categoryLabel}>
+                                                {`Offline — ${offlineFriends.length}`}
+                                            </h4>
+                                            <ul className={styles.dmList}>
+                                                {offlineFriends.map(renderFriend)}
+                                            </ul>
+                                        </section>
+                                    )}
+                                </div>
                             ) : (
                                 <p className={styles.roomEmpty}>{needle ? "Nada encontrado." : "Adicione amigos para conversar."}</p>
                             )

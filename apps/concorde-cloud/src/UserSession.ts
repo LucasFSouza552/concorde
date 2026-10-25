@@ -21,7 +21,8 @@ interface PresenceProps {
 	online: boolean;
 	inCall: boolean;
 	groupId: string | null;
-	concordeGroupId: string | null
+	concordeGroupId: string | null;
+	customMessage?: string | null;
 }
 
 export class UserSession {

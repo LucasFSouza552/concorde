@@ -2,19 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { Headphones, HeadphoneOff, Mic, MicOff, Plus, Settings } from "lucide-react";
 
 import type { Friend, GroupRole } from "@concorde/shared";
-import IconBtn from "../IconBtn/IconBtn";
-import SettingsModal from "../SettingsModal/SettingsModal";
 import { useActiveCall } from "../../contexts/ActiveCallProvider";
 import { useAuth } from "../../contexts/AuthContext";
 import { useUI } from "../../contexts/UIContext";
 import { useUserSocketSend } from "../../contexts/UserSocketProvider";
+import IconBtn from "../IconBtn/IconBtn";
+import SettingsModal from "../SettingsModal/SettingsModal";
+
+import { setOwnStatus, useOwnStatus } from "../../utils/ownStatus";
+import { STATUS_COLOR, STATUS_LABEL } from "../../utils/status";
 import { useActiveCalls } from "../../hooks/useActiveCalls";
 import { useFriendsList } from "../../hooks/useFriendsList";
 import { useFriendsPresence } from "../../hooks/useFriendsPresence";
 import { useGroupsList } from "../../hooks/useGroupsList";
-
-import { STATUS_COLOR, STATUS_LABEL } from "../../utils/status";
-import { setOwnStatus, setOwnCustomMessage, useOwnStatus, useOwnCustomMessage } from "../../utils/ownStatus";
 
 import styles from "./UserDock.module.css";
 
@@ -24,9 +24,7 @@ export interface ConversationTab {
     key: string;
     kind: "dm" | "group";
     title: string;
-    /** kind "dm": amigo da conversa (id = chave da aba) */
     friend?: Friend;
-    /** kind "group" */
     groupId?: string;
     role?: GroupRole;
 }
@@ -44,8 +42,6 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
     const { setSidebarOpen } = useUI();
     const send = useUserSocketSend();
     const status = useOwnStatus();
-    const customMessage = useOwnCustomMessage();
-    const [draftMessage, setDraftMessage] = useState(customMessage);
     const lastSentRef = useRef<string | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [statusMenuOpen, setStatusMenuOpen] = useState(false);
@@ -63,19 +59,17 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
         return false;
     }
 
-    // Envia qualquer mudança combinada (status e/ou mensagem), sempre dedupeada.
+    // Envia qualquer mudança de status, sempre dedupeada.
     useEffect(() => {
-        const payload = JSON.stringify({ status, customMessage });
-
         if (lastSentRef.current === null) {
-            lastSentRef.current = payload;
+            lastSentRef.current = status;
             return;
         }
-        if (payload === lastSentRef.current) return;
+        if (status === lastSentRef.current) return;
 
-        lastSentRef.current = payload;
-        send({ type: "set-status", status, customMessage: customMessage || undefined });
-    }, [status, customMessage, send]);
+        lastSentRef.current = status;
+        send({ type: "set-status", status });
+    }, [status, send]);
 
     // Escape fecha o menu de status; cliques fora são capturados pelo backdrop.
     useEffect(() => {
@@ -106,37 +100,12 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
                         title={`Status: ${STATUS_LABEL[status]}`}
                         aria-label={`Alterar status (atual: ${STATUS_LABEL[status]})`}
                         aria-expanded={statusMenuOpen}
-                        onClick={() => {
-                            if (!statusMenuOpen) setDraftMessage(customMessage);
-                            setStatusMenuOpen((open) => !open);
-                        }}
+                        onClick={() => setStatusMenuOpen((open) => !open)}
                     />
                     {statusMenuOpen && <div className={styles.statusBackdrop} onClick={() => setStatusMenuOpen(false)} />}
                 </div>
                 {statusMenuOpen && (
                     <div className={styles.statusMenu} role="menu">
-                        <label className={styles.statusMsgWrap}>
-                            <span className={styles.statusMsgLabel}>Status personalizado</span>
-                            <input
-                                type="text"
-                                className={styles.statusMsgInput}
-                                placeholder="Escreva o que quiser..."
-                                maxLength={80}
-                                value={draftMessage}
-                                onChange={(event) => setDraftMessage(event.target.value)}
-                                onKeyDown={(event) => {
-                                    if (event.key === "Enter") {
-                                        setOwnCustomMessage(draftMessage);
-                                        event.currentTarget.blur();
-                                    }
-                                    if (event.key === "Escape") {
-                                        setDraftMessage(customMessage);
-                                        event.currentTarget.blur();
-                                    }
-                                }}
-                                onBlur={() => setOwnCustomMessage(draftMessage)}
-                            />
-                        </label>
                         {SETTABLE_STATUSES.map((option) => (
                             <button
                                 key={option}
@@ -156,13 +125,10 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
                     </div>
                 )}
                 <div className={styles.identity}>
-                    <span className={styles.username} title={customMessage || user?.displayName}>
+                    <span className={styles.username} title={user?.displayName}>
                         {user?.displayName}
                     </span>
                     <span className={styles.userHandle}>@{user?.username}</span>
-                    {customMessage && (
-                        <span className={styles.userMsg}>{customMessage}</span>
-                    )}
                 </div>
             </div>
 
@@ -216,7 +182,7 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
                                     type="button"
                                     className={styles.tabClose}
                                     aria-label={`Fechar aba ${tab.title}`}
-                                    title="Fechar aba (a conversa continua salva)"
+                                    title="Fechar aba"
                                     onClick={(event) => {
                                         event.stopPropagation();
                                         onCloseTab(tab.key);

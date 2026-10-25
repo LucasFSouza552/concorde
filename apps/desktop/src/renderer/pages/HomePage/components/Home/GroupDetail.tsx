@@ -42,7 +42,6 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
     const [presenceTick, setPresenceTick] = useState(0);
     const [inCallIds, setInCallIds] = useState<Set<string>>(new Set());
     const [onlineIds, setOnlineIds] = useState<Set<string>>(new Set());
-    const [presenceMessages, setPresenceMessages] = useState<Map<string, string | null>>(new Map());
     const [pendingAction, setPendingAction] = useState<"leave" | "dissolve" | null>(null);
     const [optionBusy, setOptionBusy] = useState(false);
     const [openMenu, setOpenMenu] = useState<"header" | string | null>(null);
@@ -87,17 +86,14 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                 if (cancelled) return;
                 const inCall = new Set<string>();
                 const online = new Set<string>();
-                const messages = new Map<string, string | null>();
                 members.forEach((member) => {
                     const presence = data.presences[member.id];
                     if (!presence) return;
                     if (presence?.inCall && presence.concordeGroupId === groupId) inCall.add(member.id);
                     if (presence.status && presence.status !== "offline" && presence.status !== "invisible") online.add(member.id);
-                    messages.set(member.id, presence.customMessage ?? null);
                 });
                 setInCallIds(inCall);
                 setOnlineIds(online);
-                setPresenceMessages(messages);
             } catch {
                 // Falhou: mantém o estado anterior até o próximo tick/evento.
             }
@@ -401,12 +397,7 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                                             </span>
                                             <div className={styles.listText}>
                                                 <span className={styles.listName}>{member.displayName}</span>
-                                                <span
-                                                    className={presenceMessages.get(member.id) ? styles.listSubMsg : styles.listSub}
-                                                    title={presenceMessages.get(member.id) ?? `@${member.username}`}
-                                                >
-                                                    {presenceMessages.get(member.id) || `@${member.username}`}
-                                                </span>
+                                                <span className={styles.listSub}>@{member.username}</span>
                                             </div>
                                             {inCallIds.has(member.id) && (
                                                 <span className={styles.voiceOn} title="Em chamada">

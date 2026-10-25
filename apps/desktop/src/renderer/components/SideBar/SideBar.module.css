@@ -199,6 +199,12 @@
     letter-spacing: 0.05em;
 }
 
+.friendsSections {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 .panelDivider {
     margin: 12px 8px;
     border-top: 1px solid var(--color-border-subtle);
@@ -471,17 +477,6 @@
 
     color: var(--color-text-muted);
     font-size: var(--fs-sm);
-}
-
-/* mensagem personalizada do amigo no lugar da @tag */
-.dmSubMsg {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-
-    color: var(--color-primary);
-    font-size: var(--fs-sm);
-    font-style: italic;
 }
 
 .createGroupBtn {

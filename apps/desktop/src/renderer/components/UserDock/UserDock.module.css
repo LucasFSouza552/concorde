@@ -72,18 +72,6 @@
     font-size: var(--fs-xs);
 }
 
-/* mensagem de status personalizada */
-.userMsg {
-    overflow: hidden;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    max-width: 200px;
-
-    color: var(--color-primary);
-    font-size: var(--fs-xs);
-    font-style: italic;
-}
-
 /* divisores entre perfil | controles | abas */
 
 .divider {
@@ -315,7 +303,7 @@
     bottom: calc(100% + 10px);
     z-index: 1201;
 
-    min-width: 220px;
+    min-width: 180px;
     padding: 6px;
 
     border: 1px solid var(--color-border);
@@ -323,50 +311,6 @@
 
     background: var(--color-surface);
     box-shadow: var(--shadow-overlay);
-}
-
-/* campo de status personalizado no topo do menu */
-
-.statusMsgWrap {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-
-    margin-bottom: 6px;
-    padding: 8px;
-    border-bottom: 1px solid var(--color-border-subtle);
-}
-
-.statusMsgLabel {
-    color: var(--color-text-muted);
-    font-size: var(--fs-xs);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    user-select: none;
-}
-
-.statusMsgInput {
-    width: 100%;
-    padding: 7px 9px;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-
-    background: var(--color-background);
-    color: var(--color-text);
-    font-family: var(--font-sans);
-    font-size: var(--fs-md);
-
-    outline: none;
-    transition: border-color var(--dur) var(--ease-out);
-}
-
-.statusMsgInput::placeholder {
-    color: var(--color-text-muted);
-}
-
-.statusMsgInput:focus-visible {
-    border-color: var(--color-primary);
 }
 
 .statusItem {
