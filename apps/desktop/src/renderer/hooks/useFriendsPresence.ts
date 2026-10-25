@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 
-import type { Friend, PresenceBatchResponse, UserStatus, UserPresence } from "@concorde/shared";
+import type {
+    Friend,
+    PresenceBatchResponse,
+    UserPresence,
+    UserSocketServerMessage,
+    UserStatus
+} from "@concorde/shared";
 
 import { useUserSocketConnected, useUserSocketEvent } from "../contexts/UserSocketProvider";
 
@@ -9,91 +15,213 @@ import { api } from "../api/api";
 // Deltas chegam por WS; o sweep é só rede de segurança — mantido lento
 // para poupar requisições/D1/DO no provider (cota do free tier).
 const SAFETY_REFRESH_MS = 15 * 60_000;
+// Ao (re)conectar o WS, espera o socket estabilizar antes de sincronizar.
+const RECONNECT_DEBOUNCE_MS = 2_000;
 
-export interface FriendPresence extends UserPresence { }
+export type FriendPresence = UserPresence;
 
-async function fetchSnapshot(friends: Friend[], cancelled: { current: boolean }, apply: (map: Map<string, FriendPresence>) => void) {
-    const next = new Map<string, FriendPresence>();
+type Listener = (snapshot: Map<string, FriendPresence>) => void;
 
-    if (friends.length <= 1) {
-        await Promise.all(friends.map(async (friend) => {
+// Store de módulo: 1 estado, 1 timer e 1 fetch compartilhados entre todos
+// os consumidores do hook (SideBar, Home, Friends, QuickCallModal etc.).
+let presences = new Map<string, FriendPresence>();
+const listeners = new Set<Listener>();
+
+let source: Friend[] | null = null;
+let sourceKey = "";
+let refCount = 0;
+let connected = false;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let sweepTimer: ReturnType<typeof setInterval> | null = null;
+let inflight = false;
+let lastEventProcessed: UserSocketServerMessage | null = null;
+
+function notify() {
+    for (const listener of listeners) {
+        listener(presences);
+    }
+}
+
+function sourceKeyOf(friends: Friend[]): string {
+    return friends.map((friend) => friend.id).sort().join(",");
+}
+
+async function fetchSnapshot() {
+    const ids = source ? source.map((friend) => friend.id) : [];
+    if (ids.length === 0 || inflight) return;
+
+    inflight = true;
+
+    const fetched = new Map<string, FriendPresence>();
+
+    try {
+        if (ids.length <= 1) {
+            await Promise.all(ids.map(async (id) => {
+                try {
+                    const { data } = await api.get<UserPresence>(`/user/${id}/presence`);
+                    fetched.set(id, data);
+                } catch {
+                    /* ignore */
+                }
+            }));
+        } else {
             try {
-                const { data } = await api.get<UserPresence>(`/user/${friend.id}/presence`);
-                next.set(friend.id, data);
+                const { data } = await api.post<PresenceBatchResponse>("/user/presence/batch", { ids });
+
+                for (const [userId, presence] of Object.entries(data.presences)) {
+                    fetched.set(userId, presence);
+                }
             } catch {
                 /* ignore */
             }
-        }));
-    } else {
-        try {
-            const { data } = await api.post<PresenceBatchResponse>("/user/presence/batch", {
-                ids: friends.map((friend) => friend.id)
-            });
-
-            for (const [userId, presence] of Object.entries(data.presences)) {
-                next.set(userId, presence);
-            }
-        } catch {
-            /* ignore */
         }
+    } finally {
+        inflight = false;
     }
 
-    if (!cancelled.current) apply(next);
+    if (fetched.size === 0) return;
+
+    // Merge sobre o estado atual: não descarta deltas recebidos enquanto fetchia.
+    presences = new Map([...presences, ...fetched]);
+    notify();
+}
+
+function scheduleFetch(delay: number) {
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+
+    if (delay <= 0) {
+        void fetchSnapshot();
+        return;
+    }
+
+    reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        void fetchSnapshot();
+    }, delay);
+}
+
+function acquire() {
+    refCount += 1;
+
+    if (refCount === 1) {
+        sweepTimer = setInterval(() => {
+            void fetchSnapshot();
+        }, SAFETY_REFRESH_MS);
+        scheduleFetch(0);
+    }
+}
+
+function release() {
+    refCount = Math.max(0, refCount - 1);
+
+    if (refCount === 0) {
+        if (sweepTimer) {
+            clearInterval(sweepTimer);
+            sweepTimer = null;
+        }
+        if (reconnectTimer) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
+    }
+}
+
+function setSource(next: Friend[]) {
+    const key = sourceKeyOf(next);
+
+    if (key === sourceKey) return;
+
+    source = next;
+    sourceKey = key;
+
+    if (refCount > 0) scheduleFetch(0);
+}
+
+function setConnected(next: boolean) {
+    if (next === connected) return;
+
+    connected = next;
+
+    // Reconexão (false -> true): só sincroniza com socket estável.
+    if (connected && refCount > 0) scheduleFetch(RECONNECT_DEBOUNCE_MS);
+}
+
+function isPresenceDelta(event: UserSocketServerMessage): boolean {
+    return event.type === "peer-status" || event.type === "peer-call-state";
+}
+
+function applyDelta(event: UserSocketServerMessage) {
+    if (event.type !== "peer-status" && event.type !== "peer-call-state") return;
+
+    const { userId } = event;
+    const existing = presences.get(userId);
+
+    const merged: FriendPresence = {
+        status: "offline" as UserStatus,
+        online: false,
+        inCall: false,
+        groupId: null,
+        concordeGroupId: null,
+        ...existing,
+        ...(event.type === "peer-status"
+            ? { status: event.status }
+            : {
+                inCall: event.groupId !== null,
+                groupId: event.groupId ?? null,
+                concordeGroupId: event.concordeGroupId ?? null,
+            })
+    };
+
+    const next = new Map(presences);
+    next.set(userId, merged);
+    presences = next;
+    notify();
+}
+
+function syncEvent(event: UserSocketServerMessage | null) {
+    if (!event || event === lastEventProcessed) return;
+
+    if (!isPresenceDelta(event)) return;
+
+    lastEventProcessed = event;
+    applyDelta(event);
+}
+
+export function notifyPresenceRefresh(): void {
+    if (refCount > 0) scheduleFetch(0);
 }
 
 export function useFriendsPresence(friends: Friend[]): Map<string, FriendPresence> {
-    const [presences, setPresences] = useState<Map<string, FriendPresence>>(new Map());
+    const [snapshot, setSnapshot] = useState(() => presences);
     const connected = useUserSocketConnected();
     const lastEvent = useUserSocketEvent();
 
-    // Snapshot completo apenas quando a lista muda, ao (re)conectar o WebSocket
-    // e numa rede de segurança lenta — deltas em tempo real chegam por WS.
     useEffect(() => {
-        const cancelled = { current: false };
+        acquire();
+        const listener: Listener = (next) => setSnapshot(next);
 
-        void fetchSnapshot(friends, cancelled, (next) => setPresences(next));
-
-        const timer = window.setInterval(() => {
-            void fetchSnapshot(friends, cancelled, (next) => setPresences(next));
-        }, SAFETY_REFRESH_MS);
+        listeners.add(listener);
 
         return () => {
-            cancelled.current = true;
-            window.clearInterval(timer);
+            listeners.delete(listener);
+            release();
         };
-    }, [friends, connected]);
+    }, []);
 
     useEffect(() => {
-        if (!lastEvent) return;
-        if (lastEvent.type !== "peer-status" && lastEvent.type !== "peer-call-state") return;
+        setSource(friends);
+    }, [friends]);
 
-        const { userId } = lastEvent;
+    useEffect(() => {
+        setConnected(connected);
+    }, [connected]);
 
-        // O delta chega por WebSocket e é aplicado no ato — sem polling.
-        // eslint-disable-next-line react-hooks/set-state-in-effect
-        setPresences((current) => {
-            const existing = current.get(userId) ?? {
-                status: "offline" as UserStatus,
-                online: false,
-                inCall: false,
-                groupId: null,
-                concordeGroupId: null,
-            };
-
-            const next = new Map(current);
-
-            next.set(userId, lastEvent.type === "peer-status"
-                ? { ...existing, status: lastEvent.status }
-                : {
-                    ...existing,
-                    inCall: lastEvent.groupId !== null,
-                    groupId: lastEvent.groupId ?? null,
-                    concordeGroupId: lastEvent.concordeGroupId ?? null,
-                });
-
-            return next;
-        });
+    useEffect(() => {
+        syncEvent(lastEvent);
     }, [lastEvent]);
 
-    return presences;
+    return snapshot;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { Friend, GroupWithRole, PresenceBatchResponse, UserPresence } from "@concorde/shared";
 
@@ -9,6 +9,8 @@ import { api } from "../api/api";
 
 // Deltas chegaram por WS; o sweep é rede de segurança lenta para poupar cota.
 const SAFETY_REFRESH_MS = 15 * 60_000;
+// Ao (re)conectar o WS, espera o socket estabilizar antes de sincronizar.
+const RECONNECT_DEBOUNCE_MS = 2_000;
 
 export interface Presence {
     status?: string;
@@ -39,6 +41,7 @@ export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): Acti
     const [members, setMembers] = useState<Map<string, string[]>>(new Map());
     const connected = useUserSocketConnected();
     const lastEvent = useUserSocketEvent();
+    const prevConnectedRef = useRef<boolean | undefined>(undefined);
     const { groupId: currentCallId } = useActiveCall();
 
     const groupsKey = useMemo(() => groups.map((group) => group.id).join(","), [groups]);
@@ -67,14 +70,15 @@ export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): Acti
         };
     }, [groupsKey, groups]);
 
-    // Snapshot completo de presença apenas quando muda quem monitorar, ao
-    // (re)conectar o WebSocket e numa rede de segurança lenta — o resto são deltas.
+    // Snapshot completo de presença quando muda quem monitorar e sweep lento;
+    // na reconexão do WS, sincroniza só depois do socket estabilizar (debounce).
     useEffect(() => {
         const ids = new Set<string>();
         members.forEach((groupIds) => groupIds.forEach((id) => ids.add(id)));
         friends.forEach((friend) => ids.add(friend.id));
 
         let cancelled = false;
+        let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
         const refresh = async () => {
             const fetched = new Map<string, Presence>();
@@ -107,7 +111,18 @@ export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): Acti
             setPresences((current) => new Map([...current, ...fetched]));
         };
 
-        void refresh();
+        const prevConnected = prevConnectedRef.current;
+        prevConnectedRef.current = connected;
+        const isReconnect = Boolean(prevConnected !== undefined && connected && !prevConnected);
+
+        if (isReconnect) {
+            reconnectTimer = setTimeout(() => {
+                reconnectTimer = null;
+                void refresh();
+            }, RECONNECT_DEBOUNCE_MS);
+        } else {
+            void refresh();
+        }
 
         const timer = window.setInterval(() => {
             void refresh();
@@ -115,6 +130,7 @@ export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): Acti
 
         return () => {
             cancelled = true;
+            if (reconnectTimer) clearTimeout(reconnectTimer);
             window.clearInterval(timer);
         };
     }, [members, friends, connected]);
