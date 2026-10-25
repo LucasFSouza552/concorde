@@ -47,7 +47,8 @@ export async function findGroupsForUser(db: D1Database, userId: string): Promise
        g.ownerId,
        g.createdAt,
        m.role,
-       m.joinedAt
+       m.joinedAt,
+       (SELECT COUNT(*) FROM group_members mc WHERE mc.groupId = g.id) AS memberCount
      FROM group_members m
      JOIN groups g ON g.id = m.groupId
      WHERE m.userId = ?

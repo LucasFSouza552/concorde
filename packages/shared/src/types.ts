@@ -43,6 +43,8 @@ export interface UserPresence {
     inCall: boolean;
     groupId: string | null;
     concordeGroupId: string | null;
+    /** mensagem de status personalizada (até 80 caracteres) */
+    customMessage?: string | null;
 }
 
 export interface PresenceBatchResponse {
@@ -61,7 +63,7 @@ export type SendFriendRequestResult = "sent" | "already-friends" | "pending" | "
 export type UserSocketClientMessage =
     | { type: "auth"; token: string }
     | { type: "ping" }
-    | { type: "set-status"; status: UserStatus }
+    | { type: "set-status"; status: UserStatus; customMessage?: string }
     | { type: "call-state"; groupId: string | null; concordeGroupId?: string | null };
 
 export type UserSocketServerMessage =
@@ -73,7 +75,7 @@ export type UserSocketServerMessage =
     | { type: "call-accepted"; callId: string }
     | { type: "call-declined"; callId: string }
     | { type: "call-cancelled"; callId: string }
-    | { type: "peer-status"; userId: string; status: UserStatus }
+    | { type: "peer-status"; userId: string; status: UserStatus; customMessage?: string | null }
     | { type: "peer-call-state"; userId: string; groupId: string | null; concordeGroupId?: string | null }
     | { type: "group-kicked"; groupId: string; groupName: string; reason: "removed" | "left" | "dissolved" };
 
@@ -92,6 +94,7 @@ export interface GroupWithRole {
     createdAt: number;
     role: GroupRole;
     joinedAt: number;
+    memberCount: number;
 }
 
 // Channels
@@ -133,6 +136,8 @@ export interface DesktopSource {
     name: string;
     thumbnail: string;
     isScreen: boolean;
+    /** janela minimizada: Concorde lista, mas a pré-visualização fica vazia */
+    minimized?: boolean;
 }
 
 export interface ScreenQuality {

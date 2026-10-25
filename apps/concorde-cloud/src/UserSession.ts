@@ -9,10 +9,11 @@ interface SocketAttachment {
 	expectedUserId: string;
 	userId: string | null;
 	status: UserStatus;
+	customMessage: string | null;
 	authenticated: boolean;
 	connectedAt: number;
 	callGroupId: string | null;
-	callConcordeGroupId: string | null;
+	callConcordeGroupId: string | null
 }
 
 interface PresenceProps {
@@ -61,6 +62,7 @@ export class UserSession {
 			expectedUserId: expectedUserId,
 			userId: null,
 			status: "online",
+			customMessage: null,
 			authenticated: false,
 			connectedAt: Date.now(),
 			callGroupId: null,
@@ -110,11 +112,13 @@ export class UserSession {
 					return otherAttachment.authenticated;
 				});
 
-				socket.serializeAttachment({
-					...attachment,
-					userId,
-					authenticated: true
-				});
+			socket.serializeAttachment({
+				...attachment,
+				userId,
+				// Mensagem personalizada sobrevive a reconexões (persistida no DO).
+				customMessage: (await this.ctx.storage.get<string>("customMessage")) ?? null,
+				authenticated: true
+			});
 
 				socket.send(JSON.stringify({
 					type: "user-connected",
@@ -139,12 +143,27 @@ export class UserSession {
 				return;
 			}
 
+			// Mensagem personalizada: normaliza (trim + limite) e persiste no DO
+			// para sobreviver a reconexões. Ausência do campo mantém a atual.
+			let customMessage = attachment.customMessage;
+
+			if ("customMessage" in parsed) {
+				customMessage = parsed.customMessage?.trim().slice(0, 80) ?? null;
+
+				if (customMessage) {
+					await this.ctx.storage.put("customMessage", customMessage);
+				} else {
+					await this.ctx.storage.delete("customMessage");
+				}
+			}
+
 			socket.serializeAttachment({
 				...attachment,
-				status: parsed.status
+				status: parsed.status,
+				customMessage
 			});
 
-			await this.notifyStatus(attachment.userId, parsed.status);
+			await this.notifyStatus(attachment.userId, parsed.status, customMessage);
 			return;
 		}
 
@@ -199,11 +218,12 @@ export class UserSession {
 		}
 	}
 
-	private async notifyStatus(userId: string, status: UserStatus): Promise<void> {
+	private async notifyStatus(userId: string, status: UserStatus, customMessage?: string | null): Promise<void> {
 		await this.notifyAudience(userId, {
 			type: "peer-status",
 			userId,
-			status
+			status,
+			customMessage: customMessage ?? undefined
 		});
 	}
 
@@ -228,6 +248,7 @@ export class UserSession {
 		let groupId: string | null = null;
 		let concordeGroupId: string | null = null;
 		let status: UserStatus = "online";
+		let customMessage: string | null = null;
 
 		for (const socket of this.ctx.getWebSockets()) {
 			const attachment = socket.deserializeAttachment() as SocketAttachment;
@@ -235,6 +256,7 @@ export class UserSession {
 			if (!attachment.authenticated) continue;
 
 			status = attachment.status;
+			customMessage = attachment.customMessage;
 
 			if (attachment.callGroupId) {
 				groupId = attachment.callGroupId;
@@ -245,12 +267,19 @@ export class UserSession {
 
 		const online = this.isOnline();
 
+		if (!online) {
+			customMessage = (await this.ctx.storage.get<string>("customMessage")) ?? null;
+		} else if (!customMessage) {
+			customMessage = (await this.ctx.storage.get<string>("customMessage")) ?? null;
+		}
+
 		return {
 			status: online ? (status === "invisible" ? "offline" : status) : "offline",
 			online,
 			inCall: groupId !== null,
 			groupId,
-			concordeGroupId
+			concordeGroupId,
+			customMessage
 		};
 
 	}
