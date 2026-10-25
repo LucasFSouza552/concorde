@@ -36,7 +36,7 @@ async function requireGroupRole(db: D1Database, groupId: string, userId: string,
 	return membership;
 }
 
-export async function createGroup(db: D1Database, userId: string, name: string) {
+export async function createGroup(db: D1Database, userId: string, name: string): Promise<GroupWithRole> {
 	const cleanName = name.trim();
 
 	if (!cleanName) {
@@ -57,7 +57,12 @@ export async function createGroup(db: D1Database, userId: string, name: string) 
 
 	await insertGroupWithOwner(db, group);
 
-	return group;
+	return {
+		...group,
+		role: "owner",
+		joinedAt: group.createdAt,
+		memberCount: 1
+	};
 }
 
 export async function listUserGroups(db: D1Database, userId: string): Promise<GroupWithRole[]> {
