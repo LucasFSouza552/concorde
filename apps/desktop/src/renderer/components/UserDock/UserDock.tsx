@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Headphones, HeadphoneOff, Mic, MicOff, Plus, Settings } from "lucide-react";
+import { Headphones, HeadphoneOff, Mic, MicOff, PhoneOff, Plus, ScreenShare, ScreenShareOff, Settings } from "lucide-react";
 
 import type { Friend, GroupRole } from "@concorde/shared";
 import { useActiveCall } from "../../contexts/ActiveCallProvider";
@@ -16,6 +16,7 @@ import { useActiveCalls } from "../../hooks/useActiveCalls";
 import { useFriendsList } from "../../hooks/useFriendsList";
 import { useFriendsPresence } from "../../hooks/useFriendsPresence";
 import { useGroupsList } from "../../hooks/useGroupsList";
+import { useCallInviteState } from "../../contexts/CallInviteProvider";
 
 import styles from "./UserDock.module.css";
 
@@ -38,7 +39,8 @@ interface UserDockProps {
 }
 
 export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab }: UserDockProps) {
-    const { micMuted, deafened, toggleMic, toggleDeafen } = useActiveCall();
+    const { micMuted, deafened, toggleMic, toggleDeafen, groupId, screenStream, stopScreenShare } = useActiveCall();
+    const { hangUp } = useCallInviteState();
     const { user } = useAuth();
     const { setSidebarOpen } = useUI();
     const send = useUserSocketSend();
@@ -47,6 +49,7 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
     const [settingsOpen, setSettingsOpen] = useState(false);
     const [statusMenuOpen, setStatusMenuOpen] = useState(false);
     const effectiveMicMuted = micMuted || deafened;
+    const inCall = Boolean(groupId);
 
     // Chamadas vivas por conversa, para marcar as abas do rodapé.
     const { friends } = useFriendsList();
@@ -188,7 +191,7 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
                                         onCloseTab(tab.key);
                                     }}
                                 >
-                                    ✕
+                                    ×
                                 </button>
                             </div>
                         );
@@ -205,6 +208,31 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
             >
                 <Plus size={18} />
             </button>
+
+            {inCall && (
+                <>
+                    <span className={styles.divider} aria-hidden="true" />
+                    <div className={styles.callDockActions}>
+                        <IconBtn
+                            id="screenShareDock"
+                            name={screenStream ? "Parar compartilhamento" : "Compartilhar tela"}
+                            icon={screenStream ? ScreenShareOff : ScreenShare}
+                            handleClick={() => {
+                                if (screenStream) stopScreenShare();
+                            }}
+                            active={Boolean(screenStream)}
+                            tone="warning"
+                        />
+                        <IconBtn
+                            id="hangUpDock"
+                            name="Sair da chamada"
+                            icon={PhoneOff}
+                            handleClick={() => void hangUp()}
+                            tone="danger"
+                        />
+                    </div>
+                </>
+            )}
 
             {settingsOpen && <SettingsModal onClose={() => setSettingsOpen(false)} />}
         </footer>

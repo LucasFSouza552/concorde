@@ -22,7 +22,7 @@ interface GroupPageProps {
 
 export default function GroupPage({ groupId, name, role, onBack }: GroupPageProps) {
     const { members } = useGroupMembers(groupId);
-    const { dialGroup, joinedGroup, joinGroupCall } = useCallInviteState();
+    const { joinGroupCall, joinedGroup } = useCallInviteState();
     const lastEvent = useUserSocketEvent();
     const [showMembers, setShowMembers] = useState(false);
     const [activeRoom, setActiveRoom] = useState<{ groupId: string; byName: string; participants: { id: string; displayName: string }[] } | null>(null);
@@ -94,17 +94,8 @@ export default function GroupPage({ groupId, name, role, onBack }: GroupPageProp
         <Page flush={inGroupCall}>
             {inGroupCall ? (
                 <div className={styles.callWithMembers}>
-                    <CallScreen layout="full" peerName={name} onBack={onBack} flat />
-                    <button
-                        type="button"
-                        className={styles.membersFloatBtn}
-                        aria-label={showMembers ? "Ocultar membros" : "Mostrar membros"}
-                        aria-pressed={showMembers}
-                        title={showMembers ? "Ocultar membros" : "Mostrar membros"}
-                        onClick={toggleMembers}
-                    >
-                        <Users size={16} />
-                    </button>
+                    <CallScreen layout="full" peerName={name} onBack={onBack} flat showMembers={showMembers} onToggleMembers={toggleMembers} />
+                    
                     {showMembers && (
                         <div className={styles.membersPanel}>
                             <GroupDetail
@@ -129,7 +120,7 @@ export default function GroupPage({ groupId, name, role, onBack }: GroupPageProp
                     callLabel={activeRoom ? "Entrar na chamada" : "Iniciar chamada"}
                     onCall={() => {
                         if (activeRoom) joinGroupCall(activeRoom.groupId, groupId);
-                        else void dialGroup(groupId, members);
+                        else joinGroupCall(`group:${groupId}`, groupId);
                     }}
                 />
             )}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
-import { Maximize, Minimize } from "lucide-react";
+import { Maximize, Minimize, Users } from "lucide-react";
 
 import CallControls from "./CallControls";
 import CallGrid, { type GridTile } from "./CallGrid";
@@ -28,6 +28,8 @@ interface CallScreenProps {
         peers: { userId: string; username: string }[];
         action: ReactNode;
     } | null;
+    showMembers?: boolean;
+    onToggleMembers?: () => void;
 }
 
 const LOCAL_ID = "local";
@@ -35,7 +37,7 @@ const LOCAL_ID = "local";
 const UI_IDLE_MS = 3000;
 const UI_MOVE_THROTTLE_MS = 100;
 
-export default function CallScreen({ layout = "panel", controls = true, chatAvailable = false, chatOpen = false, onToggleChat, peerName, onBack, preview = null, flat = false }: CallScreenProps) {
+export default function CallScreen({ layout = "panel", controls = true, chatAvailable = false, chatOpen = false, onToggleChat, peerName, onBack, preview = null, flat = false, showMembers, onToggleMembers }: CallScreenProps) {
     const { groupId, peers, peerMuted, peerSharing, micMuted, deafened, status, remoteScreenStreams, screenStream, speakingMap, watchingShareIds, watchShare, shareViewers, peerRtt } = useActiveCall();
     const { outgoing } = useCallInviteState();
     const { user } = useAuth();
@@ -197,6 +199,18 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
                         onToggleChat={onToggleChat}
                         onShareModalChange={setShareModalOpen}
                     />
+                    {onToggleMembers && (
+                        <button
+                            type="button"
+                            className={styles.membersFloatBtn}
+                            aria-label={showMembers ? "Ocultar membros" : "Mostrar membros"}
+                            aria-pressed={showMembers}
+                            title={showMembers ? "Ocultar membros" : "Mostrar membros"}
+                            onClick={onToggleMembers}
+                        >
+                            <Users size={16} />
+                        </button>
+                    )}
                     <button
                         type="button"
                         className={styles.fullscreenBtn}

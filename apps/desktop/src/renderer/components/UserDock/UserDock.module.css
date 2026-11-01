@@ -353,3 +353,14 @@
     height: 10px;
     border-radius: 50%;
 }
+
+.callDockActions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 8px;
+}
+
+.callDockActions > * {
+    flex: none;
+}

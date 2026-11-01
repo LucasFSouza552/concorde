@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Crown, LogOut, MoreVertical, Phone, PhoneIncoming, Plus, RefreshCw, Search, Shield, User, UserPlus, Users, Volume2 } from "lucide-react";
 
+import ProfilePanel from "../../../../components/ProfilePanel/ProfilePanel";
+import { SkeletonList } from "../../../../components/Skeleton/Skeleton";
+import UserAvatar from "../../../../components/UserAvatar/UserAvatar";
 import { roleLabels, type Friend, type GroupRole, type PresenceBatchResponse } from "@concorde/shared";
+import { useAuth } from "../../../../contexts/AuthContext";
 import { useToast } from "../../../../contexts/ToastProvider";
 import { useUserSocketEvent } from "../../../../contexts/UserSocketProvider";
-import { useAuth } from "../../../../contexts/AuthContext";
-import ProfilePanel from "../../../../components/ProfilePanel/ProfilePanel";
-import UserAvatar from "../../../../components/UserAvatar/UserAvatar";
 
 import { api, getErrorMessage } from "../../../../api/api";
-import { SkeletonList } from "../../../../components/Skeleton/Skeleton";
 import { useFriendsList } from "../../../../hooks/useFriendsList";
 import { useGroupMembers, invalidateGroupMembers, type GroupMemberItem } from "../../../../hooks/useGroupMembers";
 import { notifyGroupsChanged } from "../../../../hooks/useGroupsList";
@@ -101,7 +101,7 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                     const presence = data.presences[member.id];
                     if (!presence) return;
                     if (presence?.inCall && presence.concordeGroupId === groupId) inCall.add(member.id);
-                    if (presence.status && presence.status !== "offline" && presence.status !== "invisible") online.add(member.id);
+                    if (presence.status && presence.status !== "offline") online.add(member.id);
                 });
                 setInCallIds(inCall);
                 setOnlineIds(online);

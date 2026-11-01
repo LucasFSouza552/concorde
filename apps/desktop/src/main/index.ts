@@ -333,26 +333,9 @@ function clearCallNotification() {
   activeCallNotification = null;
 }
 
-function notifyIncomingCall(callerName: string) {
-  if (!Notification.isSupported()) {
-    console.warn("[notific] Notification não é suportado neste Windows.");
-    return;
-  }
-
-  clearCallNotification();
-
-  const notification = new Notification({
-    title: "Concorde",
-    body: `Chamada recebida de ${callerName}.`,
-    icon: trayIconPath(),
-    // Chamada fica no banner até ser atendida/recusada (limpa em app:notify-cancel).
-    timeoutType: "never",
-  });
-  notification.on("click", () => showWindow());
-  notification.on("show", () => console.log("[notific] banner exibido"));
-  notification.on("failed", (_event, error) => console.warn("[notific] falha ao exibir:", error));
-  activeCallNotification = notification;
-  notification.show();
+function notifyIncomingCall(_callerName: string) {
+  // Notificações nativas de chamada desativadas conforme solicitado
+  return;
 }
 
 app.on("second-instance", () => {
@@ -466,8 +449,9 @@ app.whenReady().then(() => {
 
     if (focused) return { notified: false };
 
-    notifyIncomingCall(String(callerName ?? "alguém"));
-    return { notified: true };
+    // Notificações nativas desativadas
+    // notifyIncomingCall(String(callerName ?? "alguém"));
+    return { notified: false };
   });
 
   ipcMain.handle("app:notify-cancel", () => {
