@@ -347,8 +347,7 @@
 .avatarWrap {
     position: relative;
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    align-items: flex-end;
     margin-top: -34px;
     padding: 0 20px;
 }
@@ -393,42 +392,40 @@
     opacity: 1;
 }
 
-/* Avatar com foto definida: estático, ações ficam na linha abaixo */
-.avatarStatic {
-    display: inline-flex;
-    border-radius: 50%;
-}
-
-/* Alterar/Remover foto: ações explícitas sob o avatar */
-.avatarOptionsRow {
+/* Menu flutuante da foto: Alterar / Remover, aberto por clique no avatar */
+.avatarMenu {
+    position: absolute;
+    top: 6px;
+    left: 102px;
+    z-index: 20;
     display: flex;
-    gap: 6px;
-    margin-bottom: 4px;
+    flex-direction: column;
+    min-width: 132px;
+    padding: 4px;
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    background: var(--color-surface-active);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
-.avatarOptionBtn {
+.avatarMenuBtn {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 5px 10px;
-    border: 1px solid var(--color-border);
-    border-radius: 999px;
-    background: var(--color-surface-active);
+    gap: 7px;
+    padding: 7px 10px;
+    border: none;
+    border-radius: 7px;
+    background: transparent;
     color: var(--color-text-muted);
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 500;
     cursor: pointer;
     white-space: nowrap;
 }
 
-.avatarOptionBtn:hover {
+.avatarMenuBtn:hover {
     color: var(--color-text);
-    background: var(--color-surface-hover, var(--color-surface-active));
-}
-
-.avatarOptionBtn:disabled {
-    opacity: 0.6;
-    cursor: default;
+    background: var(--color-surface-hover, rgba(255, 255, 255, 0.06));
 }
 
 /* Cores do fundo do perfil: paleta curada; só aplica ao confirmar */

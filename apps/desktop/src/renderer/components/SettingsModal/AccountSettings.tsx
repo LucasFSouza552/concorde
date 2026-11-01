@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BadgeCheck, Check, Clock, Eye, EyeOff, ImagePlus, KeyRound, Lock, LogOut, Pencil, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 
 import type { User } from "@concorde/shared";
@@ -49,8 +49,35 @@ export default function AccountSettings() {
     const nameDirty = name.trim().length > 0 && name.trim() !== (user?.displayName ?? "").trim();
 
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const avatarWrapRef = useRef<HTMLDivElement>(null);
     const [appearanceBusy, setAppearanceBusy] = useState(false);
     const [appearanceError, setAppearanceError] = useState<string | null>(null);
+    // Menu flutuante de opções da foto (Alterar / Remover).
+    const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+
+    // Fecha o menu se o clique cair fora do avatar.
+    useEffect(() => {
+        if (!avatarMenuOpen) return;
+
+        function onPointerDown(event: MouseEvent) {
+            if (!avatarWrapRef.current?.contains(event.target as Node)) {
+                setAvatarMenuOpen(false);
+            }
+        }
+
+        document.addEventListener("pointerdown", onPointerDown);
+        return () => document.removeEventListener("pointerdown", onPointerDown);
+    }, [avatarMenuOpen]);
+
+    function handleAvatarClick() {
+        // Sem foto: clicar já abre o seletor de imagem.
+        if (!user?.avatar) {
+            fileInputRef.current?.click();
+            return;
+        }
+
+        setAvatarMenuOpen((open) => !open);
+    }
 
     async function handleAvatarFile(file: File | undefined) {
         if (!file || appearanceBusy) return;
@@ -215,35 +242,21 @@ export default function AccountSettings() {
                         aria-hidden="true"
                     />
 
-                    <div className={styles.avatarWrap}>
-                        {user?.avatar ? (
-                            // Com foto: o avatar fica estático e as ações aparecem logo abaixo.
-                            <span
-                                className={styles.avatarStatic}
-                                style={{
-                                    boxShadow: user.bannerFrom
-                                        ? `0 0 0 3px ${user.bannerFrom}, 0 0 0 6px var(--color-background)`
-                                        : "0 0 0 5px var(--color-background)"
-                                }}
-                            >
-                                <UserAvatar name={user?.displayName ?? "?"} avatar={user?.avatar} size={72} round />
-                            </span>
-                        ) : (
-                            // Sem foto: clicar no avatar abre o seletor de imagem.
-                            <button
-                                type="button"
-                                className={styles.avatarClickable}
-                                title="Adicionar foto"
-                                aria-label="Adicionar foto"
-                                style={{ boxShadow: "0 0 0 5px var(--color-background)" }}
-                                onClick={() => fileInputRef.current?.click()}
-                            >
-                                <UserAvatar name={user?.displayName ?? "?"} avatar={user?.avatar} size={72} round />
+                    <div className={styles.avatarWrap} ref={avatarWrapRef}>
+                        <button
+                            type="button"
+                            className={styles.avatarClickable}
+                            title={user?.avatar ? "Opções da foto" : "Adicionar foto"}
+                            aria-label={user?.avatar ? "Opções da foto" : "Adicionar foto"}
+                            onClick={handleAvatarClick}
+                        >
+                            <UserAvatar name={user?.displayName ?? "?"} avatar={user?.avatar} size={72} round />
+                            {!user?.avatar && (
                                 <span className={styles.avatarHover} aria-hidden="true">
                                     <ImagePlus size={15} />
                                 </span>
-                            </button>
-                        )}
+                            )}
+                        </button>
                         <input
                             ref={fileInputRef}
                             type="file"
@@ -251,22 +264,26 @@ export default function AccountSettings() {
                             hidden
                             onChange={(event) => { void handleAvatarFile(event.target.files?.[0]); }}
                         />
-                        {user?.avatar && (
-                            <div className={styles.avatarOptionsRow}>
+                        {user?.avatar && avatarMenuOpen && (
+                            <div className={styles.avatarMenu} role="menu">
                                 <button
                                     type="button"
-                                    className={styles.avatarOptionBtn}
-                                    disabled={appearanceBusy}
-                                    onClick={() => fileInputRef.current?.click()}
+                                    className={styles.avatarMenuBtn}
+                                    onClick={() => {
+                                        setAvatarMenuOpen(false);
+                                        fileInputRef.current?.click();
+                                    }}
                                 >
                                     <ImagePlus size={13} />
                                     Alterar foto
                                 </button>
                                 <button
                                     type="button"
-                                    className={styles.avatarOptionBtn}
-                                    disabled={appearanceBusy}
-                                    onClick={() => { void clearAvatar(); }}
+                                    className={styles.avatarMenuBtn}
+                                    onClick={() => {
+                                        setAvatarMenuOpen(false);
+                                        void clearAvatar();
+                                    }}
                                 >
                                     <Trash2 size={13} />
                                     Remover foto
