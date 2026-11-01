@@ -6,6 +6,12 @@ export function useAppUpdate() {
     useEffect(() => {
         const updates = window.concorde?.updates;
         if (!updates) return;
+
+        // Estado atual já existe? (a tela pode montar depois do evento do updater)
+        void updates.getStatus?.().then((current) => {
+            if (current) setStatus(current);
+        }).catch(() => { });
+
         return updates.onStatus(setStatus);
     }, []);
 

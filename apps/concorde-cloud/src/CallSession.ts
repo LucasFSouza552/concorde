@@ -125,7 +125,7 @@ export class CallSession {
 
 		this.roomId = request.headers.get('x-call-room') ?? this.ctx.id.name ?? null;
 
-		if (this.isDmCall() && this.callState === 'active' && this.ringStartedAt === null && !this.decided) {
+		if (this.roomId && this.isDmCall() && this.callState === 'active' && this.ringStartedAt === null && !this.decided) {
 			const room = await getCallRoom(this.env.concorde_users, this.roomId);
 			if (room && room.kind === 'dm') {
 				this.callState = 'ringing';

@@ -3,6 +3,7 @@ import { HashRouter } from "react-router-dom";
 import ToastViewport from "../components/Toast/ToastViewport";
 import UpdateBanner from "../components/UpdateBanner/UpdateBanner";
 import NotificationsBridge from "../components/Notifications/NotificationsBridge";
+import VersionGuard from "../components/VersionGuard/VersionGuard";
 // Providers
 import { ActiveCallProvider } from "../contexts/ActiveCallProvider";
 import { AuthProvider } from "../contexts/AuthContext";
@@ -16,6 +17,7 @@ import AppRouter from "../routes/AppRouter";
 export default function App() {
   return (
     <ToastProvider>
+      <VersionGuard />
       <HashRouter>
         <AuthProvider>
           <SettingsProvider>

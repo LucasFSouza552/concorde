@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Users } from "lucide-react";
 
 import CallScreen from "../../../../components/CallScreen/CallScreen";
 import Page from "../../../../components/Page/Page";

@@ -27,6 +27,7 @@ declare global {
             }
             updates: {
                 onStatus: (callback: (status: UpdateStatus) => void) => () => void
+                getStatus: () => Promise<UpdateStatus>
                 quitAndInstall: () => Promise<void>
             }
             app: {

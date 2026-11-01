@@ -13,6 +13,8 @@ interface UpdateStatus {
 }
 
 let mainWindow: BrowserWindow | null = null;
+/** Último estado do updater, para que telas tardias peguem o valor atual. */
+let lastUpdateStatus: UpdateStatus = { state: "idle" };
 
 function autoLaunchStorePath() {
   return path.join(app.getPath("userData"), "auto-launch.json");
@@ -65,6 +67,7 @@ function writeKeepBackgroundPref(keepBackground: boolean) {
 }
 
 function sendUpdateStatus(status: UpdateStatus) {
+  lastUpdateStatus = status;
   mainWindow?.webContents.send("updates:status", status);
 }
 
@@ -97,6 +100,8 @@ function setupAutoUpdater() {
   ipcMain.handle("updates:quit-and-install", () => {
     autoUpdater.quitAndInstall();
   });
+
+  ipcMain.handle("updates:get-status", () => lastUpdateStatus);
 
   autoUpdater.checkForUpdates().catch(() => { });
 
@@ -331,11 +336,6 @@ function clearCallNotification() {
   if (!activeCallNotification) return;
   try { activeCallNotification.close(); } catch { /* já fechada */ }
   activeCallNotification = null;
-}
-
-function notifyIncomingCall(_callerName: string) {
-  // Notificações nativas de chamada desativadas conforme solicitado
-  return;
 }
 
 app.on("second-instance", () => {

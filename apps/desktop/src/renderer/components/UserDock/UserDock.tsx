@@ -221,7 +221,7 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
                                 if (screenStream) stopScreenShare();
                             }}
                             active={Boolean(screenStream)}
-                            tone="warning"
+                            tone="warn"
                         />
                         <IconBtn
                             id="hangUpDock"

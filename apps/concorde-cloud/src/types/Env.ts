@@ -15,4 +15,6 @@ export interface Env {
 	EMAIL_FROM?: string;
 	/** "1" devolve o código de reset na resposta (testes). */
 	PASSWORD_RESET_DEBUG?: string;
+	/** Token do admin para as rotas /updates do admin (x-admin-token). */
+	ADMIN_TOKEN?: string;
 }

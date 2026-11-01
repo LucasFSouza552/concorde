@@ -7,6 +7,7 @@ import callsRoutes from "./features/calls/calls.routes";
 import channelsRoutes from "./features/channels/channels.routes";
 import friendsRoutes from "./features/friends/friends.routes";
 import groupsRoutes from "./features/groups/groups.routes";
+import updatesRoutes from "./features/updates/updates.routes";
 import { CallSession } from "./CallSession";
 import { Env } from "./types/Env";
 import { UserSession } from "./UserSession";
@@ -59,6 +60,7 @@ app.route("/friends", friendsRoutes);
 app.route("/groups", groupsRoutes);
 app.route("/channels", channelsRoutes);
 app.route("/calls", callsRoutes)
+app.route("/updates", updatesRoutes)
 
 /**
  * Valida o Bearer do chamador e devolve o userId verificado.

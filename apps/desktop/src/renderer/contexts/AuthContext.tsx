@@ -11,6 +11,7 @@ import type { LoginTokensResponse, LoginTotpRequiredResponse, RegisterData, Cred
 
 import { api, getErrorMessage, isUnauthorized } from '../api/api';
 import { clearSession, getStoredSession, saveSession } from "../api/session";
+import { reportAppVersion } from "../utils/versionPolicy";
 
 export type ServerStatus = "booting" | "online" | "offline";
 
@@ -145,6 +146,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
             clearSession();
         }
     }, [session]);
+
+    // Telemetria de versão: uma vez por sessão aberta (login ou sessão restaurada).
+    useEffect(() => {
+        if (!token) return;
+
+        void window.concorde?.app?.getVersion?.().then((version) => {
+            if (version) void reportAppVersion(version);
+        }).catch(() => { });
+    }, [token]);
 
     async function login(userForm: Credentials) {
         clearError()

@@ -35,6 +35,7 @@ contextBridge.exposeInMainWorld("concorde", {
             ipcRenderer.on("updates:status", listener);
             return () => ipcRenderer.removeListener("updates:status", listener);
         },
+        getStatus: () => ipcRenderer.invoke("updates:get-status") as Promise<UpdateStatus>,
         quitAndInstall: () => ipcRenderer.invoke("updates:quit-and-install")
     },
     app: {
