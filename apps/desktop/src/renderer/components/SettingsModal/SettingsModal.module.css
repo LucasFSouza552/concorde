@@ -379,12 +379,12 @@
     z-index: 2;
     display: grid;
     place-items: center;
-    border-radius: 50%;
     background: rgba(0, 0, 0, 0.45);
     color: #fff;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.15s ease;
+    border-radius: 15%;
 }
 
 .avatarClickable:hover .avatarHover,

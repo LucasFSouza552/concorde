@@ -83,7 +83,6 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
     }, [statusMenuOpen]);
 
     function handleKeyOnTab(event: React.KeyboardEvent<HTMLDivElement>) {
-        // role="tab" precisa reagir a Enter/Space quando o foco está nele.
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
         (event.currentTarget as HTMLDivElement).click();
@@ -93,7 +92,7 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
         <footer className={styles.footer} aria-label="Perfil e conversas recentes">
             <div className={styles.profile}>
                 <div className={styles.avatarWrap}>
-                    <UserAvatar name={user?.displayName ?? "?"} avatar={user?.avatar} accent={user?.bannerFrom ?? null} size={30} />
+                    <UserAvatar name={user?.displayName ?? "?"} avatar={user?.avatar} size={50} />
                     <button
                         type="button"
                         className={styles.statusDot}

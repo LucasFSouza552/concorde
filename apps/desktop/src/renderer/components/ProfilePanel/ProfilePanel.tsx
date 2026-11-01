@@ -2,11 +2,11 @@ import { useEffect, useState, type ReactNode } from "react";
 import { ChevronLeft } from "lucide-react";
 
 import type { UserPresence, UserStatus } from "@concorde/shared";
+import UserAvatar from "../UserAvatar/UserAvatar";
 
+import { STATUS_COLOR, STATUS_LABEL } from "../../utils/status";
 import { api } from "../../api/api";
 import { getCachedPresence } from "../../hooks/useFriendsPresence";
-import { STATUS_COLOR, STATUS_LABEL } from "../../utils/status";
-import UserAvatar from "../UserAvatar/UserAvatar";
 
 import styles from "./ProfilePanel.module.css";
 
@@ -97,7 +97,6 @@ export default function ProfilePanel({ user, onClose, roleLabel, actions }: Prof
                 <UserAvatar
                     name={user.displayName}
                     avatar={user.avatar}
-                    accent={user.bannerFrom ?? null}
                     size={96}
                     className={styles.avatarOverlap}
                 />

@@ -250,7 +250,7 @@ export default function AccountSettings() {
                             aria-label={user?.avatar ? "Opções da foto" : "Adicionar foto"}
                             onClick={handleAvatarClick}
                         >
-                            <UserAvatar name={user?.displayName ?? "?"} avatar={user?.avatar} size={72} round />
+                            <UserAvatar name={user?.displayName ?? "?"} avatar={user?.avatar} size={72} />
                             {!user?.avatar && (
                                 <span className={styles.avatarHover} aria-hidden="true">
                                     <ImagePlus size={15} />
