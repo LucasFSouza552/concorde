@@ -2,6 +2,7 @@ import { HashRouter } from "react-router-dom";
 
 import ToastViewport from "../components/Toast/ToastViewport";
 import UpdateBanner from "../components/UpdateBanner/UpdateBanner";
+import NotificationsBridge from "../components/Notifications/NotificationsBridge";
 // Providers
 import { ActiveCallProvider } from "../contexts/ActiveCallProvider";
 import { AuthProvider } from "../contexts/AuthContext";
@@ -24,6 +25,7 @@ export default function App() {
                   <AppRouter />
                   <UpdateBanner />
                   <ToastViewport />
+                  <NotificationsBridge />
                 </CallInviteProvider>
               </ActiveCallProvider>
             </UserSocketProvider>

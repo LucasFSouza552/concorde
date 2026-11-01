@@ -96,3 +96,23 @@
 .check input {
     accent-color: var(--color-primary);
 }
+
+.actionBtn {
+    width: 100%;
+    margin: 4px 0 8px;
+    padding: 8px 10px;
+    box-sizing: border-box;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-active);
+    color: var(--color-text);
+    font-size: var(--fs-sm);
+    font-family: var(--font-sans);
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.actionBtn:hover {
+    background: var(--color-surface-hover, var(--color-surface-active));
+}

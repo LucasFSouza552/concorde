@@ -6,6 +6,7 @@ import { requireFriendship } from "../friends/friends.service";
 import { findGroupMember } from "../groups/groups.repository";
 
 import { AppError } from "../../utils/AppError";
+import { createCallRoom, getCallRoom, isCallRoomParticipant, touchCallRoom } from "./calls.repository";
 
 export const CALL_INVITE_TTL_MS = 30_000;
 export const GROUP_CALL_MAX_MEMBERS = 6;
@@ -51,6 +52,16 @@ export async function createCallInvite(env: Env, fromUserId: string, toUserId: s
 		createdAt: now,
 		expiresAt: now + CALL_INVITE_TTL_MS
 	};
+
+	// Sala privada 1:1: apenas o chamador e o chamado participam.
+	await createCallRoom(db, {
+		groupId: invite.groupId,
+		kind: "dm",
+		concordeGroupId: null,
+		participants: [fromUserId, toUserId],
+		now
+	});
+
 	await deliverToUser(env, toUserId, { type: "call-invite", invite });
 
 	return invite;
@@ -149,8 +160,22 @@ export async function createGroupCallInvite(env: Env, fromUserId: string, toUser
 	}
 
 	const now = Date.now();
-	const groupId = crypto.randomUUID();
+	// Sala de grupo é DETERMINÍSTICA (`group:<idDoGrupo>`): qualquer membro
+	// consegue entrar direto na chamada viva; e uma nova ligação para o
+	// mesmo grupo (quando a anterior foi encerrada) reusa/atualiza a sala
+	// em vez de criar pela segunda vez com id aleatório.
+	const groupId = concordeGroupId ? `group:${concordeGroupId}` : crypto.randomUUID();
 	const invites: GroupCallInviteResult["invites"] = [];
+
+	// Sala de chamada de grupo: entrar é permitido a membros do grupo
+	// (com ou sem convite direto).
+	await createCallRoom(db, {
+		groupId,
+		kind: "group",
+		concordeGroupId: concordeGroupId ?? null,
+		participants: [fromUserId, ...deliverable.map((target) => target.toUserId)],
+		now
+	});
 
 	for (const target of deliverable) {
 		const invite: CallInvite = {

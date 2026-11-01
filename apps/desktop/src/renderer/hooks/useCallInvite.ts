@@ -49,6 +49,29 @@ export function useCallInvite() {
         }
     }, []);
 
+    // Cancela tudo que você mesmo estava chamando (DM ou grupo). Usado ao
+    // aceitar/ficar em espera com outra chamada — sem isso, os convidados que
+    // ainda não entraram continuam aparecendo como "recebendo ligação".
+    function cancelOutgoingInvites() {
+        if (outgoing.status === "dialing") {
+            clearTimer();
+            void api.post(`/calls/${outgoing.callId}/cancel`, {
+                toUserId: outgoing.toUserId
+            }).catch(() => { });
+            setOutgoing({ status: "idle" });
+            return;
+        }
+
+        if (outgoing.status === "dialing-group") {
+            clearTimer();
+            outgoing.pending.forEach((item) => {
+                void api.post(`/calls/${item.callId}/cancel`, { toUserId: item.userId }).catch(() => { });
+            });
+            setOutgoing({ status: "idle" });
+            setJoinedGroup(null);
+        }
+    }
+
     async function dial(friend: Friend) {
         if (outgoing.status !== "idle") return;
 
@@ -115,16 +138,9 @@ export function useCallInvite() {
     async function acceptIncoming() {
         if (!incoming) return;
 
-        if (outgoing.status === "dialing") {
-            clearTimer();
-            await api.post(`/calls/${outgoing.callId}/cancel`, {
-                toUserId: outgoing.toUserId
-            });
-            leave();
-            setOutgoing({ status: "idle" });
-        }
-
+        cancelOutgoingInvites();
         leave();
+
         await api.post(`/calls/${incoming.callId}/accept`, {
             callerId: incoming.fromUserId
         });
@@ -167,7 +183,9 @@ export function useCallInvite() {
     async function acceptWaiting() {
         if (!waiting) return;
 
+        cancelOutgoingInvites();
         leave();
+
         await api.post(`/calls/${waiting.callId}/accept`, {
             callerId: waiting.fromUserId
         });
@@ -254,6 +272,36 @@ export function useCallInvite() {
     useEffect(() => {
         return () => clearTimer();
     }, [clearTimer]);
+
+    // Remove dos pendentes quem já está na chamada: ao entrar pela sidebar,
+    // grupo ou menu de atividade o backend só emite peer-joined — sem
+    // call-accepted — então o chamador continua vendo "recebendo ligação".
+    useEffect(() => {
+        if (outgoing.status === "idle") return;
+
+        const peerIds = new Set(peers.map((peer) => peer.userId));
+
+        // DM: o chamado já apareceu na chamada — não está mais "recebendo ligação".
+        if (outgoing.status === "dialing") {
+            if (peerIds.has(outgoing.toUserId)) setOutgoing({ status: "idle" }); // eslint-disable-line react-hooks/set-state-in-effect
+            return;
+        }
+
+        // Chamada de grupo: remove dos pendentes quem já entrou (pode ter
+        // entrado pela sidebar/grupo/menu, sem disparar call-accepted).
+        if (peers.length === 0) return;
+        const remaining = outgoing.pending.filter((item) => !peerIds.has(item.userId));
+        if (remaining.length === outgoing.pending.length) return;
+        setOutgoing(remaining.length === 0 ? { status: "idle" } : { ...outgoing, pending: remaining });
+    }, [peers, outgoing]);
+
+    // Se você entrou na chamada por outro caminho (sidebar/grupo/menu),
+    // limpa o banner de convite que ainda estiver pendente dessa mesma chamada.
+    useEffect(() => {
+        if (!groupId) return;
+        if (incoming && incoming.groupId === groupId) setIncoming(null); // eslint-disable-line react-hooks/set-state-in-effect
+        if (waiting && waiting.groupId === groupId) setWaiting(null);
+    }, [groupId, incoming, waiting]);
 
     useEffect(() => {
         if (!socketConnected) {

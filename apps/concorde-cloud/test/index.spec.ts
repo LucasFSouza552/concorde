@@ -211,4 +211,45 @@ describe("Concorde API", () => {
 		expect(Object.keys(presences).sort()).toEqual([`inexistente-${RUN}`, other.user.id].sort());
 		expect(presences[other.user.id].online).toBe(false);
 	});
+
+	it("presence em lote: usuário com sessão viva aparece online", async () => {
+		const me = await registerUser("batch-online");
+
+		// Abre WS autenticado do próprio usuário (sessão viva no DO).
+		const wsResponse = await SELF.fetch(`https://example.com/user/${me.user.id}/socket`, {
+			headers: { Upgrade: "websocket" }
+		});
+		expect(wsResponse.status).toBe(101);
+
+		const client = wsResponse.webSocket!;
+		client.accept();
+
+		try {
+			const authed = new Promise<void>((resolve, reject) => {
+				const timeout = setTimeout(() => reject(new Error("auth não confirmada")), 10_000);
+				client.addEventListener("message", (event) => {
+					const parsed = JSON.parse(String(event.data)) as { type: string };
+					if (parsed.type !== "user-connected") return;
+					clearTimeout(timeout);
+					resolve();
+				});
+			});
+
+			client.send(JSON.stringify({ type: "auth", token: me.token }));
+			await authed;
+
+			const ok = await SELF.fetch("https://example.com/user/presence/batch", {
+				method: "POST",
+				headers: { "Content-Type": "application/json", ...bearer(me.token) },
+				body: JSON.stringify({ ids: [me.user.id] })
+			});
+			expect(ok.status).toBe(200);
+
+			const { presences } = await ok.json<{ presences: Record<string, { status: string; online: boolean }> }>();
+			expect(presences[me.user.id].online).toBe(true);
+			expect(presences[me.user.id].status).toBe("online");
+		} finally {
+			client.close();
+		}
+	});
 });

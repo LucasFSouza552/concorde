@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 
 interface RemoteAudioProps {
     stream: MediaStream;
@@ -6,94 +6,75 @@ interface RemoteAudioProps {
     volume?: number;
 }
 
-type StreamGraph = {
-    source: MediaStreamAudioSourceNode;
-    gain: GainNode;
-};
+// O elemento <audio> (mudo) serve para "acordar" o decodificador WebRTC;
+// o som de verdade sai pela via WebAudio, com ganho por peer.
+function warmUpDecoder(audioRef: RefObject<HTMLAudioElement | null>, stream: MediaStream): () => void {
+    const el = audioRef.current;
+    if (!el) return () => { };
 
-const globalStore = globalThis as unknown as {
-    __concordeAudioCtx?: AudioContext;
-    __concordeGraphs?: WeakMap<MediaStream, StreamGraph>;
-};
+    el.srcObject = stream;
+    el.muted = true;
+    el.play().catch((err: DOMException) => {
+        if (err.name !== "AbortError") {
+            console.warn("[RA] Falha ao acordar decodificador WebRTC:", err);
+        }
+    });
 
-if (!globalStore.__concordeAudioCtx) {
-    globalStore.__concordeAudioCtx = new AudioContext();
-}
-if (!globalStore.__concordeGraphs) {
-    globalStore.__concordeGraphs = new WeakMap();
-}
-
-const ctx = globalStore.__concordeAudioCtx;
-const graphs = globalStore.__concordeGraphs;
-
-function getGraph(stream: MediaStream): StreamGraph {
-    if (ctx.state === "suspended") {
-        void ctx.resume().catch((err) => {
-            console.warn("[RA] Falha ao resumir AudioContext:", err);
-        });
-    }
-
-    let graph = graphs.get(stream);
-    if (!graph) {
-        const source = ctx.createMediaStreamSource(stream);
-        const gain = ctx.createGain();
-        source.connect(gain).connect(ctx.destination);
-        graph = { source, gain };
-        graphs.set(stream, graph);
-    }
-    return graph;
-}
-
-function applyGain(gainNode: GainNode, target: number) {
-    const now = ctx.currentTime;
-    const param = gainNode.gain;
-    param.cancelScheduledValues(now);
-    param.setTargetAtTime(target, now, 0.01);
+    return () => {
+        el.pause();
+        el.srcObject = null;
+    };
 }
 
 export function RemoteAudio({ stream, muted, volume }: RemoteAudioProps) {
     const audioRef = useRef<HTMLAudioElement>(null);
+    const ctxRef = useRef<AudioContext | null>(null);
     const gainRef = useRef<GainNode | null>(null);
 
-    useEffect(() => {
-        const el = audioRef.current;
-        if (!el || !stream) return;
-        el.srcObject = stream;
-        el.muted = true;
-        el.play().catch((err: DOMException) => {
-            if (err.name !== "AbortError") {
-                console.warn("[RA] Falha ao acordar decodificador WebRTC:", err);
-            }
-        });
+    useEffect(() => warmUpDecoder(audioRef, stream), [stream]);
 
-        return () => {
-            el.pause();
-            el.srcObject = null;
-        };
-    }, [stream]);
-
+    // Grafo por peer (AudioContext próprio) com ganho individual.
     useEffect(() => {
-        const graph = getGraph(stream);
-        gainRef.current = graph.gain;
-        applyGain(graph.gain, muted ? 0 : (volume ?? 1));
+        if (!stream) return;
+
+        const ctx = new AudioContext();
+        if (ctx.state === "suspended") {
+            void ctx.resume().catch(() => { });
+        }
+
+        const source = ctx.createMediaStreamSource(stream);
+        const gain = ctx.createGain();
+        source.connect(gain).connect(ctx.destination);
+
+        ctxRef.current = ctx;
+        gainRef.current = gain;
+
+        const target = muted ? 0 : ((volume && volume * 2) ?? 1);
+        gain.gain.value = target;
 
         return () => {
             try {
-                graph.source.disconnect();
-                graph.gain.disconnect();
+                source.disconnect();
+                gain.disconnect();
             } catch { }
-            graphs.delete(stream);
             gainRef.current = null;
+            void ctx.close().catch(() => { });
+            if (ctxRef.current === ctx) ctxRef.current = null;
         };
-    }, [stream]);
+    }, [stream]); // volume/mudo reaplicados no efeito abaixo (sem reconstruir o nó)
 
     useEffect(() => {
         const gainNode = gainRef.current;
-        if (!gainNode) return;
+        const ctx = ctxRef.current;
+        if (!gainNode || !ctx) return;
+
         if (ctx.state === "suspended") void ctx.resume().catch(() => { });
-        const target = muted ? 0 : ((volume && volume * 2) ?? 1);
-        applyGain(gainNode, target);
-    }, [muted, volume]);
+
+        const now = ctx.currentTime;
+        const param = gainNode.gain;
+        param.cancelScheduledValues(now);
+        param.setTargetAtTime(muted ? 0 : ((volume && volume * 2) ?? 1), now, 0.01);
+    }, [muted, volume, stream]);
 
     return <audio ref={audioRef} autoPlay muted playsInline style={{ display: "none" }} />;
 }

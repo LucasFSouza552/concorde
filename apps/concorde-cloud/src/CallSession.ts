@@ -2,6 +2,13 @@ import type { ClientMessage, DirectClientMessage, Peer, ServerMessage } from "@c
 
 import { Env } from "./types/Env";
 import { getUserById } from "./features/auth/auth.repository";
+import { getCallRoom, createCallRoom, isCallRoomParticipant, touchCallRoom, deleteCallRoom } from "./features/calls/calls.repository";
+import { findGroupMember } from "./features/groups/groups.repository";
+
+/** Margem útil entre pings de vida da sala: alarm do DO renova o TTL. */
+const ROOM_RENEWAL_INTERVAL_MS = 60 * 60_000;
+/** Depois que a última conexão sai, apaga o registro da sala. */
+const ROOM_EMPTY_GRACE_MS = 60_000;
 
 interface CallPeer extends Peer {
 	/** true somente depois do join com identidade verificada. */
@@ -12,10 +19,13 @@ export class CallSession {
 	private clients = new Map<WebSocket, CallPeer>();
 	private state = new Map<string, { sharing: boolean; muted: boolean; deafened: boolean }>();
 
+	/** Nome da sala informado pelo gateway (fallback: nome do DO). */
+	private roomId: string | null = null;
+
 	// Assinatura do DO é (state, env): antes eu só recebia o primeiro,
 	// então `env` eram na verdade o DurableObjectState e o acesso a
 	// binding (concorde_users) quebrava silenciosamente no join.
-	constructor(ctx: DurableObjectState, private env: Env) { }
+	constructor(private ctx: DurableObjectState, private env: Env) { }
 
 	async fetch(request: Request): Promise<Response> {
 		const upgradeHeader = request.headers.get("Upgrade");
@@ -35,6 +45,8 @@ export class CallSession {
 				status: 401,
 			});
 		}
+
+		this.roomId = request.headers.get("x-call-room") ?? this.ctx.id.name ?? null;
 
 		const webSocketPair = new WebSocketPair();
 
@@ -93,6 +105,16 @@ export class CallSession {
 					});
 					this.broadcast(server, { type: "screen-share", sharing: message.sharing, from });
 					break;
+				case "screen-watch":
+					// Quem assiste a quem: repassado a todos; o autor da transmissão
+					// (`target`) monta a lista "olho + avatares" de quem assiste.
+					this.broadcast(server, {
+						type: "screen-watch",
+						target: message.target,
+						watching: message.watching,
+						from: this.clients.get(server)?.userId ?? ""
+					});
+					break;
 			}
 
 		});
@@ -111,6 +133,11 @@ export class CallSession {
 				this.broadcast(server, { type: "peer-left", userId: peer.userId });
 			}
 
+			// Última conexão saiu: marca a sala para apagar; quem voltar
+			// rápido (reconnect) reassume sem perder o acesso.
+			if (this.clients.size === 0 && this.roomId) {
+				void this.ctx.storage.setAlarm(Date.now() + ROOM_EMPTY_GRACE_MS);
+			}
 		});
 
 		server.send(
@@ -146,6 +173,14 @@ export class CallSession {
 		if (!user) {
 			this.clients.delete(server);
 			server.close(4403, "Usuário inválido.");
+			return;
+		}
+
+		// Privacidade das chamadas: 1:1 é só entre quem ligou e quem atendeu;
+		// grupo exige vínculo com o grupo da chamada. Default é negar.
+		if (!this.roomId || !(await this.isEntranceAllowed(peer.userId))) {
+			this.clients.delete(server);
+			server.close(4403, "Você não participa desta chamada.");
 			return;
 		}
 
@@ -204,7 +239,93 @@ export class CallSession {
 
 		this.clients.set(server, verified);
 
+		// Chamada viva: agenda a renovação do TTL da sala (alarm do DO),
+		// para chamadas longas (a sala não pode expirar "por baixo").
+		await this.ctx.storage.setAlarm(Date.now() + ROOM_RENEWAL_INTERVAL_MS);
+
 		staleSocket?.close();
+	}
+
+	/**
+	 * Participação na chamada: DM é restrita a quem foi convidado na
+	 * criação; chamada de grupo vem do grupo. Sala inexistente/expirada
+	 * é removida (registros órfãos não acumulam).
+	 */
+	private async isEntranceAllowed(userId: string): Promise<boolean> {
+		const db = this.env.concorde_users;
+		const groupId = this.roomId as string;
+
+		let room = await getCallRoom(db, groupId);
+
+		/**
+		 * Autocura de salas de grupo: se o registro sumiu/expirou (cleanup 60s
+		 * após sala vazia, TTL vencido ou falha ao criar no dia da ligação),
+		 * um membro do grupo recria-o ao entrar — sem precisar "ligar de novo".
+		 */
+		if ((!room || room.expiresAt <= Date.now()) && groupId.startsWith("group:")) {
+			const concordeGroupId = groupId.slice("group:".length);
+			const membership = await findGroupMember(db, concordeGroupId, userId);
+
+			if (membership) {
+				await createCallRoom(db, {
+					groupId,
+					kind: "group",
+					concordeGroupId,
+					participants: [userId],
+					now: Date.now()
+				});
+
+				room = await getCallRoom(db, groupId);
+			}
+		}
+
+		if (!room || room.expiresAt <= Date.now()) {
+			return false;
+		}
+
+		let allowed = false;
+
+		if (room.kind === "dm") {
+			allowed = await isCallRoomParticipant(db, groupId, userId);
+		} else if (room.concordeGroupId) {
+			allowed = (await findGroupMember(db, room.concordeGroupId, userId)) !== null;
+		} else {
+			allowed = await isCallRoomParticipant(db, groupId, userId);
+		}
+
+		if (allowed) {
+			await touchCallRoom(db, groupId, Date.now());
+		}
+
+		return allowed;
+	}
+
+	/**
+	 * Alarm do DO com dois papéis:
+	 * - chamada viva (clients > 0): renova o TTL da sala e reagenda;
+	 * - sala vazia: apaga o registro do banco (o DO morre logo em seguida).
+	 */
+	async alarm(): Promise<void> {
+		if (this.clients.size > 0) {
+			if (this.roomId) {
+				try {
+					await touchCallRoom(this.env.concorde_users, this.roomId, Date.now());
+				} catch {
+					// Falhou renewal: persiste com o TTL atual; novo join agenda de novo.
+				}
+			}
+
+			await this.ctx.storage.setAlarm(Date.now() + ROOM_RENEWAL_INTERVAL_MS);
+			return;
+		}
+
+		if (this.roomId) {
+			try {
+				await deleteCallRoom(this.env.concorde_users, this.roomId);
+			} catch {
+				// Registro fica para o sweep de salas expiradas.
+			}
+		}
 	}
 
 	private getPeers(): Peer[] {

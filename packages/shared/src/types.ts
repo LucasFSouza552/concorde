@@ -8,13 +8,27 @@ export interface User {
     friendsOnly: boolean,
     email: string;
     createdAt: number;
+    /** Foto do perfil (dataURL local, já comprimida pelo cliente) — null = iniciais. */
+    avatar?: string | null;
+    /** Fundo personalizado do perfil: degradê de 2 cores (#rrggbb) — null = tema padrão. */
+    bannerFrom?: string | null;
+    bannerTo?: string | null;
 }
 
-export interface LoginResponse {
+/** Tokens completos de uma sessão estabelecida. */
+export interface LoginTokensResponse {
     user: User;
     token: string;
     refreshToken: string;
+    totpRequired?: false;
 }
+
+/** Login com 2FA ativa e sem código — aguarda o código TOTP do cliente. */
+export interface LoginTotpRequiredResponse {
+    totpRequired: true;
+}
+
+export type LoginResponse = LoginTokensResponse | LoginTotpRequiredResponse;
 
 export interface ApiError {
     message: string;
@@ -23,6 +37,8 @@ export interface ApiError {
 export interface Credentials {
     email: string;
     password: string;
+    /** Código TOTP (2FA) — necessário quando a conta tem 2FA ativa. */
+    totp?: string;
 }
 
 export interface RegisterData extends Credentials {
@@ -35,6 +51,7 @@ export interface Friend {
     id: string;
     username: string;
     displayName: string;
+    avatar?: string | null;
 }
 
 export interface UserPresence {
@@ -77,6 +94,8 @@ export type UserSocketServerMessage =
     | { type: "call-cancelled"; callId: string }
     | { type: "peer-status"; userId: string; status: UserStatus; customMessage?: string | null }
     | { type: "peer-call-state"; userId: string; groupId: string | null; concordeGroupId?: string | null }
+    | { type: "friends-changed" }
+    | { type: "groups-changed" }
     | { type: "group-kicked"; groupId: string; groupName: string; reason: "removed" | "left" | "dissolved" };
 
 // Group

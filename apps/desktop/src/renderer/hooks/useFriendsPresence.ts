@@ -26,6 +26,9 @@ type Listener = (snapshot: Map<string, FriendPresence>) => void;
 // os consumidores do hook (SideBar, Home, Friends, QuickCallModal etc.).
 let presences = new Map<string, FriendPresence>();
 const listeners = new Set<Listener>();
+// Última vez que um delta WS foi aplicado por usuário: evita que um snapshot
+// (estado do servidor no instante da resposta) sobrescreva delta mais recente.
+let deltaAppliedAt = new Map<string, number>();
 
 let source: Friend[] | null = null;
 let sourceKey = "";
@@ -34,6 +37,7 @@ let connected = false;
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 let sweepTimer: ReturnType<typeof setInterval> | null = null;
 let inflight = false;
+let pendingFetch = false;
 let lastEventProcessed: UserSocketServerMessage | null = null;
 
 function notify() {
@@ -48,11 +52,18 @@ function sourceKeyOf(friends: Friend[]): string {
 
 async function fetchSnapshot() {
     const ids = source ? source.map((friend) => friend.id) : [];
-    if (ids.length === 0 || inflight) return;
+    if (ids.length === 0) return;
+
+    // Fetch enquanto há outro em andamento: lembra e refaz no fim,
+    // em vez de descartar o disparo (ex.: fetch pós-reconexão).
+    if (inflight) {
+        pendingFetch = true;
+        return;
+    }
 
     inflight = true;
-
     const fetched = new Map<string, FriendPresence>();
+    const fetchStart = Date.now();
 
     try {
         if (ids.length <= 1) {
@@ -77,12 +88,31 @@ async function fetchSnapshot() {
         }
     } finally {
         inflight = false;
+
+        if (pendingFetch) {
+            pendingFetch = false;
+            void fetchSnapshot();
+        }
     }
 
     if (fetched.size === 0) return;
 
-    // Merge sobre o estado atual: não descarta deltas recebidos enquanto fetchia.
-    presences = new Map([...presences, ...fetched]);
+    // Merge seletivo: snapshot atualiza o estado, mas nunca atropela um delta
+    // recebido depois do início do fetch (mais novo que a resposta do servidor).
+    const next = new Map(presences);
+    const nextDeltaAppliedAt = new Map(deltaAppliedAt);
+
+    for (const [userId, presence] of fetched) {
+        const deltaAt = nextDeltaAppliedAt.get(userId);
+
+        if (deltaAt !== undefined && deltaAt > fetchStart) continue;
+
+        next.set(userId, presence);
+        nextDeltaAppliedAt.delete(userId);
+    }
+
+    presences = next;
+    deltaAppliedAt = nextDeltaAppliedAt;
     notify();
 }
 
@@ -159,6 +189,8 @@ function applyDelta(event: UserSocketServerMessage) {
     const { userId } = event;
     const existing = presences.get(userId);
 
+    // Campos default já coerentes com o evento: sem `existing`, o delta
+    // sozinho já produz uma presença plausível (status × online combinam).
     const merged: FriendPresence = {
         status: "offline" as UserStatus,
         online: false,
@@ -168,17 +200,28 @@ function applyDelta(event: UserSocketServerMessage) {
         customMessage: null,
         ...existing,
         ...(event.type === "peer-status"
-            ? { status: event.status, customMessage: event.customMessage ?? null }
+            ? {
+                status: event.status,
+                customMessage: event.customMessage ?? null,
+                online: event.status !== "offline" && event.status !== "invisible"
+            }
             : {
                 inCall: event.groupId !== null,
                 groupId: event.groupId ?? null,
                 concordeGroupId: event.concordeGroupId ?? null,
+                ...(existing ? null : { online: event.groupId !== null })
             })
     };
 
+    const now = Date.now();
     const next = new Map(presences);
+    const nextDeltaAppliedAt = new Map(deltaAppliedAt);
+
     next.set(userId, merged);
+    nextDeltaAppliedAt.set(userId, now);
+
     presences = next;
+    deltaAppliedAt = nextDeltaAppliedAt;
     notify();
 }
 
@@ -193,6 +236,30 @@ function syncEvent(event: UserSocketServerMessage | null) {
 
 export function notifyPresenceRefresh(): void {
     if (refCount > 0) scheduleFetch(0);
+}
+
+/** Presença cacheada de um usuário (amigo) — evita GET /user/:id/presence. */
+export function getCachedPresence(userId: string): FriendPresence | null {
+    return presences.get(userId) ?? null;
+}
+
+/** Assina o snapshot do cache sem virar fonte de fetch (source continua sendo dos consumidores de useFriendsPresence). */
+export function usePresenceSnapshot(): Map<string, FriendPresence> {
+    const [snapshot, setSnapshot] = useState(() => presences);
+
+    useEffect(() => {
+        acquire();
+        const listener: Listener = (next) => setSnapshot(next);
+
+        listeners.add(listener);
+
+        return () => {
+            listeners.delete(listener);
+            release();
+        };
+    }, []);
+
+    return snapshot;
 }
 
 export function useFriendsPresence(friends: Friend[]): Map<string, FriendPresence> {

@@ -7,7 +7,7 @@ import {
     type ReactNode,
 } from "react";
 
-import type { LoginResponse, RegisterData, Credentials, User } from "@concorde/shared";
+import type { LoginTokensResponse, LoginTotpRequiredResponse, RegisterData, Credentials, User } from "@concorde/shared";
 
 import { api, getErrorMessage, isUnauthorized } from '../api/api';
 import { clearSession, getStoredSession, saveSession } from "../api/session";
@@ -26,6 +26,10 @@ interface AuthContextData {
     updateUser: (next: User) => void;
 
     logout: () => void;
+
+    /** Credenciais aguardando o código TOTP (2FA) para concluir o login. */
+    awaitingTotp: Credentials | null;
+    clearAwaitingTotp: () => void;
 
     error: string | null;
     clearError: () => void;
@@ -47,6 +51,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const user = session?.user ?? null;
     const token = session?.token ?? null;
     const [error, setError] = useState<string | null>(null);
+    const [awaitingTotp, setAwaitingTotp] = useState<Credentials | null>(null);
     const [serverStatus, setServerStatus] = useState<ServerStatus>("booting");
     const [bootStep, setBootStep] = useState("Carregando sessão...");
     const [attempts, setAttempts] = useState(0);
@@ -144,8 +149,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     async function login(userForm: Credentials) {
         clearError()
         try {
-            const response = await api.post<LoginResponse>("/auth/login", userForm);
+            const response = await api.post<LoginTokensResponse | LoginTotpRequiredResponse>("/auth/login", userForm);
 
+            if (response.data.totpRequired) {
+                setSession(null);
+                setAwaitingTotp(userForm);
+                setError("Informe o código de verificação.");
+                return;
+            }
+
+            setAwaitingTotp(null);
             saveSession(response.data);
             setSession(response.data);
         } catch (error) {
@@ -157,8 +170,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     async function register(userForm: RegisterData) {
         clearError()
         try {
-            const response = await api.post<LoginResponse>("/auth/register", userForm);
+            const response = await api.post<LoginTokensResponse>("/auth/register", userForm);
 
+            setAwaitingTotp(null);
             saveSession(response.data);
             setSession(response.data);
         } catch (error) {
@@ -178,6 +192,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         clearSession();
         setSession(null);
+        setAwaitingTotp(null);
     }
 
     function updateUser(next: User) {
@@ -186,6 +201,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     function clearError() {
         setError(null);
+    }
+
+    function clearAwaitingTotp() {
+        setAwaitingTotp(null);
     }
 
     return (
@@ -199,6 +218,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
                 updateUser,
 
                 logout,
+
+                awaitingTotp,
+                clearAwaitingTotp,
 
                 error,
                 clearError,

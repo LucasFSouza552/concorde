@@ -8,6 +8,7 @@ import { useUI } from "../../contexts/UIContext";
 import { useUserSocketSend } from "../../contexts/UserSocketProvider";
 import IconBtn from "../IconBtn/IconBtn";
 import SettingsModal from "../SettingsModal/SettingsModal";
+import UserAvatar from "../UserAvatar/UserAvatar";
 
 import { setOwnStatus, useOwnStatus } from "../../utils/ownStatus";
 import { STATUS_COLOR, STATUS_LABEL } from "../../utils/status";
@@ -92,7 +93,7 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
         <footer className={styles.footer} aria-label="Perfil e conversas recentes">
             <div className={styles.profile}>
                 <div className={styles.avatarWrap}>
-                    <div className={styles.avatar}>{(user?.displayName ?? "?").trim().charAt(0).toUpperCase()}</div>
+                    <UserAvatar name={user?.displayName ?? "?"} avatar={user?.avatar} accent={user?.bannerFrom ?? null} size={30} />
                     <button
                         type="button"
                         className={styles.statusDot}

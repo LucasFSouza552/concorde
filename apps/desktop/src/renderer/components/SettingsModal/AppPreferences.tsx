@@ -5,6 +5,7 @@ import FormCheckbox from "../Form/CheckBox/FormCheckbox";
 
 export default function AppPreferences() {
     const [autoLaunch, setAutoLaunch] = useState<boolean | null>(null);
+    const [keepBackground, setKeepBackground] = useState<boolean | null>(null);
 
     useEffect(() => {
         let cancelled = false;
@@ -12,6 +13,10 @@ export default function AppPreferences() {
         window.concorde.app.getAutoLaunch()
             .then((enabled) => { if (!cancelled) setAutoLaunch(enabled); })
             .catch(() => { if (!cancelled) setAutoLaunch(false); });
+
+        window.concorde.app.getBackgroundOnClose()
+            .then((value) => { if (!cancelled) setKeepBackground(value); })
+            .catch(() => { if (!cancelled) setKeepBackground(true); });
 
         return () => { cancelled = true; };
     }, []);
@@ -25,6 +30,18 @@ export default function AppPreferences() {
             await window.concorde.app.setAutoLaunch(next);
         } catch {
             setAutoLaunch(previous);
+        }
+    }
+
+    async function handleKeepBackgroundChange(e: React.ChangeEvent<HTMLInputElement>) {
+        const next = e.target.checked;
+        const previous = keepBackground ?? true;
+
+        setKeepBackground(next);
+        try {
+            await window.concorde.app.setBackgroundOnClose(next);
+        } catch {
+            setKeepBackground(previous);
         }
     }
 
@@ -42,6 +59,18 @@ export default function AppPreferences() {
                     label=""
                     checked={autoLaunch ?? false}
                     onChange={(e) => void handleAutoLaunchChange(e)}
+                />
+            </div>
+            <div className={styles.settingRow}>
+                <div>
+                    <p className={styles.settingLabel}>Manter em segundo plano ao fechar</p>
+                    <p className={styles.settingHint}>Ao fechar a janela, o Concorde fica apenas na bandeja (continua recebendo chamadas). Desligue para encerrar de vez.</p>
+                </div>
+                <FormCheckbox
+                    id="keep-background"
+                    label=""
+                    checked={keepBackground ?? true}
+                    onChange={(e) => void handleKeepBackgroundChange(e)}
                 />
             </div>
         </section>

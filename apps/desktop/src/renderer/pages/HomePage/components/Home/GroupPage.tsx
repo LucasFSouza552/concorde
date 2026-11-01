@@ -3,7 +3,7 @@ import { Users } from "lucide-react";
 
 import CallScreen from "../../../../components/CallScreen/CallScreen";
 import Page from "../../../../components/Page/Page";
-import type { GroupRole, PresenceBatchResponse, UserPresence } from "@concorde/shared";
+import type { GroupRole, PresenceBatchResponse } from "@concorde/shared";
 import GroupDetail from "./GroupDetail";
 import { useCallInviteState } from "../../../../contexts/CallInviteProvider";
 import { useUserSocketEvent } from "../../../../contexts/UserSocketProvider";
@@ -25,7 +25,7 @@ export default function GroupPage({ groupId, name, role, onBack }: GroupPageProp
     const { dialGroup, joinedGroup, joinGroupCall } = useCallInviteState();
     const lastEvent = useUserSocketEvent();
     const [showMembers, setShowMembers] = useState(false);
-    const [activeRoom, setActiveRoom] = useState<{ groupId: string; byName: string } | null>(null);
+    const [activeRoom, setActiveRoom] = useState<{ groupId: string; byName: string; participants: { id: string; displayName: string }[] } | null>(null);
 
     const inGroupCall = joinedGroup?.concordeGroupId === groupId;
     const toggleMembers = () => setShowMembers((visible) => !visible);
@@ -51,17 +51,27 @@ export default function GroupPage({ groupId, name, role, onBack }: GroupPageProp
                 });
                 if (cancelled) return;
 
-                let found: { member: (typeof members)[number]; presence: UserPresence } | undefined;
+                let roomGroupId: string | null = null;
+                let roomByName: string | null = null;
+
                 for (const member of members) {
                     const presence = data.presences[member.id];
                     if (presence?.inCall && presence.groupId && presence.concordeGroupId === groupId) {
-                        found = { member, presence };
+                        roomGroupId = presence.groupId;
+                        roomByName = member.displayName;
                         break;
                     }
                 }
 
-                setActiveRoom(found?.presence.groupId
-                    ? { groupId: found.presence.groupId, byName: found.member.displayName }
+                // Participantes presentes: quem está na MESMA sala ativa do grupo.
+                const participants = roomGroupId
+                    ? members
+                        .filter((member) => data.presences[member.id]?.groupId === roomGroupId)
+                        .map((member) => ({ id: member.id, displayName: member.displayName }))
+                    : [];
+
+                setActiveRoom(roomGroupId
+                    ? { groupId: roomGroupId, byName: roomByName ?? "alguém", participants }
                     : null);
             } catch {
                 // Falhou: mantém o estado anterior até o próximo tick/evento.
@@ -114,6 +124,7 @@ export default function GroupPage({ groupId, name, role, onBack }: GroupPageProp
                     name={name}
                     myRole={role}
                     onBack={onBack}
+                    callParticipants={activeRoom?.participants}
                     callAction={activeRoom ? "join" : "start"}
                     callLabel={activeRoom ? "Entrar na chamada" : "Iniciar chamada"}
                     onCall={() => {

@@ -4,11 +4,14 @@ import { ArrowLeft, Crown, LogOut, MoreVertical, Phone, PhoneIncoming, Plus, Ref
 import { roleLabels, type Friend, type GroupRole, type PresenceBatchResponse } from "@concorde/shared";
 import { useToast } from "../../../../contexts/ToastProvider";
 import { useUserSocketEvent } from "../../../../contexts/UserSocketProvider";
+import { useAuth } from "../../../../contexts/AuthContext";
+import ProfilePanel from "../../../../components/ProfilePanel/ProfilePanel";
+import UserAvatar from "../../../../components/UserAvatar/UserAvatar";
 
 import { api, getErrorMessage } from "../../../../api/api";
 import { SkeletonList } from "../../../../components/Skeleton/Skeleton";
 import { useFriendsList } from "../../../../hooks/useFriendsList";
-import { useGroupMembers } from "../../../../hooks/useGroupMembers";
+import { useGroupMembers, invalidateGroupMembers, type GroupMemberItem } from "../../../../hooks/useGroupMembers";
 import { notifyGroupsChanged } from "../../../../hooks/useGroupsList";
 
 import styles from "./Home.module.css";
@@ -24,6 +27,8 @@ interface GroupDetailProps {
     callAction?: "start" | "join" | null;
     callLabel?: string;
     onCall?: () => void;
+    /** Presentes na chamada ativa do grupo (card com avatares + entrar). */
+    callParticipants?: { id: string; displayName: string }[];
 }
 
 function roleIcon(role: string) {
@@ -32,9 +37,10 @@ function roleIcon(role: string) {
     return <User size={12} aria-hidden="true" />;
 }
 
-export default function GroupDetail({ groupId, name, myRole, onBack, membersVisible, onToggleMembers, callAction = null, callLabel, onCall }: GroupDetailProps) {
+export default function GroupDetail({ groupId, name, myRole, onBack, membersVisible, onToggleMembers, callAction = null, callLabel, onCall, callParticipants }: GroupDetailProps) {
     const { members, loading, error, load } = useGroupMembers(groupId);
     const { friends, load: loadFriends } = useFriendsList();
+    const { user } = useAuth();
     const [search, setSearch] = useState("");
     const [addOpen, setAddOpen] = useState(false);
     const [addQuery, setAddQuery] = useState("");
@@ -46,11 +52,16 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
     const [optionBusy, setOptionBusy] = useState(false);
     const [openMenu, setOpenMenu] = useState<"header" | string | null>(null);
     const [pendingRemove, setPendingRemove] = useState<string | null>(null);
+    // Menu de contexto (botão direito) sobre um membro: perfil / adicionar amigo.
+    const [memberMenu, setMemberMenu] = useState<{ x: number; y: number; member: GroupMemberItem } | null>(null);
+        const [profile, setProfile] = useState<GroupMemberItem | null>(null);
     const menuRef = useRef<HTMLDivElement | null>(null);
     const openItemRef = useRef<HTMLDivElement | null>(null);
     const lastEvent = useUserSocketEvent();
     const { push } = useToast();
     const canManage = myRole === "owner" || myRole === "admin";
+
+    const friendIds = new Set(friends.map((friend) => friend.id));
 
     const showMembers = membersVisible ?? internalVisible;
     const toggleMembers = onToggleMembers ?? (() => setInternalVisible((visible) => !visible));
@@ -124,11 +135,27 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
         return () => window.removeEventListener("keydown", handleKey);
     }, [openMenu]);
 
+    // Escape fecha o menu de contexto e o cartão de perfil.
+    useEffect(() => {
+        if (!memberMenu && !profile) return;
+        function handleKey(event: KeyboardEvent) {
+            if (event.key !== "Escape") return;
+            setMemberMenu(null);
+            setProfile(null);
+        }
+        window.addEventListener("keydown", handleKey);
+        return () => window.removeEventListener("keydown", handleKey);
+    }, [memberMenu, profile]);
+
     useEffect(() => {
         if (addOpen && friends.length === 0) void loadFriends();
     }, [addOpen, friends.length, loadFriends]);
 
+    // Amizades precisam estar carregadas para o menu de contexto (botão direito)
+    // saber a quem oferecer "Adicionar amigo".
     useEffect(() => {
+        if (friends.length === 0) void loadFriends();
+    }, [friends.length, loadFriends]);    useEffect(() => {
         function onPointerDown(event: PointerEvent) {
             const target = event.target as Node;
             const insideMenu = menuRef.current?.contains(target) || openItemRef.current?.contains(target);
@@ -146,7 +173,8 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
         try {
             await api.post(`/groups/${groupId}/members`, { username: friend.username });
             setAddQuery("");
-            await load();
+            invalidateGroupMembers(groupId);
+            await load(true);
             push(`${friend.displayName} adicionado ao grupo.`, "success");
         } catch (error) {
             push(getErrorMessage(error), "error");
@@ -158,7 +186,8 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
         setPendingRemove(null);
         try {
             await api.delete(`/groups/${groupId}/members/${userId}`);
-            await load();
+            invalidateGroupMembers(groupId);
+            await load(true);
             push(`${displayName} removido do grupo.`, "info");
         } catch (error) {
             push(getErrorMessage(error), "error");
@@ -173,6 +202,26 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
         void handleRemove(member.id, member.displayName);
     }
 
+    async function sendFriendRequest(member: GroupMemberItem) {
+        setMemberMenu(null);
+
+        try {
+            await api.post("/friends/requests", { username: member.username });
+            push(`Pedido enviado para @${member.username}.`, "success");
+        } catch (error) {
+            push(getErrorMessage(error), "error");
+        }
+    }
+
+    function openMemberMenu(event: React.MouseEvent, member: GroupMemberItem) {
+        event.preventDefault();
+        setMemberMenu({
+            x: Math.min(event.clientX, window.innerWidth - 210),
+            y: Math.min(event.clientY, window.innerHeight - 120),
+            member,
+        });
+    }
+
     async function handleRole(userId: string, role: GroupRole) {
         setOpenMenu(null);
         setPendingRemove(null);
@@ -180,7 +229,8 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
             await api.patch(`/groups/${groupId}/members/${userId}`, {
                 role: role === "admin" ? "member" : "admin",
             });
-            await load();
+            invalidateGroupMembers(groupId);
+            await load(true);
         } catch (error) {
             push(getErrorMessage(error), "error");
         }
@@ -231,7 +281,7 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                 </div>
 
                 <div className={styles.gHeaderActions}>
-                    {callAction && (
+                    {callAction && (callAction === "start" || !callParticipants?.length) && (
                         <button type="button" className={styles.gCallBtn} onClick={onCall}>
                             {callAction === "start" ? <Phone size={14} /> : <PhoneIncoming size={14} />}
                             {callLabel ?? (callAction === "start" ? "Iniciar chamada" : "Entrar na chamada")}
@@ -289,6 +339,33 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                 </div>
             </header>
 
+            {callAction === "join" && !!callParticipants?.length && (
+                <div className={styles.roomCard}>
+                    <div className={styles.roomAvatars} aria-hidden="true">
+                        {callParticipants.slice(0, 4).map((participant) => (
+                            <span key={participant.id} className={styles.roomAvatar}>
+                                {participant.displayName.trim().charAt(0).toUpperCase() || "?"}
+                            </span>
+                        ))}
+                        {callParticipants.length > 4 && (
+                            <span className={`${styles.roomAvatar} ${styles.roomAvatarMore}`}>
+                                +{callParticipants.length - 4}
+                            </span>
+                        )}
+                    </div>
+                    <div className={styles.roomInfo}>
+                        <span className={styles.roomTitle}>
+                            {callParticipants.length > 1 ? `${callParticipants.length} na chamada` : "1 na chamada"}
+                        </span>
+                        <span className={styles.roomSub}>Chamada em andamento</span>
+                    </div>
+                    <button type="button" className={styles.roomJoinBtn} onClick={onCall}>
+                        <PhoneIncoming size={14} aria-hidden="true" />
+                        Entrar
+                    </button>
+                </div>
+            )}
+
             {showMembers && (
                 <div className={styles.gBody}>
                     <div className={styles.gToolbar}>
@@ -343,9 +420,7 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                                             title={`Adicionar ${friend.displayName}`}
                                             onMouseDown={() => void addFriend(friend)}
                                         >
-                                            <span className={styles.listAvatar} aria-hidden="true">
-                                                {friend.displayName.trim().charAt(0).toUpperCase() || "?"}
-                                            </span>
+                                            <UserAvatar name={friend.displayName} avatar={friend.avatar} size={30} />
                                             <div className={styles.listText}>
                                                 <span className={styles.listName}>{friend.displayName}</span>
                                                 <span className={styles.listSub}>@{friend.username}</span>
@@ -385,11 +460,9 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                                         className={styles.gMemberItem}
                                         ref={openMenu === member.id ? openItemRef : undefined}
                                     >
-                                        <div className={styles.gMemberRow}>
+                                        <div className={styles.gMemberRow} onContextMenu={(event) => openMemberMenu(event, member)}>
                                             <span className={styles.gMemberAvatarWrap}>
-                                                <span className={styles.listAvatar} aria-hidden="true">
-                                                    {member.displayName.trim().charAt(0).toUpperCase() || "?"}
-                                                </span>
+                                                <UserAvatar name={member.displayName} avatar={member.avatar} size={30} />
                                                 <span
                                                     className={inCallIds.has(member.id) ? styles.gStatusDotOnline : onlineIds.has(member.id) ? styles.gStatusDotIdle : styles.gStatusDotOffline}
                                                     title={inCallIds.has(member.id) ? "Em chamada" : onlineIds.has(member.id) ? "Online" : "Offline"}
@@ -461,6 +534,67 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                     </div>
                 </div>
             )}
+
+            {/* Menu de contexto (botão direito) em membros do grupo */}
+            {memberMenu && (() => {
+                const isSelf = memberMenu.member.id === user?.id;
+                const isFriend = friendIds.has(memberMenu.member.id);
+                return (
+                    <>
+                        <div
+                            className={styles.menuBackdropFixed}
+                            onPointerDown={() => setMemberMenu(null)}
+                            onContextMenu={(event) => { event.preventDefault(); setMemberMenu(null); }}
+                        />
+                        <div className={styles.gMemberContextMenu} role="menu" style={{ left: memberMenu.x, top: memberMenu.y }}>
+                            <button
+                                type="button"
+                                role="menuitem"
+                                className={styles.gMenuItem}
+                                onClick={() => { setProfile(memberMenu.member); setMemberMenu(null); }}
+                            >
+                                <User size={14} aria-hidden="true" />
+                                Ver perfil
+                            </button>
+                            {!isSelf && !isFriend && (
+                                <button
+                                    type="button"
+                                    role="menuitem"
+                                    className={styles.gMenuItem}
+                                    onClick={() => void sendFriendRequest(memberMenu.member)}
+                                >
+                                    <UserPlus size={14} aria-hidden="true" />
+                                    Adicionar amigo
+                                </button>
+                            )}
+                        </div>
+                    </>
+                );
+            })()}
+
+            {/* Painel de perfil (lateral esquerda) de qualquer pessoa do grupo */}
+            {profile && (() => {
+                const isSelf = profile.id === user?.id;
+                const isFriend = friendIds.has(profile.id);
+                return (
+                    <ProfilePanel
+                        key={profile.id}
+                        user={profile}
+                        onClose={() => setProfile(null)}
+                        roleLabel={roleLabels[profile.role as GroupRole] ?? profile.role}
+                        actions={!isSelf && !isFriend ? (
+                            <button
+                                type="button"
+                                className={styles.joinBtn}
+                                onClick={() => void sendFriendRequest(profile)}
+                            >
+                                <UserPlus size={14} aria-hidden="true" />
+                                Adicionar amigo
+                            </button>
+                        ) : undefined}
+                    />
+                );
+            })()}
         </div>
     );
 }

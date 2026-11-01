@@ -33,6 +33,11 @@ export class AppError extends Error {
         return new AppError(message, 409);
     }
 
+    /** Erro 429 — Limite de requisições atingido. */
+    static tooManyRequests(message: string) {
+        return new AppError(message, 429);
+    }
+
     /** Erro 500 — Falha interna inesperada do servidor. */
     static internal(message: string) {
         return new AppError(message, 500);

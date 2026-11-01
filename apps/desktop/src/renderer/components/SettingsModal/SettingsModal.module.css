@@ -345,10 +345,179 @@
 }
 
 .avatarWrap {
+    position: relative;
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
+    align-items: flex-start;
     margin-top: -34px;
     padding: 0 20px;
+}
+
+/* Avatar clicável (troca de foto) com anel de separação do card */
+.avatarClickable {
+    position: relative;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+}
+
+.avatarClickable:hover {
+    filter: brightness(0.85);
+}
+
+.avatarClickable:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 3px;
+}
+
+.avatarHover {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.45);
+    color: #fff;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.avatarClickable:hover .avatarHover,
+.avatarClickable:focus-visible .avatarHover {
+    opacity: 1;
+}
+
+/* Avatar com foto definida: estático, ações ficam na linha abaixo */
+.avatarStatic {
+    display: inline-flex;
+    border-radius: 50%;
+}
+
+/* Alterar/Remover foto: ações explícitas sob o avatar */
+.avatarOptionsRow {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 4px;
+}
+
+.avatarOptionBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    background: var(--color-surface-active);
+    color: var(--color-text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.avatarOptionBtn:hover {
+    color: var(--color-text);
+    background: var(--color-surface-hover, var(--color-surface-active));
+}
+
+.avatarOptionBtn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+/* Cores do fundo do perfil: paleta curada; só aplica ao confirmar */
+.customizeSection {
+    padding: 6px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.customizeGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.customizeLabel {
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.swatchGrid {
+    display: grid;
+    grid-template-columns: repeat(8, 24px);
+    gap: 6px;
+}
+
+.swatchBtn {
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.swatchBtn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.swatchSelected {
+    box-shadow: 0 0 0 2px var(--color-surface), 0 0 0 4px var(--color-text);
+    transform: none;
+}
+
+.swatchBtn:disabled {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.customizeActions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 2px;
+}
+
+.customizeActions .actionBtn {
+    flex: none;
+}
+
+.customizeReset {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-left: auto;
+    padding: 6px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-surface-active);
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.customizeReset:hover {
+    color: var(--color-text);
+    background: var(--color-surface-hover, var(--color-surface-active));
+}
+
+.customizeReset:disabled {
+    opacity: 0.5;
+    cursor: default;
 }
 
 .avatarBig {
@@ -614,6 +783,7 @@
 }
 
 .micSelect {
+
     appearance: none;
     -webkit-appearance: none;
     min-width: 190px;
@@ -640,4 +810,92 @@
 .micSelect option {
     background-color: var(--color-surface);
     color: var(--color-text);
+}
+
+.secretBox {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--color-surface);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-sm);
+}
+
+.secretBox code {
+    font-family: var(--font-mono, monospace);
+    font-size: var(--fs-md);
+    letter-spacing: 0.08em;
+    color: var(--color-text);
+    word-break: break-all;
+}
+
+.secretBox button {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    background: var(--color-surface-hover);
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.secretBox button:hover {
+    color: var(--color-text);
+}
+
+.sessionsList {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 8px 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sessionRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-sm);
+}
+
+.sessionMeta {
+    min-width: 0;
+}
+
+.sessionTitle {
+    margin: 0;
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sessionRevoke {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.sessionRevoke:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-danger);
 }

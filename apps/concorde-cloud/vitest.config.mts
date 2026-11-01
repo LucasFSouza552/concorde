@@ -10,7 +10,8 @@ export default defineConfig(async () => {
 				wrangler: { configPath: "./wrangler.jsonc" },
 				miniflare: {
 					bindings: {
-						TEST_MIGRATIONS: migrations
+						TEST_MIGRATIONS: migrations,
+						RATE_LIMIT_DISABLED: "1"
 					}
 				}
 			}),

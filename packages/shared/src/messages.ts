@@ -72,6 +72,17 @@ export interface ForwardedScreenShareStateMessage extends ScreenShareStateMessag
     from: string;
 }
 
+/** Cliente anuncia que começou/parou de assistir a transmissão de `target`. */
+export interface ScreenWatchMessage extends Message {
+    type: "screen-watch";
+    target: string;
+    watching: boolean;
+}
+
+export interface ForwardedScreenWatchMessage extends ScreenWatchMessage {
+    from: string;
+}
+
 export type DirectClientMessage = OfferMessage | AnswerMessage | IceCandidateMessage;
 
 export type ClientMessage =
@@ -79,6 +90,7 @@ export type ClientMessage =
     | ChatMessage
     | MuteStateMessage
     | ScreenShareStateMessage
+    | ScreenWatchMessage
     | DirectClientMessage;
 
 export interface Peer {
@@ -107,6 +119,7 @@ export type ForwardedDirectMessage =
     | ForwardedOfferMessage
     | ForwardedAnswerMessage
     | ForwardedScreenShareStateMessage
+    | ForwardedScreenWatchMessage
     | ForwardedIceCandidateMessage
     | ForwardedMuteStateMessage;
 

@@ -15,7 +15,11 @@ import { Users } from "lucide-react";
 
 import { api, getErrorMessage } from "../../api/api";
 import { GlobalRemoteAudio } from '../../hooks/GlobalRemoteAudio';
+import { useActiveCalls } from "../../hooks/useActiveCalls";
+import { useFriendsList } from "../../hooks/useFriendsList";
+import { useGroupsList } from "../../hooks/useGroupsList";
 import type { ActiveCallEntry } from "../../hooks/useActiveCalls";
+import ActivityMenu from "../../components/ActivityMenu/ActivityMenu";
 
 import styles from "./HomePage.module.css";
 
@@ -31,9 +35,15 @@ export default function HomePage() {
     const [chat, setChat] = useState<ChatState | null>(null);
     const [tabs, setTabs] = useState<ConversationTab[]>([]);
     const [selectedGroup, setSelectedGroup] = useState<{ id: string; name: string; role: GroupRole } | null>(null);
+    const [callViewOpen, setCallViewOpen] = useState(false);
     const lastCallPeer = useRef<{ userId: string; displayName: string } | null>(null);
     const groupCallRef = useRef(false);
     const { push } = useToast();
+
+    // Fonte de chamadas ativas de grupos/DMs para o menu de atividade.
+    const { friends } = useFriendsList();
+    const { groups } = useGroupsList();
+    const { calls: activityCalls } = useActiveCalls(groups, friends);
 
     function openDmTab(friend: Friend, channelId: string) {
         setTabs((current) => current.some((tab) => tab.key === channelId)
@@ -103,6 +113,7 @@ export default function HomePage() {
     }
 
     function handleJoinCall(call: ActiveCallEntry) {
+        // Permissão é validada no servidor (CallSession + registro de salas).
         if (!call.isCurrent) joinGroupCall(call.callGroupId, call.concordeGroupId);
 
         if (call.kind === "group" && call.group) {
@@ -169,11 +180,39 @@ export default function HomePage() {
 
     }, [groupId, peers, outgoing]);
 
-    // Chamada ativa: tela cheia quando nada aberto; abrindo chat/grupo, some da tela
-    // (áudio continua por baixo) e volta quando o conteúdo é fechado.
+    // A tela de chamada abre junto com a chamada e pode ser "voltada" pelo
+    // botão de voltar (ou retomada pelo menu de atividade) sem desligar o áudio.
     const callActive = groupId !== null;
     // Chamada do grupo selecionado fica integrada no próprio GroupPage.
     const groupCallSelected = Boolean(joinedGroup && selectedGroup && joinedGroup.concordeGroupId === selectedGroup.id);
+
+    useEffect(() => {
+        if (groupId) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setCallViewOpen(true);
+            return;
+        }
+        setCallViewOpen(false);
+    }, [groupId]);
+
+    function handleActivitySelect(entry: ActiveCallEntry) {
+        if (entry.isCurrent) {
+            setCallViewOpen(true);
+            return;
+        }
+        handleJoinCall(entry);
+    }
+
+    /**
+     * Botão de voltar (chat / chamada / grupo): SEMPRE limpa chat, grupo e
+     * visão de chamada de uma vez — destino final é a Home, independentemente
+     * de onde o usuário estava ou de estar numa chamada ativa.
+     */
+    function goHome() {
+        setChat(null);
+        setSelectedGroup(null);
+        setCallViewOpen(false);
+    }
 
     function peerTitle(): string {
         if (outgoing.status === "dialing" && peers.length === 0) return outgoing.toDisplayName;
@@ -182,6 +221,9 @@ export default function HomePage() {
         return "Chamada";
     }
 
+    // Menu de atividade só aparece na Home da tela principal (sem chat/grupo/chamada abertos).
+    const showingHome = !chat && !selectedGroup && !(callActive && !groupCallSelected && callViewOpen);
+
     return (
         <main className={styles.container}>
             <div className={styles.contentRow}>
@@ -189,25 +231,29 @@ export default function HomePage() {
                     <ChatView
                         channelId={chat.channelId}
                         friend={chat.friend}
-                        onBack={() => setChat(null)}
+                        onBack={goHome}
                     />
                 ) : selectedGroup ? (
                     <GroupPage
                         groupId={selectedGroup.id}
                         name={selectedGroup.name}
                         role={selectedGroup.role}
-                        onBack={() => setSelectedGroup(null)}
+                        onBack={goHome}
                     />
-                ) : callActive && !groupCallSelected ? (
+                ) : callActive && !groupCallSelected && callViewOpen ? (
                     <CallScreen
                         layout="full"
                         flat
                         peerName={peerTitle()}
+                        onBack={goHome}
                     />
                 ) : (
                     <Home />
                 )}
                 <GlobalRemoteAudio />
+                {showingHome && (
+                    <ActivityMenu calls={activityCalls} onSelectCall={handleActivitySelect} />
+                )}
                 {sidebarOpen && (
                     <SideBar
                         activeFriendId={chat?.friend.id ?? null}

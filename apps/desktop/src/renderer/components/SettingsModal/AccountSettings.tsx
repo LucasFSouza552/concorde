@@ -1,15 +1,29 @@
-import { useState } from "react";
-import { BadgeCheck, Check, Clock, Eye, EyeOff, KeyRound, Lock, LogOut, Pencil, ShieldCheck } from "lucide-react";
+import { useRef, useState } from "react";
+import { BadgeCheck, Check, Clock, Eye, EyeOff, ImagePlus, KeyRound, Lock, LogOut, Pencil, RotateCcw, ShieldCheck, Trash2 } from "lucide-react";
 
 import type { User } from "@concorde/shared";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastProvider";
 import { api, getErrorMessage } from "../../api/api";
+import UserAvatar from "../UserAvatar/UserAvatar";
+import { fileToCompressedDataUrl } from "../../utils/image";
 
 import styles from "./SettingsModal.module.css";
 
 const MAX_DISPLAY_NAME_LENGTH = 32;
+
+/** Valores do seletor quando o perfil não tem fundo definido (tema padrão). */
+const DEFAULT_BANNER_FROM = "#5865f2";
+const DEFAULT_BANNER_TO = "#8b5cf6";
+
+/** Paleta curada para a cor primária/secundária do fundo (estilo do app). */
+const COLOR_PALETTE = [
+    "#5865f2", "#3b82f6", "#0ea5e9", "#06b6d4",
+    "#14b8a6", "#22c55e", "#84cc16", "#eab308",
+    "#f59e0b", "#f97316", "#ef4444", "#f43f5e",
+    "#ec4899", "#d946ef", "#a855f7", "#8b5cf6"
+];
 
 function formatDate(timestamp: number) {
     return new Date(timestamp).toLocaleDateString("pt-BR");
@@ -32,8 +46,98 @@ export default function AccountSettings() {
     const [passwordBusy, setPasswordBusy] = useState(false);
     const [passwordError, setPasswordError] = useState<string | null>(null);
 
-    const initial = (user?.displayName ?? "?").trim().charAt(0).toUpperCase();
     const nameDirty = name.trim().length > 0 && name.trim() !== (user?.displayName ?? "").trim();
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [appearanceBusy, setAppearanceBusy] = useState(false);
+    const [appearanceError, setAppearanceError] = useState<string | null>(null);
+
+    async function handleAvatarFile(file: File | undefined) {
+        if (!file || appearanceBusy) return;
+
+        setAppearanceBusy(true);
+        setAppearanceError(null);
+
+        try {
+            const dataUrl = await fileToCompressedDataUrl(file);
+
+            if (dataUrl.length > 180_000) {
+                throw new Error("Imagem muito grande mesmo após compressão.");
+            }
+
+            const { data } = await api.patch<User>("/auth/me", { avatar: dataUrl });
+            updateUser(data);
+            push("Foto atualizada.", "success");
+        } catch (error) {
+            setAppearanceError(getErrorMessage(error) ?? "Não foi possível atualizar a foto.");
+        } finally {
+            setAppearanceBusy(false);
+            if (fileInputRef.current) fileInputRef.current.value = "";
+        }
+    }
+
+    async function clearAvatar() {
+        if (appearanceBusy || !user?.avatar) return;
+
+        setAppearanceBusy(true);
+        setAppearanceError(null);
+
+        try {
+            const { data } = await api.patch<User>("/auth/me", { avatar: null });
+            updateUser(data);
+            push("Foto removida.", "success");
+        } catch (error) {
+            setAppearanceError(getErrorMessage(error) ?? "Não foi possível remover a foto.");
+        } finally {
+            setAppearanceBusy(false);
+        }
+    }
+
+    // Fundo do perfil (cor primária + secundária): só vai ao banco quando confirmar.
+    const [pendingFrom, setPendingFrom] = useState(user?.bannerFrom ?? DEFAULT_BANNER_FROM);
+    const [pendingTo, setPendingTo] = useState(user?.bannerTo ?? DEFAULT_BANNER_TO);
+
+    const bannerDirty =
+        (user?.bannerFrom ?? null) !== (pendingFrom as string | null) ||
+        (user?.bannerTo ?? null) !== (pendingTo as string | null);
+
+    async function applyBanner() {
+        if (appearanceBusy || !bannerDirty) return;
+
+        setAppearanceBusy(true);
+        setAppearanceError(null);
+
+        try {
+            const { data } = await api.patch<User>("/auth/me", {
+                bannerFrom: pendingFrom.toLowerCase(),
+                bannerTo: pendingTo.toLowerCase()
+            });
+            updateUser(data);
+            push("Fundo atualizado.", "success");
+        } catch (error) {
+            setAppearanceError(getErrorMessage(error) ?? "Não foi possível aplicar o fundo.");
+        } finally {
+            setAppearanceBusy(false);
+        }
+    }
+
+    async function resetBanner() {
+        if (appearanceBusy || (!user?.bannerFrom && !user?.bannerTo)) return;
+
+        setAppearanceBusy(true);
+        setAppearanceError(null);
+
+        try {
+            const { data } = await api.patch<User>("/auth/me", { bannerFrom: null, bannerTo: null });
+            updateUser(data);
+            setPendingFrom(DEFAULT_BANNER_FROM);
+            setPendingTo(DEFAULT_BANNER_TO);
+        } catch (error) {
+            setAppearanceError(getErrorMessage(error) ?? "Não foi possível resetar o fundo.");
+        } finally {
+            setAppearanceBusy(false);
+        }
+    }
 
     async function saveDisplayName() {
         if (!nameDirty || nameBusy) return;
@@ -105,11 +209,138 @@ export default function AccountSettings() {
 
             <div className={styles.panelStack}>
                 <div className={styles.profileCard}>
-                    <div className={styles.banner} aria-hidden="true" />
+                    <div
+                        className={styles.banner}
+                        style={{ background: `linear-gradient(120deg, ${pendingFrom}, ${pendingTo})` }}
+                        aria-hidden="true"
+                    />
 
                     <div className={styles.avatarWrap}>
-                        <span className={styles.avatarBig} aria-hidden="true">{initial}</span>
+                        {user?.avatar ? (
+                            // Com foto: o avatar fica estático e as ações aparecem logo abaixo.
+                            <span
+                                className={styles.avatarStatic}
+                                style={{
+                                    boxShadow: user.bannerFrom
+                                        ? `0 0 0 3px ${user.bannerFrom}, 0 0 0 6px var(--color-background)`
+                                        : "0 0 0 5px var(--color-background)"
+                                }}
+                            >
+                                <UserAvatar name={user?.displayName ?? "?"} avatar={user?.avatar} size={72} round />
+                            </span>
+                        ) : (
+                            // Sem foto: clicar no avatar abre o seletor de imagem.
+                            <button
+                                type="button"
+                                className={styles.avatarClickable}
+                                title="Adicionar foto"
+                                aria-label="Adicionar foto"
+                                style={{ boxShadow: "0 0 0 5px var(--color-background)" }}
+                                onClick={() => fileInputRef.current?.click()}
+                            >
+                                <UserAvatar name={user?.displayName ?? "?"} avatar={user?.avatar} size={72} round />
+                                <span className={styles.avatarHover} aria-hidden="true">
+                                    <ImagePlus size={15} />
+                                </span>
+                            </button>
+                        )}
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            hidden
+                            onChange={(event) => { void handleAvatarFile(event.target.files?.[0]); }}
+                        />
+                        {user?.avatar && (
+                            <div className={styles.avatarOptionsRow}>
+                                <button
+                                    type="button"
+                                    className={styles.avatarOptionBtn}
+                                    disabled={appearanceBusy}
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <ImagePlus size={13} />
+                                    Alterar foto
+                                </button>
+                                <button
+                                    type="button"
+                                    className={styles.avatarOptionBtn}
+                                    disabled={appearanceBusy}
+                                    onClick={() => { void clearAvatar(); }}
+                                >
+                                    <Trash2 size={13} />
+                                    Remover foto
+                                </button>
+                            </div>
+                        )}
                     </div>
+
+                    <div className={styles.customizeSection}>
+                        <div className={styles.customizeGroup}>
+                            <span className={styles.customizeLabel}>Cor primária</span>
+                            <div className={styles.swatchGrid}>
+                                {COLOR_PALETTE.map((color) => (
+                                    <button
+                                        key={color}
+                                        type="button"
+                                        className={`${styles.swatchBtn} ${pendingFrom === color ? styles.swatchSelected : ""}`}
+                                        style={{ background: color }}
+                                        title={color}
+                                        aria-label={`Cor primária: ${color}`}
+                                        disabled={appearanceBusy}
+                                        onClick={() => setPendingFrom(color)}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className={styles.customizeGroup}>
+                            <span className={styles.customizeLabel}>Cor secundária</span>
+                            <div className={styles.swatchGrid}>
+                                {COLOR_PALETTE.map((color) => (
+                                    <button
+                                        key={color}
+                                        type="button"
+                                        className={`${styles.swatchBtn} ${pendingTo === color ? styles.swatchSelected : ""}`}
+                                        style={{ background: color }}
+                                        title={color}
+                                        aria-label={`Cor secundária: ${color}`}
+                                        disabled={appearanceBusy}
+                                        onClick={() => setPendingTo(color)}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className={styles.customizeActions}>
+                            <button
+                                type="button"
+                                className={styles.actionBtn}
+                                disabled={appearanceBusy || !bannerDirty}
+                                onClick={() => { void applyBanner(); }}
+                            >
+                                <Check size={15} />
+                                {appearanceBusy ? "Salvando..." : "Aplicar cores"}
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.customizeReset}
+                                title="Voltar ao tema padrão"
+                                disabled={appearanceBusy || (!user?.bannerFrom && !user?.bannerTo)}
+                                onClick={() => { void resetBanner(); }}
+                            >
+                                <RotateCcw size={13} />
+                                Tema padrão
+                            </button>
+                        </div>
+                    </div>
+
+                    {appearanceError && (
+                        <p className={styles.errorChip} style={{ margin: "-2px 20px 0" }}>
+                            <ShieldCheck size={13} />
+                            {appearanceError}
+                        </p>
+                    )}
 
                     <div className={styles.identityBody}>
                         <div className={styles.identityHead}>

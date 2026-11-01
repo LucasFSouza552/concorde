@@ -13,9 +13,10 @@ interface CallControlsProps {
     chatAvailable?: boolean;
     chatOpen?: boolean;
     onToggleChat?: () => void;
+    onShareModalChange?: (open: boolean) => void;
 }
 
-export default function CallControls({ chatAvailable = false, chatOpen = false, onToggleChat }: CallControlsProps) {
+export default function CallControls({ chatAvailable = false, chatOpen = false, onToggleChat, onShareModalChange }: CallControlsProps) {
     const { micMuted, deafened, toggleMic, toggleDeafen, startScreenShare, stopScreenShare, screenStream, screenAudioMuted, toggleScreenAudioMute, remoteScreenAudioStreams } = useActiveCall();
     const { hangUp } = useCallInviteState();
     const [shareError, setShareError] = useState<string | null>(null)
@@ -32,7 +33,10 @@ export default function CallControls({ chatAvailable = false, chatOpen = false, 
                 return;
             }
 
-            setShowSource((showSource) => !showSource);
+            setShowSource((showSource) => {
+                onShareModalChange?.(!showSource);
+                return !showSource;
+            });
         } catch (error) {
             if (error instanceof DOMException && error.name === "AbortError") return;
             setShareError(getErrorMessage(error));

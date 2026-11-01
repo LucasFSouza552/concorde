@@ -1,0 +1,207 @@
+.panel {
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 35;
+
+    width: 300px;
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+
+    padding: var(--spacing-lg);
+
+    border-right: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: 6px 0 24px rgba(5, 4, 10, 0.35);
+
+    animation: panelIn 180ms var(--ease-out);
+}
+
+@keyframes panelIn {
+    from {
+        opacity: 0;
+        transform: translateX(-14px);
+    }
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.backBtn {
+    display: grid;
+    place-items: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+
+    border: none;
+    border-radius: var(--radius-sm);
+
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background-color var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
+}
+
+.backBtn:hover {
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+}
+
+.backBtn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 1px;
+}
+
+.title {
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+}
+
+.body {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding-bottom: 96px;
+}
+
+/* Faixa do fundo personalizado: degradê de 2 cores (ou tema) atrás do avatar */
+.profileBanner {
+    flex: none;
+    align-self: stretch;
+    height: 64px;
+    border-radius: var(--radius-lg);
+    background: var(--gradient-brand);
+}
+
+/* Avatar do perfil sobe e encosta na faixa */
+.avatarOverlap {
+    margin-top: -48px;
+}
+
+.avatar {
+    display: grid;
+    place-items: center;
+    flex: none;
+
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+
+    background: var(--gradient-brand);
+    color: var(--color-primary-ink);
+    font-size: 36px;
+    font-weight: 700;
+    text-transform: uppercase;
+    user-select: none;
+}
+
+.identity {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+
+    min-width: 0;
+    text-align: center;
+}
+
+.name {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    color: var(--color-text);
+    font-size: 18px;
+    font-weight: 700;
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.statusDot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex: none;
+}
+
+.handle,
+.statusLabel,
+.customMessage {
+    color: var(--color-text-muted);
+    font-size: var(--fs-sm);
+
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.customMessage {
+    white-space: normal;
+}
+
+.role {
+    padding: 3px 10px;
+
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-pill);
+
+    color: var(--color-text-muted);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.actions {
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-sm);
+
+    padding-top: 12px;
+    border-top: 1px solid var(--color-border-subtle);
+}
+
+.actionBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+
+    padding: 8px 16px;
+    border: none;
+    border-radius: var(--radius-md);
+
+    background: var(--color-primary);
+    color: var(--color-primary-ink);
+
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    font-weight: 600;
+
+    cursor: pointer;
+    transition: background-color var(--dur) var(--ease-out);
+}
+
+.actionBtn:hover {
+    background: var(--color-primary-hover, var(--color-primary));
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
 import { Maximize, Minimize } from "lucide-react";
 
 import CallControls from "./CallControls";
@@ -32,13 +32,42 @@ interface CallScreenProps {
 
 const LOCAL_ID = "local";
 
+const UI_IDLE_MS = 3000;
+const UI_MOVE_THROTTLE_MS = 100;
+
 export default function CallScreen({ layout = "panel", controls = true, chatAvailable = false, chatOpen = false, onToggleChat, peerName, onBack, preview = null, flat = false }: CallScreenProps) {
-    const { groupId, peers, peerMuted, peerSharing, micMuted, deafened, status, remoteScreenStreams, screenStream, speakingMap, watchingShareIds, watchShare, unwatchShare } = useActiveCall();
+    const { groupId, peers, peerMuted, peerSharing, micMuted, deafened, status, remoteScreenStreams, screenStream, speakingMap, watchingShareIds, watchShare, shareViewers, peerRtt } = useActiveCall();
     const { outgoing } = useCallInviteState();
     const { user } = useAuth();
     const [focusedId, setFocusedId] = useState<string | null>(null);
     const [audioMenu, setAudioMenu] = useState<{ peerId: string; peerName: string; x: number; y: number } | null>(null);
+    const [uiVisible, setUiVisible] = useState(false);
+    const [shareModalOpen, setShareModalOpen] = useState(false);
+    const hideTimerRef = useRef<number | null>(null);
+    const lastMoveRef = useRef(0);
     const { ref: sectionRef, isFullscreen, toggle: toggleFullscreen } = useFullscreen<HTMLElement>();
+
+    const uiShown = uiVisible || audioMenu !== null || shareModalOpen;
+
+    function revealUi() {
+        const now = Date.now();
+        if (now - lastMoveRef.current < UI_MOVE_THROTTLE_MS) return;
+        lastMoveRef.current = now;
+
+        if (hideTimerRef.current !== null) window.clearTimeout(hideTimerRef.current);
+        hideTimerRef.current = window.setTimeout(() => {
+            hideTimerRef.current = null;
+            setUiVisible(false);
+        }, UI_IDLE_MS);
+
+        setUiVisible(true);
+    }
+
+    useEffect(() => {
+        return () => {
+            if (hideTimerRef.current !== null) window.clearTimeout(hideTimerRef.current);
+        };
+    }, []);
 
     useEffect(() => {
         function handleKeyDown(event: globalThis.KeyboardEvent) {
@@ -70,6 +99,11 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
         setFocusedId((current) => (current === id ? null : id));
     }
 
+    // Quem está assistindo à minha transmissão (nomes para avatares do badge).
+    const myShareViewers = peers
+        .filter((peer) => shareViewers.includes(peer.userId))
+        .map((peer) => peer.username);
+
     const tiles: GridTile[] = preview
         ? preview.peers.map((peer) => ({
             id: peer.userId,
@@ -95,6 +129,7 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
                         screenStream={screenStream}
                         focused={focusedId === LOCAL_ID}
                         onToggleFocus={() => toggleFocus(LOCAL_ID)}
+                        viewers={screenStream ? myShareViewers : []}
                     />
                 ),
             },
@@ -110,8 +145,8 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
                         screenStream={peerSharing[peer.userId] && watchingShareIds.has(peer.userId) ? (remoteScreenStreams[peer.userId] ?? null) : null}
                         isSharing={!!peerSharing[peer.userId]}
                         onWatchShare={() => watchShare(peer.userId)}
-                        onStopWatchShare={() => unwatchShare(peer.userId)}
                         onContextMenu={(event) => openAudioMenu(event, peer.userId, peer.username)}
+                        rtt={peerRtt[peer.userId] ?? null}
                         focused={focusedId === peer.userId}
                         onToggleFocus={() => toggleFocus(peer.userId)}
                     />
@@ -124,8 +159,11 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
     return (
         <section
             ref={sectionRef}
-            className={`${layout === "full" ? styles.full : styles.panel} ${flat ? styles.flat : ""}`}
+            className={`${layout === "full" ? styles.full : styles.panel} ${flat ? styles.flat : ""} ${layout === "full" && uiShown ? styles.uiVisible : ""}`.trim()}
             aria-label="Chamada ativa"
+            onMouseEnter={revealUi}
+            onMouseMove={revealUi}
+            onMouseDown={revealUi}
         >
             <CallHeader
                 peerName={peerName}
@@ -157,6 +195,7 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
                         chatAvailable={chatAvailable}
                         chatOpen={chatOpen}
                         onToggleChat={onToggleChat}
+                        onShareModalChange={setShareModalOpen}
                     />
                     <button
                         type="button"

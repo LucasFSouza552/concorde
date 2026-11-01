@@ -10,6 +10,56 @@
     gap: 10px;
 }
 
+.totpHint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--color-text-muted);
+}
+
+.recoverHint {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    width: 100%;
+    margin: 0 0 4px;
+    font-size: var(--fs-sm);
+    color: var(--color-text-muted);
+    text-align: left;
+}
+
+.recoverHint svg {
+    flex: none;
+    margin-top: 2px;
+}
+
+.recoverError {
+    width: 100%;
+    margin: 0;
+    font-size: var(--fs-sm);
+    color: var(--color-danger);
+    text-align: left;
+}
+
+.forgotBtn {
+    margin-top: -2px;
+    padding: 2px 0;
+    background: none;
+    border: none;
+    font-size: var(--fs-sm);
+    font-family: var(--font-sans);
+    color: var(--color-text-muted);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.forgotBtn:hover {
+    color: var(--color-text);
+}
+
 .submitBtn {
     width: 100%;
     display: flex;

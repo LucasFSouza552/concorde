@@ -65,6 +65,7 @@ export async function addGroupMemberController(c: AppContext) {
 
 	await addGroupMember(
 		c.env.concorde_users,
+		c.env,
 		actorId,
 		groupId,
 		body.username,

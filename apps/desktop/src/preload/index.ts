@@ -40,7 +40,12 @@ contextBridge.exposeInMainWorld("concorde", {
     app: {
         getVersion: () => ipcRenderer.invoke("app:get-version"),
         getAutoLaunch: () => ipcRenderer.invoke("app:get-auto-launch") as Promise<boolean>,
-        setAutoLaunch: (enabled: boolean) => ipcRenderer.invoke("app:set-auto-launch", enabled) as Promise<boolean>
+        setAutoLaunch: (enabled: boolean) => ipcRenderer.invoke("app:set-auto-launch", enabled) as Promise<boolean>,
+        getBackgroundOnClose: () => ipcRenderer.invoke("app:get-background-on-close") as Promise<boolean>,
+        setBackgroundOnClose: (keep: boolean) => ipcRenderer.invoke("app:set-background-on-close", keep) as Promise<boolean>,
+        notifyCall: (callerName: string) => ipcRenderer.invoke("app:notify-call", callerName) as Promise<{ notified: boolean }>,
+        notifyCancel: () => ipcRenderer.invoke("app:notify-cancel") as Promise<{ ok: boolean }>,
+        setBadge: (visible: boolean) => ipcRenderer.invoke("app:set-badge", visible) as Promise<{ ok: boolean }>
     },
     windows: {
         getPid: (sourceId: string) => ipcRenderer.invoke("window:get-pid", sourceId) as Promise<number | null>

@@ -86,7 +86,7 @@ export async function removeFriend(db: D1Database, userId: string, friendId: str
 
 export async function findFriendsByStatus(db: D1Database, userId: string, status: FriendshipStatus): Promise<Friend[]> {
 	const { results } = await db
-		.prepare(`SELECT u.id, u.username, u.displayName FROM friendships f JOIN users u ON u.id = f.friendId WHERE f.userId = ? AND f.status = ? ORDER BY u.displayName`)
+		.prepare(`SELECT u.id, u.username, u.displayName, u.avatar FROM friendships f JOIN users u ON u.id = f.friendId WHERE f.userId = ? AND f.status = ? ORDER BY u.displayName`)
 		.bind(userId, status)
 		.all<Friend>();
 
@@ -95,7 +95,7 @@ export async function findFriendsByStatus(db: D1Database, userId: string, status
 
 export async function findIncomingRequests(db: D1Database, userId: string): Promise<Friend[]> {
 	const { results } = await db
-		.prepare(`SELECT u.id, u.username, u.displayName
+		.prepare(`SELECT u.id, u.username, u.displayName, u.avatar
 			FROM friendships f
 			JOIN users u ON u.id = f.userId
 			WHERE f.friendId = ? AND f.status = 'pending'

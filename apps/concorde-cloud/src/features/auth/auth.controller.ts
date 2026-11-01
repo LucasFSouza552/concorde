@@ -3,22 +3,38 @@ import { Context } from "hono";
 import { AppError } from "../../utils/AppError";
 import { Env } from "../../types/Env";
 
-import { changeDisplayName, changePassword, getCurrentUser, loginUser, logoutSession, refreshSession, registerUser } from "./auth.service";
+import { changeProfile, changePassword, confirmTotpEnrollment, disableTotp, enrollTotp, getTotpStatus, getCurrentUser, listUserSessionsForApi, loginUser, logoutSession, refreshSession, registerUser, requestPasswordReset, resetPasswordWithCode, revokeUserSessionById } from "./auth.service";
 
 export async function registerController(c: Context) {
 
 	const data = await c.req.json();
 
-	const user = await registerUser(c.env.concorde_users, c.env.JWT_SECRET, data);
+	const user = await registerUser(c.env.concorde_users, c.env.JWT_SECRET, data, c.req.header("User-Agent") ?? undefined);
 
 	return c.json(user, 201);
 }
 
 export async function loginController(c: Context) {
 	const data = await c.req.json();
-	const user = await loginUser(c.env.concorde_users, c.env.JWT_SECRET, data);
-	return c.json(user);
+	const user = await loginUser(c.env.concorde_users, c.env.JWT_SECRET, data, c.req.header("User-Agent") ?? undefined);
 
+	return c.json(user);
+}
+
+export async function forgotPasswordController(c: Context) {
+	const body = await c.req.json<{ email?: unknown }>().catch(() => ({ email: undefined }));
+
+	const result = await requestPasswordReset(c.env.concorde_users, c.env, body?.email);
+
+	return c.json(result);
+}
+
+export async function resetPasswordController(c: Context) {
+	const body = await c.req.json<{ email?: unknown; code?: unknown; newPassword?: unknown }>().catch(() => ({ email: undefined, code: undefined, newPassword: undefined }));
+
+	await resetPasswordWithCode(c.env.concorde_users, body?.email, body?.code, body?.newPassword);
+
+	return c.json({ status: "password-changed" });
 }
 
 export async function refreshController(c: Context) {
@@ -57,9 +73,12 @@ export async function meController(c: Context<{ Bindings: Env; Variables: { user
 
 export async function updateProfileController(c: Context<{ Bindings: Env; Variables: { userId: string } }>) {
 	const userId = c.get("userId");
-	const body = await c.req.json<{ displayName?: unknown }>().catch(() => ({ displayName: undefined }));
+	const body = await c.req
+		.json<{ displayName?: unknown; avatar?: unknown; bannerFrom?: unknown; bannerTo?: unknown }>()
+		.catch(() => ({ displayName: undefined }));
 
-	const user = await changeDisplayName(c.env.concorde_users, userId, body?.displayName);
+	// Foto/grande volume tem limite de frequência no próprio endpoint.
+	const user = await changeProfile(c.env.concorde_users, userId, body);
 
 	return c.json(user);
 }
@@ -71,4 +90,46 @@ export async function updatePasswordController(c: Context<{ Bindings: Env; Varia
 	await changePassword(c.env.concorde_users, userId, body?.currentPassword, body?.newPassword);
 
 	return c.json({ status: "updated" });
+}
+
+export async function totpStatusController(c: Context<{ Bindings: Env; Variables: { userId: string } }>) {
+	const status = await getTotpStatus(c.env.concorde_users, c.get("userId"));
+
+	return c.json(status);
+}
+
+export async function enrollTotpController(c: Context<{ Bindings: Env; Variables: { userId: string } }>) {
+	const enrollment = await enrollTotp(c.env.concorde_users, c.get("userId"));
+
+	return c.json(enrollment);
+}
+
+export async function confirmTotpController(c: Context<{ Bindings: Env; Variables: { userId: string } }>) {
+	const body = await c.req.json<{ code?: unknown }>().catch(() => ({ code: undefined }));
+
+	await confirmTotpEnrollment(c.env.concorde_users, c.get("userId"), body?.code);
+
+	return c.json({ status: "confirmed", totpEnabled: true });
+}
+
+export async function disableTotpController(c: Context<{ Bindings: Env; Variables: { userId: string } }>) {
+	const body = await c.req.json<{ code?: unknown }>().catch(() => ({ code: undefined }));
+
+	await disableTotp(c.env.concorde_users, c.get("userId"), body?.code);
+
+	return c.json({ status: "disabled", totpEnabled: false });
+}
+
+export async function listSessionsController(c: Context<{ Bindings: Env; Variables: { userId: string } }>) {
+	const sessions = await listUserSessionsForApi(c.env.concorde_users, c.get("userId"));
+
+	return c.json({ sessions });
+}
+
+export async function revokeSessionController(c: Context<{ Bindings: Env; Variables: { userId: string } }>) {
+	const sessionId = c.req.param("id") as string;
+
+	await revokeUserSessionById(c.env.concorde_users, c.get("userId"), sessionId);
+
+	return c.json({ status: "revoked" });
 }

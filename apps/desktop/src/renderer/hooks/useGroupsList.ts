@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { GroupWithRole } from "@concorde/shared";
 
 import { api, getErrorMessage } from "../api/api";
+import { useUserSocketEvent } from "../contexts/UserSocketProvider";
 
 export function notifyGroupsChanged() {
     window.dispatchEvent(new Event("concorde:groups-changed"));
@@ -39,6 +40,16 @@ export function useGroupsList() {
         window.addEventListener("concorde:groups-changed", handleChanged);
         return () => window.removeEventListener("concorde:groups-changed", handleChanged);
     }, [load]);
+
+    // Membro adicionado/removido/saída: contagem e lista chegam ao vivo.
+    const lastEvent = useUserSocketEvent();
+    useEffect(() => {
+        if (lastEvent?.type !== "groups-changed") return;
+
+        // Carregamento fora do corpo síncrono do efeito (evita re-render cascata).
+        const timer = setTimeout(() => { void load(); }, 0);
+        return () => clearTimeout(timer);
+    }, [lastEvent, load]);
 
     return { groups, loading, error, load };
 }

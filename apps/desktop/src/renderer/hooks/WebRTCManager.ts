@@ -16,6 +16,8 @@ interface WebRTCManagerOptions {
     onRemoteScreenAudio: (peerId: string, stream: MediaStream) => void;
     getScreenStream: () => MediaStream | null;
     shouldOffer: (peerId: string) => boolean;
+    /** Latência por-par (getStats) para o indicador do CallScreen. */
+    onPeerRtt?: (peerId: string, rttMs: number | null) => void;
 }
 
 const ICE_RESTART_COOLDOWN_MS = 5000;
@@ -23,7 +25,7 @@ const SCREEN_TOTAL_BITRATE = 8_000_000;
 const MIC_MAX_BITRATE = 32_000;
 
 export function createWebRTCManager(options: WebRTCManagerOptions) {
-    const { emit, onRemoteStream, getLocalStream, shouldOffer, getScreenStream, onRemoteScreenStream, onRemoteScreenAudio } = options;
+    const { emit, onRemoteStream, getLocalStream, shouldOffer, getScreenStream, onRemoteScreenStream, onRemoteScreenAudio, onPeerRtt } = options;
 
     const connections = new Map<string, RTCPeerConnection>();
     const pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
@@ -34,6 +36,44 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
     const shareReceiveDesired = new Map<string, boolean>();
     const shareSharingPeers = new Map<string, boolean>();
 
+    // RTT (RTT do candidate-pair do ICE) por peer: medida a cada 5 s e
+    // só reportada quando muda, para não redesenhar a UI sem motivo.
+    const RTT_POLL_MS = 5000;
+    const lastRtt = new Map<string, number | null>();
+
+    function measurePeerRtt(connection: RTCPeerConnection): Promise<number | null> {
+        return connection.getStats().then((report) => {
+            for (const entry of report.values()) {
+                const stats = entry as {
+                    type: string;
+                    state?: string;
+                    selected?: boolean;
+                    currentRoundTripTime?: number;
+                };
+
+                if (stats.type !== "candidate-pair") continue;
+                if (typeof stats.currentRoundTripTime !== "number") continue;
+                if (!(stats.selected || stats.state === "succeeded")) continue;
+
+                return Math.round(stats.currentRoundTripTime * 1000);
+            }
+
+            return null;
+        }).catch(() => null);
+    }
+
+    function pollPeerRtt() {
+        connections.forEach((connection, peerId) => {
+            void measurePeerRtt(connection).then((rttMs) => {
+                if (lastRtt.get(peerId) === rttMs) return;
+
+                lastRtt.set(peerId, rttMs);
+                onPeerRtt?.(peerId, rttMs);
+            });
+        });
+    }
+
+    window.setInterval(pollPeerRtt, RTT_POLL_MS);
 
     async function applyMicSendParams(connection: RTCPeerConnection) {
         const sender = connection.getSenders().find(
@@ -251,6 +291,7 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         shareTransceivers.delete(peerId);
         shareReceiveDesired.delete(peerId);
         shareSharingPeers.delete(peerId);
+        lastRtt.delete(peerId);
         refreshScreenBitrates();
     }
 
@@ -400,7 +441,13 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         }
 
         if (!changed) return;
-        negotiateWhenStable(peerId, connection);
+
+        // Quem inicia a oferta renegocia; o outro lado é "puxado" pelo evento
+        // screen-watch (o autor da transmissão reoferta) — se ambos oferecerem
+        // ao mesmo tempo, o navegador entra em glare e o vídeo congela preto.
+        if (shouldOffer(peerId)) {
+            negotiateWhenStable(peerId, connection);
+        }
     }
 
     function negotiateWhenStable(peerId: string, connection: RTCPeerConnection) {
@@ -421,6 +468,20 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
         shareReceiveDesired.set(peerId, enabled);
         shareSharingPeers.set(peerId, sharing);
         applyShareReceive(peerId);
+    }
+
+    /**
+     * Reoferta para `peerId` quando sou o autor da oferta (evita glare):
+     * usado quando um espectador do outro lado atualizou a direção de
+     * recepção — o autor da transmissão renegocia por ele e o answer
+     * do espectador passa a refletir as direções locais dele.
+     */
+    function renegotiateShare(peerId: string) {
+        const connection = connections.get(peerId);
+        if (!connection) return;
+        if (!shouldOffer(peerId)) return;
+
+        negotiateWhenStable(peerId, connection);
     }
 
     function closeAll() {
@@ -445,7 +506,8 @@ export function createWebRTCManager(options: WebRTCManagerOptions) {
 
         addScreenTrack,
         removeScreenTrack,
-        setShareReceiveEnabled
+        setShareReceiveEnabled,
+        renegotiateShare
     };
 
 }

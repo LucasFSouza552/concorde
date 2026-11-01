@@ -152,12 +152,15 @@ export interface GroupMemberWithUser {
 	id: string;
 	username: string;
 	displayName: string;
+	avatar?: string | null;
+	bannerFrom?: string | null;
+	bannerTo?: string | null;
 	role: GroupRole;
 	joinedAt: number;
 }
 
 export async function listGroupMembers(db: D1Database, groupId: string): Promise<GroupMemberWithUser[]> {
-	const result = await db.prepare(`SELECT m.userId AS id, u.username, u.displayName, m.role, m.joinedAt
+	const result = await db.prepare(`SELECT m.userId AS id, u.username, u.displayName, u.avatar, u.bannerFrom, u.bannerTo, m.role, m.joinedAt
 		FROM group_members m
 		JOIN users u ON u.id = m.userId
 		WHERE m.groupId = ?

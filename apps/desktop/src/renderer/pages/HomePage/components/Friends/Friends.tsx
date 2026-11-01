@@ -12,7 +12,7 @@ import { useToast } from "../../../../contexts/ToastProvider";
 import { api, getErrorMessage } from "../../../../api/api";
 import { useFriendRequest } from "../../../../hooks/useFriend";
 import { useFriendsList } from "../../../../hooks/useFriendsList";
-import { useFriendsPresence } from "../../../../hooks/useFriendsPresence";
+import { useFriendsPresence, notifyPresenceRefresh } from "../../../../hooks/useFriendsPresence";
 import { useIncomingRequests } from "../../../../hooks/useIncomingRequests";
 
 import styles from "./Friends.module.css";
@@ -76,6 +76,8 @@ export default function Friends({ activeChannelId, onActiveChannel, onSelectFrie
     async function handleAccept(friendId: string) {
         await accept(friendId);
         await load();
+        // Novo amigo entra no source; busca a presença atual de imediato.
+        notifyPresenceRefresh();
     }
 
     function handleOpenChat(friend: Friend) {

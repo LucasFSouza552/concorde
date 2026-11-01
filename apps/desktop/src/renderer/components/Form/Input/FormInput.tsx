@@ -10,10 +10,14 @@ interface FormInputProps {
     placeholder?: string;
     value: string
     showPassword?: boolean
+    /** Extras para casos como o código TOTP (2FA). */
+    inputMode?: "numeric" | "text";
+    maxLength?: number;
+    autoComplete?: string;
     handleChange: (e: ChangeEvent<HTMLInputElement>) => void;
 }
 
-export default function FormInput({ id, type, icon: Icon, placeholder, value, handleChange, showPassword = true }: FormInputProps) {
+export default function FormInput({ id, type, icon: Icon, placeholder, value, handleChange, showPassword = true, inputMode, maxLength, autoComplete }: FormInputProps) {
     const [focused, setFocused] = useState(false);
 
     const floating = focused || value.length > 0;
@@ -39,6 +43,9 @@ export default function FormInput({ id, type, icon: Icon, placeholder, value, ha
                 onChange={handleChange}
                 onFocus={() => setFocused(true)}
                 onBlur={() => setFocused(false)}
+                inputMode={inputMode}
+                maxLength={maxLength}
+                autoComplete={autoComplete}
             />
         </div>
     )

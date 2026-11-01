@@ -69,7 +69,7 @@ export async function listUserGroups(db: D1Database, userId: string): Promise<Gr
 	return findGroupsForUser(db, userId);
 }
 
-export async function addGroupMember(db: D1Database, actorId: string, groupId: string, username: string, role: GroupRole = "member") {
+export async function addGroupMember(db: D1Database, env: Env, actorId: string, groupId: string, username: string, role: GroupRole = "member") {
 	const group = await findGroupById(db, groupId);
 
 	if (!group) {
@@ -115,6 +115,14 @@ export async function addGroupMember(db: D1Database, actorId: string, groupId: s
 		role,
 		joinedAt: Date.now()
 	});
+
+	// Grupo novo na lista do adicionado e contagem atual para os demais membros.
+	const members = await listGroupMembersRepo(db, groupId);
+	await Promise.all(members
+		.filter((member) => member.id !== actorId)
+		.map((member) =>
+			deliverToUser(env, member.id, { type: "groups-changed" }).catch(() => { })
+		));
 }
 
 export async function removeGroupMember(db: D1Database, env: Env, actorId: string, groupId: string, targetUserId: string) {
@@ -149,6 +157,12 @@ export async function removeGroupMember(db: D1Database, env: Env, actorId: strin
 	if (!removed) {
 		throw AppError.notFound("Membro não encontrado.");
 	}
+
+	// Contagem dos membros restantes precisa atualizar também.
+	const remaining = await listGroupMembersRepo(db, groupId);
+	await Promise.all(remaining.map((member) =>
+		deliverToUser(env, member.id, { type: "groups-changed" }).catch(() => { })
+	));
 
 	await deliverToUser(env, targetUserId, {
 		type: "group-kicked",
@@ -225,6 +239,12 @@ export async function leaveGroup(db: D1Database, env: Env, groupId: string, user
 	if (!removed) {
 		throw AppError.notFound("Membro não encontrado.");
 	}
+
+	// Contagem dos membros restantes precisa atualizar também.
+	const remaining = await listGroupMembersRepo(db, groupId);
+	await Promise.all(remaining.map((member) =>
+		deliverToUser(env, member.id, { type: "groups-changed" }).catch(() => { })
+	));
 
 	await deliverToUser(env, userId, {
 		type: "group-kicked",

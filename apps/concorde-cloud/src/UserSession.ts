@@ -1,5 +1,6 @@
 import { findFriendship, findFriendsByStatus } from "./features/friends/friends.repository";
 import { findGroupAudienceForUser, hasSharedGroup } from "./features/groups/groups.repository";
+import { isCallRoomParticipant, listCallRoomParticipants } from "./features/calls/calls.repository";
 import { UserSocketClientMessage, UserSocketServerMessage, type UserStatus } from "@concorde/shared";
 import { Env } from "./types/Env";
 
@@ -14,7 +15,16 @@ interface SocketAttachment {
 	connectedAt: number;
 	callGroupId: string | null;
 	callConcordeGroupId: string | null
+	/** último sinal vivo (qualquer mensagem do cliente; ping conta) */
+	lastSeenAt: number;
 }
+
+/** Cliente pinga a cada 60s; margem de 2,5 pings antes de considerar morto. */
+const STALE_MS = 150_000;
+/** Janela para autenticar após o handshake. */
+const AUTH_GRACE_MS = 10_000;
+/** Cadência do alarme quando há sessão viva. */
+const ALARM_INTERVAL_MS = 60_000;
 
 interface PresenceProps {
 	status: UserStatus;
@@ -67,11 +77,12 @@ export class UserSession {
 			authenticated: false,
 			connectedAt: Date.now(),
 			callGroupId: null,
-			callConcordeGroupId: null
+			callConcordeGroupId: null,
+			lastSeenAt: Date.now()
 		} satisfies SocketAttachment);
 
 		this.ctx.acceptWebSocket(server);
-		await this.ctx.storage.setAlarm(Date.now() + 10_000);
+		await this.ctx.storage.setAlarm(Date.now() + AUTH_GRACE_MS);
 
 		return new Response(null, { status: 101, webSocket: client });
 	}
@@ -87,6 +98,10 @@ export class UserSession {
 		}
 
 		const attachment = socket.deserializeAttachment() as SocketAttachment;
+
+		// Sinal vivo recebido: persiste para o reaping por alarme.
+		attachment.lastSeenAt = Date.now();
+		socket.serializeAttachment(attachment);
 
 		if (parsed.type === "ping") {
 			socket.send(JSON.stringify({ type: "pong" } satisfies UserSocketServerMessage));
@@ -107,11 +122,29 @@ export class UserSession {
 					return;
 				}
 
-				const hadOtherSession = this.ctx.getWebSockets().some((other) => {
-					if (other === socket) return false;
+				// Sockets autenticados parados além do heartbeat são fantasmas
+				// (queda abrupta sem close): fecha antes de decidir o broadcast.
+				const now = Date.now();
+				const ghosts: WebSocket[] = [];
+				let hadOtherSession = false;
+
+				for (const other of this.ctx.getWebSockets()) {
+					if (other === socket) continue;
+
 					const otherAttachment = other.deserializeAttachment() as SocketAttachment;
-					return otherAttachment.authenticated;
-				});
+
+					if (!otherAttachment.authenticated) continue;
+
+					if (now - otherAttachment.lastSeenAt > STALE_MS) {
+						ghosts.push(other);
+					} else {
+						hadOtherSession = true;
+					}
+				}
+
+				for (const ghost of ghosts) {
+					ghost.close(4409, "Sessão expirada.");
+				}
 
 			socket.serializeAttachment({
 				...attachment,
@@ -208,13 +241,19 @@ export class UserSession {
 		const body = JSON.stringify(message);
 
 		for (const person of audience) {
-			try {
-				const stub = this.env.USER_SESSIONS.get(this.env.USER_SESSIONS.idFromName(person.id));
-				await stub.fetch("https://user-session/deliver", {
-					method: "POST",
-					body
-				});
-			} catch {
+			const stub = this.env.USER_SESSIONS.get(this.env.USER_SESSIONS.idFromName(person.id));
+
+			// 1 retry em falha transitória; não deixa a entrega morrer em silêncio.
+			for (let attempt = 0; attempt < 2; attempt += 1) {
+				try {
+					await stub.fetch("https://user-session/deliver", {
+						method: "POST",
+						body
+					});
+					break;
+				} catch {
+					// última tentativa falhou: segue para o próximo destino.
+				}
 			}
 		}
 	}
@@ -251,27 +290,55 @@ export class UserSession {
 		let status: UserStatus = "online";
 		let customMessage: string | null = null;
 
-		for (const socket of this.ctx.getWebSockets()) {
-			const attachment = socket.deserializeAttachment() as SocketAttachment;
+		const liveSessions = this.liveAuthenticatedSockets();
 
-			if (!attachment.authenticated) continue;
+		// Multi-sessão: status da sessão com atividade mais recente vence
+		// (determinístico, não depende da ordem de iteração).
+		let latestSeen = -1;
 
-			status = attachment.status;
-			customMessage = attachment.customMessage;
+		for (const session of liveSessions) {
+			if (session.attachment.lastSeenAt >= latestSeen) {
+				latestSeen = session.attachment.lastSeenAt;
+				status = session.attachment.status;
+				customMessage = session.attachment.customMessage;
+			}
 
-			if (attachment.callGroupId) {
-				groupId = attachment.callGroupId;
-				concordeGroupId = attachment.callConcordeGroupId;
-				break;
+			if (session.attachment.callGroupId) {
+				groupId = session.attachment.callGroupId;
+				concordeGroupId = session.attachment.callConcordeGroupId;
 			}
 		}
 
-		const online = this.isOnline();
+		const online = liveSessions.length > 0;
 
 		if (!online) {
 			customMessage = (await this.ctx.storage.get<string>("customMessage")) ?? null;
 		} else if (!customMessage) {
 			customMessage = (await this.ctx.storage.get<string>("customMessage")) ?? null;
+		}
+
+		// Chamada 1:1 é privada: só quem participa vê que ela existe.
+		// Consultante externo recebe a forma "não está em chamada".
+		// Falha de registro → falha fechada (esconde), sem derrubar a API.
+		if (groupId && concordeGroupId === null && callerId !== targetId) {
+			let participant = false;
+
+			try {
+				participant = await isCallRoomParticipant(this.env.concorde_users, groupId, callerId);
+			} catch {
+				participant = false;
+			}
+
+			if (!participant) {
+				return {
+					status: online ? (status === "invisible" ? "offline" : status) : "offline",
+					online,
+					inCall: false,
+					groupId: null,
+					concordeGroupId: null,
+					customMessage
+				};
+			}
 		}
 
 		return {
@@ -299,6 +366,62 @@ export class UserSession {
 	}
 
 	private async notifyCallState(userId: string, groupId: string | null, concordeGroupId: string | null): Promise<void> {
+		// Chamada 1:1 é privada: quem não participa sequer sabe que ela
+		// existe — recebem o estado como "fora de chamada". Em fim de
+		// chamada (groupId null) ninguém recebe detalhe algum.
+		if (groupId && concordeGroupId === null) {
+			let participants: Set<string>;
+			try {
+				participants = await listCallRoomParticipants(this.env.concorde_users, groupId);
+			} catch {
+				participants = new Set([userId]);
+			}
+
+			const audience: { id: string }[] = [];
+			try {
+				const [friends, coMembers] = await Promise.all([
+					findFriendsByStatus(this.env.concorde_users, userId, "accepted"),
+					findGroupAudienceForUser(this.env.concorde_users, userId)
+				]);
+				const seen = new Set<string>([userId]);
+				audience.push(...[...friends, ...coMembers].filter((person) => {
+					if (seen.has(person.id)) return false;
+					seen.add(person.id);
+					return true;
+				}));
+			} catch {
+				/* sem audience externa; o próprio participante é sempre notificado. */
+			}
+
+			const messageFull = JSON.stringify({
+				type: "peer-call-state" as const,
+				userId,
+				groupId,
+				concordeGroupId: null
+			});
+			const hidden = JSON.stringify({
+				type: "peer-call-state" as const,
+				userId,
+				groupId: null,
+				concordeGroupId: null
+			});
+
+			for (const person of audience) {
+				const stub = this.env.USER_SESSIONS.get(this.env.USER_SESSIONS.idFromName(person.id));
+				const body = participants.has(person.id) ? messageFull : hidden;
+
+				for (let attempt = 0; attempt < 2; attempt += 1) {
+					try {
+						await stub.fetch("https://user-session/deliver", { method: "POST", body });
+						break;
+					} catch {
+						// segue para a próxima tentativa
+					}
+				}
+			}
+			return;
+		}
+
 		await this.notifyAudience(userId, {
 			type: "peer-call-state",
 			userId,
@@ -318,11 +441,9 @@ export class UserSession {
 
 		if (!attachment.authenticated || !attachment.userId) return;
 
-		const stillOnline = this.ctx.getWebSockets().some((other) => {
-			if (other === socket) return false;
-			const otherAttachment = other.deserializeAttachment() as SocketAttachment;
-			return otherAttachment.authenticated;
-		});
+		// Só considera sessões VIVAS: sockets fantasmas (queda sem close)
+		// não devem impedir o broadcast de offline.
+		const stillOnline = this.liveAuthenticatedSockets().some((session) => session.socket !== socket);
 
 		if (stillOnline) return;
 
@@ -330,29 +451,60 @@ export class UserSession {
 	}
 
 	async alarm() {
+		const now = Date.now();
+		let hasLiveSession = false;
+
 		for (const socket of this.ctx.getWebSockets()) {
 			const attachment = socket.deserializeAttachment() as SocketAttachment;
 
 			if (!attachment.authenticated) {
+				// Sem autenticação: fecha ao fim da janela de handshake.
 				socket.close(4401, "Autenticação necessária.");
+				continue;
 			}
+
+			if (now - attachment.lastSeenAt > STALE_MS) {
+				// Fantasma (queda abrupta): fecha agora; o webSocketClose
+				// disparado a seguir propaga offline se não houver sessão viva.
+				socket.close(4409, "Sessão expirada.");
+				continue;
+			}
+
+			hasLiveSession = true;
+		}
+
+		if (hasLiveSession) {
+			await this.ctx.storage.setAlarm(now + ALARM_INTERVAL_MS);
 		}
 	}
 
-	private isOnline(): boolean {
-		return this.ctx.getWebSockets().some((socket) => {
-			const attachment = socket.deserializeAttachment() as SocketAttachment;
-			return attachment.authenticated;
-		});
-	}
+	/**
+	 * Sessões autenticadas com sinal vivo. Sockets sem lastSeenAt recente
+	 * (heartbeat perdido > STALE_MS) não contam como online.
+	 */
+	private liveAuthenticatedSockets(): { socket: WebSocket; attachment: SocketAttachment }[] {
+		const now = Date.now();
+		const sessions: { socket: WebSocket; attachment: SocketAttachment }[] = [];
 
-	private async deliver(message: UserSocketServerMessage): Promise<Response> {
 		for (const socket of this.ctx.getWebSockets()) {
 			const attachment = socket.deserializeAttachment() as SocketAttachment;
 
-			if (attachment.authenticated) {
-				socket.send(JSON.stringify(message));
-			}
+			if (!attachment.authenticated) continue;
+			if (now - attachment.lastSeenAt > STALE_MS) continue;
+
+			sessions.push({ socket, attachment });
+		}
+
+		return sessions;
+	}
+
+	private isOnline(): boolean {
+		return this.liveAuthenticatedSockets().length > 0;
+	}
+
+	private async deliver(message: UserSocketServerMessage): Promise<Response> {
+		for (const session of this.liveAuthenticatedSockets()) {
+			session.socket.send(JSON.stringify(message));
 		}
 
 		return Response.json({ delivered: true });

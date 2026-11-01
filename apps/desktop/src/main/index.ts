@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain, desktopCapturer, Tray } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, desktopCapturer, Tray, Notification, nativeImage } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs';
@@ -42,6 +42,26 @@ function applyAutoLaunch(enabled: boolean) {
     app.setLoginItemSettings({ openAtLogin: Boolean(enabled) });
   }
   writeAutoLaunchPref(enabled);
+}
+
+function closeBehaviorStorePath() {
+  return path.join(app.getPath("userData"), "close-behavior.json");
+}
+
+/** true = fechar mantém o app em segundo plano (bandeja); false = encerrar. */
+function readKeepBackgroundPref(): boolean {
+  try {
+    const raw = fs.readFileSync(closeBehaviorStorePath(), "utf8");
+    return JSON.parse(raw).keepBackground !== false;
+  } catch {
+    return true;
+  }
+}
+
+function writeKeepBackgroundPref(keepBackground: boolean) {
+  try {
+    fs.writeFileSync(closeBehaviorStorePath(), JSON.stringify({ keepBackground }), "utf8");
+  } catch { /* armazenamento opcional */ }
 }
 
 function sendUpdateStatus(status: UpdateStatus) {
@@ -92,7 +112,10 @@ interface ScreenAudioSession {
 
 let screenAudioSession: ScreenAudioSession | null = null;
 let isQuitting = false;
+/** Pid por fonte de compartilhamento (janela): evita refazer o lookup em cada start. */
+let pidCache: Map<string, number> | null = null;
 let tray: Tray | null = null;
+let keepBackgroundOnClose = true;
 
 function captureExePath(): string {
   const name = "concorde-loopback-capture.exe";
@@ -227,8 +250,15 @@ function createWindow() {
   window.on("close", (event) => {
     if (isQuitting) return;
 
-    event.preventDefault();
-    window.hide();
+    if (keepBackgroundOnClose) {
+      event.preventDefault();
+      window.hide();
+      return;
+    }
+
+    // Preferência "fechar de verdade": encerra o app — não fica na bandeja.
+    isQuitting = true;
+    app.quit();
   });
 }
 
@@ -247,6 +277,14 @@ function showWindow() {
   if (window.isMinimized()) window.restore();
   window.show();
   window.focus();
+}
+
+/** true apenas quando a janela já está à frente (nada a notificar). */
+function showWindowIfVisible(): boolean {
+  const window = mainWindow;
+  if (!window) return false;
+
+  return !window.isMinimized() && window.isVisible() && window.isFocused();
 }
 
 function setupTray() {
@@ -279,6 +317,43 @@ app.commandLine.appendSwitch("ignore-gpu-blocklist");
 const isPrimaryInstance = app.requestSingleInstanceLock();
 
 if (!isPrimaryInstance) app.quit();
+
+// AppUserModelID: nomenclatura e notificações nativas do Windows.
+app.setAppUserModelId("com.concorde.desktop");
+
+/** Bolinha vermelha para o badge (overlay) da barra de tarefas. */
+const badgeDotDataUrl =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAABKSURBVDhPzY6xDQAwCMN6RD/vwXRjMLQiEgORPBFHrDUyto+9YDeEQgYdD4s/6EpyOsJjhb4BHqr0fTBjQB2h62Exg04IBUlWcwGRGIIq6FK/1wAAAABJRU5ErkJggg==";
+
+let activeCallNotification: Notification | null = null;
+
+function clearCallNotification() {
+  if (!activeCallNotification) return;
+  try { activeCallNotification.close(); } catch { /* já fechada */ }
+  activeCallNotification = null;
+}
+
+function notifyIncomingCall(callerName: string) {
+  if (!Notification.isSupported()) {
+    console.warn("[notific] Notification não é suportado neste Windows.");
+    return;
+  }
+
+  clearCallNotification();
+
+  const notification = new Notification({
+    title: "Concorde",
+    body: `Chamada recebida de ${callerName}.`,
+    icon: trayIconPath(),
+    // Chamada fica no banner até ser atendida/recusada (limpa em app:notify-cancel).
+    timeoutType: "never",
+  });
+  notification.on("click", () => showWindow());
+  notification.on("show", () => console.log("[notific] banner exibido"));
+  notification.on("failed", (_event, error) => console.warn("[notific] falha ao exibir:", error));
+  activeCallNotification = notification;
+  notification.show();
+}
 
 app.on("second-instance", () => {
   showWindow();
@@ -367,17 +442,76 @@ app.whenReady().then(() => {
     return app.getLoginItemSettings().openAtLogin;
   });
 
+  keepBackgroundOnClose = readKeepBackgroundPref();
+
+  ipcMain.handle("app:get-background-on-close", () => keepBackgroundOnClose);
+
+  ipcMain.handle("app:set-background-on-close", (_event, keep: boolean) => {
+    keepBackgroundOnClose = Boolean(keep);
+    writeKeepBackgroundPref(keepBackgroundOnClose);
+    return keepBackgroundOnClose;
+  });
+
+  // Notificações nativas para chamadas enquanto oculto/em segundo plano.
+  ipcMain.handle("app:notify-call", (_event, callerName: string) => {
+    const window = mainWindow;
+    const focused = showWindowIfVisible();
+
+    console.log(
+      "[notific] app:notify-call:",
+      callerName,
+      "janelaExiste=", Boolean(window),
+      "focada/ocultaNAO=", focused
+    );
+
+    if (focused) return { notified: false };
+
+    notifyIncomingCall(String(callerName ?? "alguém"));
+    return { notified: true };
+  });
+
+  ipcMain.handle("app:notify-cancel", () => {
+    console.log("[notific] app:notify-cancel");
+    clearCallNotification();
+    return { ok: true };
+  });
+
+  // Badge (overlay) da barra de tarefas do Windows.
+  ipcMain.handle("app:set-badge", (_event, visible: boolean) => {
+    console.log("[notific] app:set-badge:", visible);
+    const window = mainWindow;
+    if (!window) return { ok: false };
+
+    if (visible) {
+      const badge = nativeImage.createFromDataURL(badgeDotDataUrl);
+      try {
+        window.setOverlayIcon(badge, "Chamada recebida");
+      } catch { /* overlay indisponível */ }
+      return { ok: true };
+    }
+
+    try {
+      window.setOverlayIcon(null, "");
+    } catch { /* overlay indisponível */ }
+    return { ok: true };
+  });
+
   setupScreenAudio();
 
   ipcMain.handle("window:get-pid", async (_event, sourceId: string) => {
     try {
       if (!sourceId || !sourceId.startsWith("window:")) return null;
+
+      pidCache ??= new Map<string, number>();
+      const cached = pidCache.get(sourceId);
+      if (cached) return cached;
+
       const parts = sourceId.split(":");
       const hwndStr = parts[1];
       const hwnd = BigInt(hwndStr);
       const hwndNum = Number(hwnd > BigInt(Number.MAX_SAFE_INTEGER) ? hwndStr : hwnd);
 
-      const { spawnSync } = await import("node:child_process");
+      const { execFile } = await import("node:child_process");
       const script = [
         "Add-Type @\"",
         "using System;",
@@ -393,15 +527,25 @@ app.whenReady().then(() => {
         "Write-Output $procId"
       ].join("\n");
 
-      const ps = spawnSync("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], {
-        windowsHide: true,
-        timeout: 3000
+      const stdout: string = await new Promise((resolve, reject) => {
+        execFile("powershell.exe", ["-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script], {
+          windowsHide: true,
+          timeout: 8000,
+          maxBuffer: 32 * 1024
+        }, (error, out) => {
+          if (error) {
+            reject(error);
+            return;
+          }
+          resolve(out ?? "");
+        });
       });
 
-      if (ps.error) return null;
-      const out = (ps.stdout?.toString() || "").trim();
+      const out = stdout.trim();
       const pid = parseInt(out);
       if (!Number.isFinite(pid) || pid <= 0) return null;
+
+      pidCache.set(sourceId, pid);
       return pid;
     } catch (err) {
       console.error("[window:get-pid]", err);

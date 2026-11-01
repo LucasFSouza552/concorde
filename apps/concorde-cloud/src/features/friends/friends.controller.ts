@@ -34,7 +34,7 @@ export async function sendRequestController(c: AppContext) {
 		throw AppError.badRequest("É necessário informar um nome de usuário válido.");
 	}
 
-	const result = await sendRequest(c.env.concorde_users, userId, body.username);
+	const result = await sendRequest(c.env.concorde_users, c.env, userId, body.username);
 
 	switch (result) {
 		case "sent":
@@ -53,7 +53,7 @@ export async function acceptRequestController(c: AppContext) {
 	const userId = c.get("userId");
 	const friendId = c.req.param("friendId");
 	if (!friendId) throw AppError.badRequest("O ID do amigo é obrigatório");
-	await acceptRequest(c.env.concorde_users, userId, friendId);
+	await acceptRequest(c.env.concorde_users, c.env, userId, friendId);
 	return c.json({ status: "accepted" }, 200);
 }
 
@@ -73,6 +73,6 @@ export async function removeFriendController(c: AppContext) {
 
 	if (!friendId) throw AppError.badRequest("O ID do amigo é obrigatório");
 
-	await removeFriend(c.env.concorde_users, userId, friendId);
+	await removeFriend(c.env.concorde_users, c.env, userId, friendId);
 	return c.json({ status: "removed" }, 200);
 }

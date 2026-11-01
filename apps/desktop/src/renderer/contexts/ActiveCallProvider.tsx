@@ -16,6 +16,10 @@ interface ActiveCallContextData {
     watchingShareIds: Set<string>;
     watchShare: (peerId: string) => void;
     unwatchShare: (peerId: string) => void;
+    /** Usuários (ids) assistindo a minha transmissão. */
+    shareViewers: string[];
+    /** Latência por-par em ms (null enquanto não medida). */
+    peerRtt: Record<string, number | null>;
     localStream: MediaStream | null;
     remoteStreams: Record<string, MediaStream>;
     speakingMap: Record<string, boolean>;
@@ -114,6 +118,8 @@ export function ActiveCallProvider({ children }: { children: ReactNode }) {
                 watchingShareIds: call.watchingShareIds,
                 watchShare: call.watchShare,
                 unwatchShare: call.unwatchShare,
+                shareViewers: call.shareViewers,
+                peerRtt: call.peerRtt,
 
                 screenStream: call.screenStream,
                 remoteScreenStreams: call.remoteScreenStreams,

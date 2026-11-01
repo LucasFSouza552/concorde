@@ -4,6 +4,8 @@ import { useCallInvite } from "../hooks/useCallInvite";
 
 type CallInviteContextData = ReturnType<typeof useCallInvite>;
 
+export type CallInviteState = CallInviteContextData;
+
 const CallInviteContext = createContext<CallInviteContextData | null>(null);
 
 export function CallInviteProvider({ children }: { children: ReactNode }) {

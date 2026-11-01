@@ -1,6 +1,6 @@
 import axios, { type InternalAxiosRequestConfig } from "axios";
 
-import type { ApiError, LoginResponse } from "@concorde/shared";
+import type { ApiError, LoginTokensResponse } from "@concorde/shared";
 import {
     clearSession,
     getStoredRefreshToken,
@@ -38,7 +38,7 @@ async function refreshAccessToken(): Promise<string | null> {
     if (!refreshToken) return null;
 
     try {
-        const response = await axios.post<LoginResponse>(`${API_BASE_URL}${REFRESH_ROUTE}`, { refreshToken });
+        const response = await axios.post<LoginTokensResponse>(`${API_BASE_URL}${REFRESH_ROUTE}`, { refreshToken });
 
         saveSession(response.data);
 

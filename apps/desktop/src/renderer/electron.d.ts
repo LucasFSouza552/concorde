@@ -33,6 +33,11 @@ declare global {
                 getVersion: () => Promise<string>
                 getAutoLaunch: () => Promise<boolean>
                 setAutoLaunch: (enabled: boolean) => Promise<boolean>
+                getBackgroundOnClose: () => Promise<boolean>
+                setBackgroundOnClose: (keep: boolean) => Promise<boolean>
+                notifyCall: (callerName: string) => Promise<{ notified: boolean }>
+                notifyCancel: () => Promise<{ ok: boolean }>
+                setBadge: (visible: boolean) => Promise<{ ok: boolean }>
             }
             windows: {
                 getPid: (sourceId: string) => Promise<number | null>

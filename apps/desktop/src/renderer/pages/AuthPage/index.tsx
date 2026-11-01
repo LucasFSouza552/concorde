@@ -1,6 +1,7 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 
 import { Login } from "../../components/Auth/LoginComponent";
+import { Recover } from "../../components/Auth/RecoverComponent";
 import { Register } from "../../components/Auth/RegisterComponent";
 import { isValidUsernameFormat, sanitizeUsername } from "@concorde/shared";
 import { useAuth } from "../../contexts/AuthContext";
@@ -16,7 +17,7 @@ interface RegisterForm {
 
 export default function AuthPage() {
 
-    const [authMode, setAuthMode] = useState<"login" | "register">("login");
+    const [authMode, setAuthMode] = useState<"login" | "register" | "recover">("login");
     const [showPassword, setShowPassword] = useState(false);
     const { error } = useAuth();
 
@@ -69,9 +70,10 @@ export default function AuthPage() {
         <main className={styles.container}>
             <div className={styles.panel}>
 
-                <header>
-                    <h1 className={styles.title}>Concorde</h1>
-                </header>
+            <header>
+                <h1 className={styles.title}>Concorde</h1>
+            </header>
+            {authMode !== "recover" && (
                 <div className={styles.toggle}>
                     <div className={styles.toggleIndicator}
                         data-mode={authMode} />
@@ -92,14 +94,21 @@ export default function AuthPage() {
                         Registrar
                     </button>
                 </div>
+            )}
 
-                {authMode == "login" ?
-                    <Login
+            {authMode == "login" ?
+                <Login
+                    email={form.email}
+                    password={form.password}
+                    handleChange={handleChange}
+                    showPassword={showPassword}
+                    handleBoolChange={handleBoolChange}
+                    onForgotPassword={() => { setAuthMode("recover"); }} /> :
+                authMode == "recover" ?
+                    <Recover
                         email={form.email}
-                        password={form.password}
                         handleChange={handleChange}
-                        showPassword={showPassword}
-                        handleBoolChange={handleBoolChange} /> :
+                        onBack={() => setAuthMode("login")} /> :
                     <Register
                         email={form.email}
                         username={form.username}

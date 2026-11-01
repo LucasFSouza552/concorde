@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { HeadphoneOff, MicOff } from "lucide-react";
+import { Eye, HeadphoneOff, MicOff } from "lucide-react";
 
 import { ScreenVideo } from "./ScreenVideo";
 
@@ -20,10 +20,13 @@ interface ParticipantTileProps {
 
     isSharing?: boolean;
     onWatchShare?: () => void;
-    onStopWatchShare?: () => void;
+    rtt?: number | null;
+
+    /** Quem assiste à minha transmissão (nomes) — só no tile local. */
+    viewers?: string[];
 }
 
-export default function ParticipantTile({ name, muted, deafened = false, isLocal = false, speaking = false, ringing = false, screenStream, focused = false, onToggleFocus, onContextMenu, isSharing = false, onWatchShare, onStopWatchShare }: ParticipantTileProps) {
+export default function ParticipantTile({ name, muted, deafened = false, isLocal = false, speaking = false, ringing = false, screenStream, focused = false, onToggleFocus, onContextMenu, isSharing = false, onWatchShare, rtt, viewers = [] }: ParticipantTileProps) {
     const initial = name.trim().charAt(0).toUpperCase() || "?";
     const clickable = onToggleFocus !== undefined;
     const [windowActive, setWindowActive] = useState(true);
@@ -60,6 +63,24 @@ export default function ParticipantTile({ name, muted, deafened = false, isLocal
                 },
             } : {})}
         >
+            {isLocal && viewers.length > 0 && (
+                <div className={styles.viewersBadge} title={viewers.join(", ")}>
+                    <Eye size={14} />
+                    <span>{viewers.length}</span>
+                    <span className={styles.viewerStack}>
+                        {viewers.slice(0, 3).map((viewer, index) => (
+                            <span key={`${viewer}-${index}`} className={styles.viewerAvatar}>
+                                {viewer.trim().charAt(0).toUpperCase() || "?"}
+                            </span>
+                        ))}
+                        {viewers.length > 3 && (
+                            <span className={styles.viewerAvatar} title={viewers.slice(3).join(", ")}>
+                                +{viewers.length - 3}
+                            </span>
+                        )}
+                    </span>
+                </div>
+            )}
             {isLocal && screenStream && showLocalPreview ? (
                 <ScreenVideo stream={screenStream} />
             ) : isLocal && screenStream ? (
@@ -70,21 +91,7 @@ export default function ParticipantTile({ name, muted, deafened = false, isLocal
                     Você está compartilhando a tela
                 </div>
             ) : screenStream ? (
-                <div style={{ position: "relative", width: "100%", height: "100%" }}>
-                    <ScreenVideo stream={screenStream} />
-                    {onStopWatchShare && (
-                        <button
-                            type="button"
-                            className={styles.stopWatchBtn}
-                            onClick={(event) => {
-                                event.stopPropagation();
-                                onStopWatchShare();
-                            }}
-                        >
-                            Parar de assistir
-                        </button>
-                    )}
-                </div>
+                <ScreenVideo stream={screenStream} />
             ) : isSharing && onWatchShare ? (
                 <div className={styles.media} style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "8px" }}>
                     <div className={styles.avatar}>
@@ -115,6 +122,14 @@ export default function ParticipantTile({ name, muted, deafened = false, isLocal
                         </span>
                         {isLocal && <span className={styles.youLabel}>(Você)</span>}
                         {ringing && <span className={styles.ringingLabel}>chamando...</span>}
+                        {typeof rtt === "number" && (
+                            <span
+                                className={`${styles.rttBadge} ${rtt <= 100 ? styles.rttGood : rtt <= 250 ? styles.rttOk : styles.rttBad}`}
+                                title="Latência até este participante"
+                            >
+                                {rtt} ms
+                            </span>
+                        )}
                     </div>
                 </div>
 

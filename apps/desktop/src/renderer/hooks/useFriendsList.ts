@@ -4,6 +4,7 @@ import type { Friend } from "@concorde/shared";
 
 import { api, getErrorMessage } from "../api/api";
 import { getStoredToken } from "../api/session";
+import { useUserSocketEvent } from "../contexts/UserSocketProvider";
 
 export function useFriendsList() {
     const [friends, setFriends] = useState<Friend[]>([]);
@@ -31,6 +32,16 @@ export function useFriendsList() {
     useEffect(() => {
         void load();
     }, [load]);
+
+    // Pedido aceito/recusado/removido: a lista aparece/atualiza na hora.
+    const lastEvent = useUserSocketEvent();
+    useEffect(() => {
+        if (lastEvent?.type !== "friends-changed") return;
+
+        // Carregamento fora do corpo síncrono do efeito (evita re-render cascata).
+        const timer = setTimeout(() => { void load(); }, 0);
+        return () => clearTimeout(timer);
+    }, [lastEvent, load]);
 
     const remove = useCallback(async (friendId: string) => {
         try {

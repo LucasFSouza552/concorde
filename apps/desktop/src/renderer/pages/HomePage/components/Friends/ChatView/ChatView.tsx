@@ -12,7 +12,7 @@ import MessageList from "./MessageList";
 
 import { getErrorMessage } from "../../../../../api/api";
 import { useChannelMessages } from "../../../../../hooks/useChannelMessages";
-import { usePeerCallState } from "../../../../../hooks/usePeerCallState";
+import { usePresenceSnapshot, type FriendPresence } from "../../../../../hooks/useFriendsPresence";
 
 import styles from "./ChatView.module.css";
 
@@ -25,12 +25,29 @@ interface ChatViewProps {
     centered?: boolean;
 }
 
+/** Presença cacheada do amigo → estado de chamada direta (DM) ou null. */
+function callStateOf(presence: FriendPresence | null) {
+    if (!presence?.inCall || !presence.groupId || presence.concordeGroupId !== null) {
+        return null;
+    }
+
+    return {
+        groupId: presence.groupId,
+        concordeGroupId: presence.concordeGroupId
+    };
+}
+
 export default function ChatView({ channelId, friend, onBack, showHeader = true, centered = false }: ChatViewProps) {
     const { messages, loading, error: errorMessages, send, sending, cooling, remove } = useChannelMessages(channelId);
     const { dial, outgoing, joinGroupCall, joinedGroup } = useCallInviteState();
     const { groupId, peers } = useActiveCall();
     const { push } = useToast();
-    const peerCall = usePeerCallState(friend.id);
+    const presences = usePresenceSnapshot();
+    const peerPresence = presences.get(friend.id) ?? null;
+
+    // Sem GET: presença do amigo vem do cache compartilhado (Friends/SideBar),
+    // atualizado por deltas WS — o valor deriva em render, nunca em efeito.
+    const peerCall = callStateOf(peerPresence);
 
     const [chatHidden, setChatHidden] = useState(false);
 

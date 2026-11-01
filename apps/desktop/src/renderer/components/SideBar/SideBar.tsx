@@ -1,21 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { MessageCircle, MoreVertical, Phone, PhoneIncoming, Plus, Search, Trash2, UserPlus, UsersRound, Volume2 } from "lucide-react";
 
-import type { Friend, GroupRole } from "@concorde/shared";
+import IncomingRequestsList from "../../pages/HomePage/components/Friends/IncomingRequestsList";
 import AddFriendModal from "../../pages/HomePage/components/Home/AddFriendModal";
 import CreateGroupModal from "../../pages/HomePage/components/Home/CreateGroupModal";
-import IncomingRequestsList from "../../pages/HomePage/components/Friends/IncomingRequestsList";
+import type { Friend, GroupRole } from "@concorde/shared";
+import { useActiveCall } from "../../contexts/ActiveCallProvider";
 import { useCallInviteState } from "../../contexts/CallInviteProvider";
-import { useUserSocketEvent } from "../../contexts/UserSocketProvider";
-import { api, getErrorMessage } from "../../api/api";
 import { useToast } from "../../contexts/ToastProvider";
-import { notifyGroupsChanged } from "../../hooks/useGroupsList";
+import { useUserSocketEvent } from "../../contexts/UserSocketProvider";
+
+import { STATUS_COLOR } from "../../utils/status";
+import { api, getErrorMessage } from "../../api/api";
 import { useActiveCalls, type ActiveCallEntry } from "../../hooks/useActiveCalls";
 import { useFriendsList } from "../../hooks/useFriendsList";
 import { useFriendsPresence, type FriendPresence } from "../../hooks/useFriendsPresence";
+import { notifyGroupsChanged } from "../../hooks/useGroupsList";
 import { useGroupsList } from "../../hooks/useGroupsList";
 import { useIncomingRequests } from "../../hooks/useIncomingRequests";
-import { STATUS_COLOR } from "../../utils/status";
 
 import styles from "./SideBar.module.css";
 
@@ -37,6 +39,7 @@ export default function SideBar({ activeFriendId, onOpenFriend, onOpenGroup, onJ
     const { calls: activeCalls } = useActiveCalls(groups, friends);
     const presences = useFriendsPresence(friends);
     const { dial } = useCallInviteState();
+    const { groupId, peers } = useActiveCall();
     const { push } = useToast();
     const [tab, setTab] = useState<PanelTab>("friends");
     const [createOpen, setCreateOpen] = useState(false);
@@ -47,6 +50,8 @@ export default function SideBar({ activeFriendId, onOpenFriend, onOpenGroup, onJ
     const [deletingGroup, setDeletingGroup] = useState(false);
     const lastEvent = useUserSocketEvent();
     const kickedHandledRef = useRef<typeof lastEvent>(null);
+
+    const inMyCallIds = new Set(peers.map((peer) => peer.userId));
 
     useEffect(() => {
         if (!lastEvent) return;
@@ -91,7 +96,6 @@ export default function SideBar({ activeFriendId, onOpenFriend, onOpenGroup, onJ
     function renderFriend(friend: Friend) {
         const presence = presences.get(friend.id);
         const chatActive = activeFriendId === friend.id;
-        const friendInCall = Boolean(presence?.inCall);
         return (
             <li key={friend.id}>
                 <div className={`${styles.dmRow} ${chatActive ? styles.dmRowActive : ""}`.trim()}>
@@ -102,7 +106,9 @@ export default function SideBar({ activeFriendId, onOpenFriend, onOpenGroup, onJ
                         onClick={() => onOpenFriend(friend)}
                     >
                         <span className={styles.dmAvatar}>
-                            {friend.displayName.trim().charAt(0).toUpperCase()}
+                            {friend.avatar
+                                ? <img className={styles.dmAvatarImg} src={friend.avatar} alt="" />
+                                : friend.displayName.trim().charAt(0).toUpperCase()}
                             <span
                                 className={styles.dmStatusDot}
                                 style={{ background: STATUS_COLOR[presence?.status ?? "offline"] }}
@@ -113,18 +119,18 @@ export default function SideBar({ activeFriendId, onOpenFriend, onOpenGroup, onJ
                             <span className={styles.dmName}>{friend.displayName}</span>
                             <span className={styles.dmSub}>@{friend.username}</span>
                         </span>
-                        {friendInCall && (
-                            <span className={styles.dmLiveBadge} title="Em chamada agora">
-                                <Phone size={12} aria-hidden="true" />
-                            </span>
-                        )}
                     </button>
                     <span className={styles.rowActions}>
                         <button
                             type="button"
                             className={styles.rowActionBtn}
-                            title={`Ligar para ${friend.displayName}`}
-                            aria-label={`Ligar para ${friend.displayName}`}
+                            disabled={groupId !== null && inMyCallIds.has(friend.id)}
+                            title={groupId !== null && inMyCallIds.has(friend.id)
+                                ? `${friend.displayName} já está na chamada com você`
+                                : `Ligar para ${friend.displayName}`}
+                            aria-label={groupId !== null && inMyCallIds.has(friend.id)
+                                ? `${friend.displayName} já está na chamada com você`
+                                : `Ligar para ${friend.displayName}`}
                             onClick={() => void dial(friend)}
                         >
                             <Phone size={15} aria-hidden="true" />
@@ -298,14 +304,13 @@ const ROLE_LABEL: Record<GroupRole, string> = {
                                 {filteredGroups.length > 0 ? (
                                     <ul className={styles.dmList}>
                                         {filteredGroups.map((group) => {
-                                            const groupInCall = activeCalls.some((call) => call.group?.id === group.id);
                                             return (
                                                 <li key={group.id}>
                                                 <div className={styles.dmRow}>
                                                     <button
                                                         type="button"
                                                         className={styles.dmMain}
-                                                        title={`Abrir grupo ${group.name}`}
+                                                        title={`Visualizar grupo ${group.name}`}
                                                         onClick={() => openGroup(group)}
                                                     >
                                                         <span className={styles.groupAvatar} aria-hidden="true">
@@ -317,11 +322,6 @@ const ROLE_LABEL: Record<GroupRole, string> = {
                                                                 {group.memberCount === 1 ? "1 membro" : `${group.memberCount} membros`} · {ROLE_LABEL[group.role]}
                                                             </span>
                                                         </span>
-                                                        {groupInCall && (
-                                                            <span className={styles.dmLiveBadge} title="Chamada em andamento no grupo">
-                                                                <Phone size={12} aria-hidden="true" />
-                                                            </span>
-                                                        )}
                                                     </button>
                                                     <span className={styles.rowActions}>
                                                         <button
@@ -392,7 +392,7 @@ const ROLE_LABEL: Record<GroupRole, string> = {
                             className={styles.menuItem}
                             onClick={() => { openGroup(groupMenu.group); closeGroupMenu(); }}
                         >
-                            <UsersRound size={14} /> Abrir grupo
+                            <UsersRound size={14} /> Visualizar Grupo
                         </button>
                         {groupMenu.group.role === "owner" && (
                             <button

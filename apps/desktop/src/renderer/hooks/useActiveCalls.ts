@@ -192,10 +192,11 @@ export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): Acti
 
             if (!presence?.inCall || !presence.groupId) continue;
             if (presence.concordeGroupId !== null) continue;
-            // Chamada 1:1 é privada: só aparece se VOCÊ está nela — o
-            // groupId do amigo precisa ser o da SUA chamada atual.
-            if (presence.groupId !== currentCallId) continue;
-            if (taken.has(presence.groupId)) continue;
+
+            // Chamada 1:1: o servidor só entrega groupId a participantes —
+            // se o dado veio, é uma chamada sua (atual ou da qual saiu e
+            // pode reentrar). Privacidade é garantida no backend.
+            const isCurrent = presence.groupId === currentCallId;
 
             taken.add(presence.groupId);
 
@@ -205,8 +206,8 @@ export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): Acti
                 concordeGroupId: null,
                 kind: "dm",
                 title: friend.displayName,
-                subtitle: "Você está na chamada",
-                isCurrent: true,
+                subtitle: isCurrent ? "Você está na chamada" : "Em chamada",
+                isCurrent,
                 friend,
             });
         }

@@ -6,9 +6,10 @@ interface CallHeaderProps {
     peerName?: string;
     statusText?: string;
     onBack?: () => void;
+    backLabel?: string;
 }
 
-export default function CallHeader({ peerName, statusText, onBack }: CallHeaderProps) {
+export default function CallHeader({ peerName, statusText, onBack, backLabel = "Voltar" }: CallHeaderProps) {
     if (!peerName && !onBack) return null;
 
     const initial = (peerName ?? "?").trim().charAt(0).toUpperCase() || "?";
@@ -19,8 +20,8 @@ export default function CallHeader({ peerName, statusText, onBack }: CallHeaderP
                 <button
                     type="button"
                     className={styles.cornerBtn}
-                    aria-label="Voltar para amigos"
-                    title="Voltar para amigos"
+                    aria-label={backLabel}
+                    title={backLabel}
                     onClick={onBack}
                 >
                     <ChevronLeft size={16} />

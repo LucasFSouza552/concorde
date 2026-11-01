@@ -118,7 +118,10 @@ app.get("/call/:groupId", async (c) => {
 	const id = c.env.CALL_SESSIONS.idFromName(c.req.param("groupId"));
 	const stub = c.env.CALL_SESSIONS.get(id);
 
-	return stub.fetch(await withVerifiedUser(c, verifiedUserId));
+	const request = await withVerifiedUser(c, verifiedUserId);
+	// Sala esperada: checada dentro do DO (a key do DO não é confio do path).
+	request.headers.set("x-call-room", c.req.param("groupId"));
+	return stub.fetch(request);
 });
 
 // Upgrade para websocket
@@ -170,7 +173,16 @@ app.post("/user/presence/batch", async (c) => {
 		const stub = c.env.USER_SESSIONS.get(c.env.USER_SESSIONS.idFromName(id));
 
 		try {
-			const response = await stub.fetch(await withVerifiedUser(c, callerId));
+			// O DO despacha pelo path:/user/:id/presence → reescreve a URL por alvo;
+			// repassar /user/presence/batch ao DO cairia no guard de WebSocket (426).
+			const request = new Request(`https://user-session/user/${id}/presence`);
+			request.headers.set("x-verified-user", callerId);
+			const response = await stub.fetch(request);
+
+			if (!response.ok) {
+				throw new Error(`Presence falhou (${response.status}).`);
+			}
+
 			return [id, await response.json()] as const;
 		} catch {
 			// Sem vazamento em falha: forma offline genérica também aqui.
