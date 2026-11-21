@@ -24,6 +24,7 @@ interface AuthContextData {
 
     login: (userForm: Credentials) => Promise<void>;
     register: (userForm: RegisterData) => Promise<void>;
+    establishSession: (session: LoginTokensResponse) => void;
     updateUser: (next: User) => void;
 
     logout: () => void;
@@ -73,14 +74,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
         try {
             const { data } = await api.get<User>("/auth/me");
-            setSession({ user: data, token: stored.token, refreshToken: stored.refreshToken });
+            const current = getStoredSession() ?? stored;
+            setSession({ ...current, user: data });
             return true;
         } catch (error) {
-            if (isUnauthorized(error)) {
-                setSession(null);
-                return true;
+            if (!isUnauthorized(error)) return false;
+
+            if (getStoredSession()) {
+                return false;
             }
-            return false;
+
+            setSession(null);
+            return true;
         }
     }
 
@@ -138,6 +143,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
             retryTimer.current = null;
         };
     }, [serverStatus]);
+
+    useEffect(() => {
+        function handleRefreshed(event: Event) {
+            const refreshed = (event as CustomEvent<LoginTokensResponse>).detail;
+            setSession((current) => (current ? { ...current, ...refreshed } : current));
+        }
+
+        window.addEventListener("concorde:session-refreshed", handleRefreshed);
+        return () => window.removeEventListener("concorde:session-refreshed", handleRefreshed);
+    }, []);
 
     useEffect(() => {
         if (session) {
@@ -205,6 +220,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         setAwaitingTotp(null);
     }
 
+    function establishSession(session: LoginTokensResponse) {
+        setAwaitingTotp(null);
+        clearError();
+        saveSession(session);
+        setSession(session);
+    }
+
     function updateUser(next: User) {
         setSession((current) => (current ? { ...current, user: next } : current));
     }
@@ -225,6 +247,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
                 login,
                 register,
+                establishSession,
                 updateUser,
 
                 logout,

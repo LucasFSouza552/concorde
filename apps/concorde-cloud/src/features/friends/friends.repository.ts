@@ -84,24 +84,53 @@ export async function removeFriend(db: D1Database, userId: string, friendId: str
 	return (result.meta.changes ?? 0) > 0;
 }
 
+interface FriendWithDiscordRow extends Friend {
+	discordUsername?: string | null;
+	discordLinkedAt?: number | null;
+	discordVerifiedValue?: number | null;
+}
+
+function normalizeFriend(row: FriendWithDiscordRow): Friend {
+	const { discordUsername, discordLinkedAt, discordVerifiedValue, ...friend } = row;
+
+	return {
+		...friend,
+		discord: discordLinkedAt
+			? {
+				username: discordUsername ?? null,
+				linkedAt: discordLinkedAt,
+				verified: Boolean(discordVerifiedValue)
+			}
+			: null
+	};
+}
+
 export async function findFriendsByStatus(db: D1Database, userId: string, status: FriendshipStatus): Promise<Friend[]> {
 	const { results } = await db
-		.prepare(`SELECT u.id, u.username, u.displayName, u.avatar FROM friendships f JOIN users u ON u.id = f.friendId WHERE f.userId = ? AND f.status = ? ORDER BY u.displayName`)
+		.prepare(`SELECT u.id, u.username, u.displayName, u.avatar,
+			a.providerUsername AS discordUsername, a.createdAt AS discordLinkedAt, a.verified AS discordVerifiedValue
+			FROM friendships f
+			JOIN users u ON u.id = f.friendId
+			LEFT JOIN auth_accounts a ON a.userId = u.id AND a.provider = 'discord' AND u.discordShowcase = 1
+			WHERE f.userId = ? AND f.status = ?
+			ORDER BY u.displayName`)
 		.bind(userId, status)
-		.all<Friend>();
+		.all<FriendWithDiscordRow>();
 
-	return results ?? [];
+	return (results ?? []).map(normalizeFriend);
 }
 
 export async function findIncomingRequests(db: D1Database, userId: string): Promise<Friend[]> {
 	const { results } = await db
-		.prepare(`SELECT u.id, u.username, u.displayName, u.avatar
+		.prepare(`SELECT u.id, u.username, u.displayName, u.avatar,
+			a.providerUsername AS discordUsername, a.createdAt AS discordLinkedAt, a.verified AS discordVerifiedValue
 			FROM friendships f
 			JOIN users u ON u.id = f.userId
+			LEFT JOIN auth_accounts a ON a.userId = u.id AND a.provider = 'discord' AND u.discordShowcase = 1
 			WHERE f.friendId = ? AND f.status = 'pending'
 			ORDER BY f.createdAt DESC`)
 		.bind(userId)
-		.all<Friend>();
+		.all<FriendWithDiscordRow>();
 
-	return results ?? [];
+	return (results ?? []).map(normalizeFriend);
 }

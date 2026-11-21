@@ -3,7 +3,7 @@ import { Context } from "hono";
 import { AppError } from "../../utils/AppError";
 import { Env } from "../../types/Env";
 
-import { changeProfile, changePassword, confirmTotpEnrollment, disableTotp, enrollTotp, getTotpStatus, getCurrentUser, listUserSessionsForApi, loginUser, logoutSession, refreshSession, registerUser, requestPasswordReset, resetPasswordWithCode, revokeUserSessionById } from "./auth.service";
+import { changeEmail, changeProfile, changePassword, confirmTotpEnrollment, disableTotp, enrollTotp, getTotpStatus, getCurrentUser, listUserSessionsForApi, loginUser, logoutSession, refreshSession, registerUser, requestPasswordReset, resetPasswordWithCode, revokeUserSessionById } from "./auth.service";
 
 export async function registerController(c: Context) {
 
@@ -85,11 +85,20 @@ export async function updateProfileController(c: Context<{ Bindings: Env; Variab
 
 export async function updatePasswordController(c: Context<{ Bindings: Env; Variables: { userId: string } }>) {
 	const userId = c.get("userId");
-	const body = await c.req.json<{ currentPassword?: unknown; newPassword?: unknown }>().catch(() => ({ currentPassword: undefined, newPassword: undefined }));
+	const body = await c.req.json<{ currentPassword?: unknown; newPassword?: unknown; confirmationId?: unknown }>().catch(() => ({ currentPassword: undefined, newPassword: undefined, confirmationId: undefined }));
 
-	await changePassword(c.env.concorde_users, userId, body?.currentPassword, body?.newPassword);
+	await changePassword(c.env.concorde_users, userId, body?.currentPassword, body?.newPassword, body?.confirmationId);
 
 	return c.json({ status: "updated" });
+}
+
+export async function updateEmailController(c: Context<{ Bindings: Env; Variables: { userId: string } }>) {
+	const userId = c.get("userId");
+	const body = await c.req.json<{ email?: unknown; confirmationId?: unknown }>().catch(() => ({ email: undefined, confirmationId: undefined }));
+
+	const user = await changeEmail(c.env.concorde_users, userId, body?.email, body?.confirmationId);
+
+	return c.json(user);
 }
 
 export async function totpStatusController(c: Context<{ Bindings: Env; Variables: { userId: string } }>) {

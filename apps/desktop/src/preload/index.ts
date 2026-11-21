@@ -48,6 +48,14 @@ contextBridge.exposeInMainWorld("concorde", {
         notifyCancel: () => ipcRenderer.invoke("app:notify-cancel") as Promise<{ ok: boolean }>,
         setBadge: (visible: boolean) => ipcRenderer.invoke("app:set-badge", visible) as Promise<{ ok: boolean }>
     },
+    auth: {
+        openExternal: (url: string) => ipcRenderer.invoke("auth:open-external", url) as Promise<{ ok: boolean }>,
+        onCallback: (callback: (url: string) => void) => {
+            const listener = (_event: IpcRendererEvent, url: string) => callback(url);
+            ipcRenderer.on("auth:oauth-callback", listener);
+            return () => ipcRenderer.removeListener("auth:oauth-callback", listener);
+        }
+    },
     windows: {
         getPid: (sourceId: string) => ipcRenderer.invoke("window:get-pid", sourceId) as Promise<number | null>
     },

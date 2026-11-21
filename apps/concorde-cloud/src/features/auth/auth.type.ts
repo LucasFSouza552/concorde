@@ -14,4 +14,18 @@ export interface CreateUserData {
 	email: string;
 	passwordHash: string;
 	passwordSalt: string;
+	displayName?: string;
+}
+
+export interface DiscordAccountRecord {
+	id: string;
+	userId: string;
+	provider: string;
+	providerAccountId: string;
+	providerUsername: string | null;
+	providerDisplayName?: string | null;
+	providerAvatar: string | null;
+	verified?: number | boolean;
+	createdAt: number;
+	updatedAt: number;
 }

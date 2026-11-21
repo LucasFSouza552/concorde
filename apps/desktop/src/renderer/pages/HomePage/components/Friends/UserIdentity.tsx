@@ -1,3 +1,4 @@
+import { BadgeCheck } from "lucide-react";
 import type { UserStatus } from "@concorde/shared";
 
 import { STATUS_COLOR, STATUS_LABEL } from "../../../../utils/status";
@@ -8,9 +9,10 @@ interface UserIdentityProps {
     username: string;
     large?: boolean;
     status?: UserStatus;
+    discordVerified?: boolean;
 }
 
-export default function UserIdentity({ displayName, username, large = false, status }: UserIdentityProps) {
+export default function UserIdentity({ displayName, username, large = false, status, discordVerified }: UserIdentityProps) {
     const initial = displayName.trim().charAt(0).toUpperCase() || "?";
 
     return (
@@ -27,7 +29,14 @@ export default function UserIdentity({ displayName, username, large = false, sta
                 )}
             </span>
             <span className={styles.identity}>
-                <strong className={large ? styles.nameLarge : ""}>{displayName}</strong>
+                <strong className={large ? styles.nameLarge : ""}>
+                    {displayName}
+                    {discordVerified && (
+                        <span className={styles.discordBadge} title="E-mail verificado no Discord">
+                            <BadgeCheck size={13} />
+                        </span>
+                    )}
+                </strong>
                 <small>@{username}</small>
             </span>
         </>

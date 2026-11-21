@@ -17,4 +17,10 @@ export interface Env {
 	PASSWORD_RESET_DEBUG?: string;
 	/** Token do admin para as rotas /updates do admin (x-admin-token). */
 	ADMIN_TOKEN?: string;
+	/** OAuth2 do Discord (somente no worker — nunca no renderer/Electron). */
+	DISCORD_CLIENT_ID?: string;
+	DISCORD_CLIENT_SECRET?: string;
+	DISCORD_REDIRECT_URI?: string;
+	/** Sobrescrita da API Discord em testes; produção usa https://discord.com/api. */
+	DISCORD_API_BASE_URL?: string;
 }

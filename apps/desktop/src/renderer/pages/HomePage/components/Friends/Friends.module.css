@@ -103,6 +103,14 @@
     font-size: var(--fs-sm);
 }
 
+.discordBadge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 6px;
+    color: var(--color-primary);
+    vertical-align: middle;
+}
+
 
 
 .iconButton {

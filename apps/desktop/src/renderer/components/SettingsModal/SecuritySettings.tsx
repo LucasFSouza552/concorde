@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Check, Clock, Copy, KeyRound, LogOut, ShieldCheck, ShieldOff, X } from "lucide-react";
 
 import { useAuth } from "../../contexts/AuthContext";
+import { useDiscordOAuth } from "../../hooks/useDiscordOAuth";
 import { useToast } from "../../contexts/ToastProvider";
 import { api, getErrorMessage } from "../../api/api";
 
@@ -41,6 +42,7 @@ function describeDevice(userAgent: string | null): string {
 
 export default function SecuritySettings() {
     const { user, logout } = useAuth();
+    const { requestSensitiveAction, busy: oauthBusy, error: oauthError } = useDiscordOAuth();
     const { push } = useToast();
 
     const [status, setStatus] = useState<TotpStatus | null>(null);
@@ -176,6 +178,33 @@ export default function SecuritySettings() {
             <p className={styles.panelDesc}>Autenticação de dois fatores e sessões da conta.</p>
 
             <div className={styles.panelStack}>
+                {user?.discordVerified && (
+                    <div className={styles.sectionCard}>
+                        <div className={styles.sectionHead}>
+                            <span className={`${styles.sectionIcon} ${styles.sectionIconAlt}`} aria-hidden="true">
+                                <ShieldCheck size={16} />
+                            </span>
+                            <div className={styles.sectionHeadText}>
+                                <p className={styles.sectionTitle}>Alterar senha</p>
+                                <p className={styles.sectionHint}>
+                                    Confirme sua identidade com o Discord para alterar a senha.
+                                </p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            className={styles.actionBtn}
+                            onClick={() => void requestSensitiveAction("password")}
+                            disabled={oauthBusy}
+                        >
+                            <KeyRound size={15} />
+                            {oauthBusy ? "Aguardando o Discord..." : "Confirmar com Discord"}
+                        </button>
+                    </div>
+                )}
+
+                {oauthError && <p className={styles.errorChip} role="alert">{oauthError}</p>}
+
                 {TOTP_UI_ENABLED && (
                     <div className={styles.sectionCard}>
                         <div className={styles.sectionHead}>

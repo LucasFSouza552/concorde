@@ -1,5 +1,9 @@
 appId: com.concorde.app.beta
 productName: Concorde Beta
+protocols:
+  - name: Concorde
+    schemes:
+      - concorde
 artifactName: Concorde-Beta-Setup-${version}.${ext}
 compression: maximum
 afterPack: build/afterPack.cjs

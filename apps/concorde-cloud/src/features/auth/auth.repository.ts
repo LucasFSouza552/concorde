@@ -43,15 +43,29 @@ export async function createUser(db: D1Database, data: CreateUserData) {
 
 export async function getUserByEmail(db: D1Database, email: string): Promise<UserRecord | null> {
 	const user = await db.prepare("SELECT * FROM users WHERE email = ?").bind(email).first<UserRecord>();
-	if (user) user.friendsOnly = Boolean(user.friendsOnly as unknown as number);
+	if (user) {
+		user.friendsOnly = Boolean(user.friendsOnly as unknown as number);
+		user.hasPassword = Boolean(user.hasPassword as unknown as number);
+		user.discordShowcase = Boolean(user.discordShowcase as unknown as number);
+		user.discordVerified = Boolean(user.discordVerified as unknown as number);
+		user.discordAutoSync = Boolean(user.discordAutoSync as unknown as number);
+	}
 	return user;
 }
 
 export async function getUserById(db: D1Database, id: string): Promise<User | null> {
 	const user = await db
-		.prepare(`SELECT id, username, displayName, email, friendsOnly, createdAt, avatar, bannerFrom, bannerTo FROM users WHERE id = ?`)
+		.prepare(`SELECT id, username, displayName, email, friendsOnly, createdAt, avatar, bannerFrom, bannerTo, hasPassword, discordShowcase, discordVerified, discordAutoSync FROM users WHERE id = ?`)
 		.bind(id)
 		.first<User>();
+
+	if (user) {
+		user.friendsOnly = Boolean(user.friendsOnly as unknown as number);
+		user.hasPassword = Boolean(user.hasPassword as unknown as number);
+		user.discordShowcase = Boolean(user.discordShowcase as unknown as number);
+		user.discordVerified = Boolean(user.discordVerified as unknown as number);
+		user.discordAutoSync = Boolean(user.discordAutoSync as unknown as number);
+	}
 
 	return user;
 }
@@ -59,7 +73,13 @@ export async function getUserById(db: D1Database, id: string): Promise<User | nu
 export async function getUserRecordById(db: D1Database, id: string): Promise<UserRecord | null> {
 	const user = await db.prepare("SELECT * FROM users WHERE id = ?").bind(id).first<UserRecord>();
 
-	if (user) user.friendsOnly = Boolean(user.friendsOnly as unknown as number);
+	if (user) {
+		user.friendsOnly = Boolean(user.friendsOnly as unknown as number);
+		user.hasPassword = Boolean(user.hasPassword as unknown as number);
+		user.discordShowcase = Boolean(user.discordShowcase as unknown as number);
+		user.discordVerified = Boolean(user.discordVerified as unknown as number);
+		user.discordAutoSync = Boolean(user.discordAutoSync as unknown as number);
+	}
 
 	return user;
 }
@@ -106,9 +126,82 @@ export async function updateProfileAppearance(
 
 export async function updateUserPassword(db: D1Database, id: string, passwordHash: string, passwordSalt: string) {
 	await db
-		.prepare("UPDATE users SET passwordHash = ?, passwordSalt = ? WHERE id = ?")
+		.prepare("UPDATE users SET passwordHash = ?, passwordSalt = ?, hasPassword = 1 WHERE id = ?")
 		.bind(passwordHash, passwordSalt, id)
 		.run();
+}
+
+export async function setDiscordShowcase(db: D1Database, id: string, enabled: boolean) {
+	await db
+		.prepare("UPDATE users SET discordShowcase = ? WHERE id = ?")
+		.bind(enabled ? 1 : 0, id)
+		.run();
+}
+
+export async function setDiscordVerified(db: D1Database, id: string, verified: boolean) {
+	await db
+		.prepare("UPDATE users SET discordVerified = ? WHERE id = ?")
+		.bind(verified ? 1 : 0, id)
+		.run();
+}
+
+export async function setDiscordAutoSync(db: D1Database, id: string, enabled: boolean) {
+	await db
+		.prepare("UPDATE users SET discordAutoSync = ? WHERE id = ?")
+		.bind(enabled ? 1 : 0, id)
+		.run();
+}
+
+export async function updateUserEmail(db: D1Database, id: string, email: string) {
+	await db
+		.prepare("UPDATE users SET email = ? WHERE id = ?")
+		.bind(email, id)
+		.run();
+}
+
+export async function getUserByUsername(db: D1Database, username: string): Promise<UserRecord | null> {
+	const user = await db.prepare("SELECT * FROM users WHERE username = ?").bind(username).first<UserRecord>();
+	if (user) {
+		user.friendsOnly = Boolean(user.friendsOnly as unknown as number);
+		user.hasPassword = Boolean(user.hasPassword as unknown as number);
+		user.discordShowcase = Boolean(user.discordShowcase as unknown as number);
+		user.discordVerified = Boolean(user.discordVerified as unknown as number);
+		user.discordAutoSync = Boolean(user.discordAutoSync as unknown as number);
+	}
+	return user;
+}
+
+/** Conta sem senha: hash/salt são descartáveis e inutilizáveis para login. */
+export async function createExternalUser(db: D1Database, data: CreateUserData) {
+	const id = crypto.randomUUID();
+	const createdAt = Date.now();
+
+	await db
+		.prepare(`
+			INSERT INTO users (
+				id,
+				username,
+				displayName,
+				friendsOnly,
+				email,
+				passwordHash,
+				passwordSalt,
+				createdAt,
+				hasPassword
+			)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+		`)
+		.bind(id, data.username, data.displayName ?? data.username, 1, data.email, data.passwordHash, data.passwordSalt, createdAt)
+		.run();
+
+	return {
+		id,
+		username: data.username,
+		displayName: data.displayName ?? data.username,
+		email: data.email,
+		friendsOnly: true,
+		createdAt
+	};
 }
 
 export interface AuthSessionRecord {

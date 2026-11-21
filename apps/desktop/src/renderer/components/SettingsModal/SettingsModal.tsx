@@ -1,18 +1,20 @@
 import { useEffect, useState } from "react";
-import { Mic, ShieldCheck, SlidersHorizontal, User, X } from "lucide-react";
+import { Link2, Mic, ShieldCheck, SlidersHorizontal, User, X } from "lucide-react";
 
 import AccountSettings from "./AccountSettings";
 import AppPreferences from "./AppPreferences";
 import AudioSettings from "./AudioSettings";
+import IntegrationsSettings from "./IntegrationsSettings";
 import SecuritySettings from "./SecuritySettings";
 
 import styles from "./SettingsModal.module.css";
 
-type SettingsTab = "account" | "security" | "audio" | "preferences";
+type SettingsTab = "account" | "security" | "integrations" | "audio" | "preferences";
 
 const settingsTabs = {
     account: AccountSettings,
     security: SecuritySettings,
+    integrations: IntegrationsSettings,
     audio: AudioSettings,
     preferences: AppPreferences,
 };
@@ -52,6 +54,7 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                         <button type="button" className={`${styles.navBtn} ${tab === "account" ? styles.navSelected : ""}`} aria-current={tab === "account" ? "page" : undefined} onClick={() => setTab("account")}><User size={16} /> Conta</button>
                         <button type="button" className={`${styles.navBtn} ${tab === "audio" ? styles.navSelected : ""}`} aria-current={tab === "audio" ? "page" : undefined} onClick={() => setTab("audio")}><Mic size={16} /> Áudio</button>
                         <button type="button" className={`${styles.navBtn} ${tab === "security" ? styles.navSelected : ""}`} aria-current={tab === "security" ? "page" : undefined} onClick={() => setTab("security")}><ShieldCheck size={16} /> Segurança</button>
+                        <button type="button" className={`${styles.navBtn} ${tab === "integrations" ? styles.navSelected : ""}`} aria-current={tab === "integrations" ? "page" : undefined} onClick={() => setTab("integrations")}><Link2 size={16} /> Integrações</button>
                         <button type="button" className={`${styles.navBtn} ${tab === "preferences" ? styles.navSelected : ""}`} aria-current={tab === "preferences" ? "page" : undefined} onClick={() => setTab("preferences")}><SlidersHorizontal size={16} /> Preferências</button>
                     </nav>
 

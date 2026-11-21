@@ -17,7 +17,8 @@ import {
 	revokeAuthSession,
 	revokeAuthSessionsForUser,
 	rotateAuthSession,
-	setUserTotp
+	setUserTotp,
+	updateUserEmail
 } from "./auth.repository";
 import { CreateUserData, UserRecord } from "./auth.type";
 
@@ -29,6 +30,7 @@ import { createToken } from "../../utils/JWT";
 import { buildTotpUrl, generateTotpSecret, verifyTotpCode } from "../../utils/totp";
 
 import { updateDisplayName, updateProfileAppearance, updateUserPassword } from "./auth.repository";
+import { consumeOAuthConfirmation, getAuthAccountByUserAndProvider } from "./discord.repository";
 
 const MAX_DISPLAY_NAME_LENGTH = 32;
 const MAX_PASSWORD_LENGTH = 128;
@@ -81,7 +83,7 @@ export interface SessionTokens {
 	refreshToken: string;
 }
 
-async function issueSession(db: D1Database, secret: string, userId: string, userAgent?: string): Promise<SessionTokens> {
+export async function issueSession(db: D1Database, secret: string, userId: string, userAgent?: string): Promise<SessionTokens> {
 	const secret2 = randomSecret();
 	const sessionId = await createAuthSession(db, userId, await sha256Hex(secret2), Date.now() + REFRESH_TTL_MS, userAgent);
 
@@ -162,22 +164,12 @@ export async function loginUser(db: D1Database, secret: string, data: Credential
 	const tokens = await issueSession(db, secret, user.id, userAgent);
 
 	return {
-		user: {
-			id: user.id,
-			username: user.username,
-			displayName: user.displayName,
-			email: user.email,
-			friendsOnly: Boolean(user.friendsOnly),
-			createdAt: user.createdAt,
-			avatar: user.avatar ?? null,
-			bannerFrom: user.bannerFrom ?? null,
-			bannerTo: user.bannerTo ?? null
-		},
+		user: await toApiUser(user),
 		...tokens
 	};
 }
 
-async function toApiUser(user: UserRecord): Promise<User> {
+export async function toApiUser(user: UserRecord): Promise<User> {
 	return {
 		id: user.id,
 		username: user.username,
@@ -187,7 +179,11 @@ async function toApiUser(user: UserRecord): Promise<User> {
 		createdAt: user.createdAt,
 		avatar: user.avatar ?? null,
 		bannerFrom: user.bannerFrom ?? null,
-		bannerTo: user.bannerTo ?? null
+		bannerTo: user.bannerTo ?? null,
+		hasPassword: user.hasPassword !== false,
+		discordShowcase: Boolean(user.discordShowcase),
+		discordVerified: Boolean(user.discordVerified),
+		discordAutoSync: Boolean(user.discordAutoSync)
 	};
 }
 
@@ -349,7 +345,13 @@ export async function changeProfile(
 	return user;
 }
 
-export async function changePassword(db: D1Database, id: string, currentPassword: unknown, newPassword: unknown): Promise<void> {
+export async function changePassword(
+	db: D1Database,
+	id: string,
+	currentPassword: unknown,
+	newPassword: unknown,
+	confirmationId?: unknown
+): Promise<void> {
 	if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
 		throw AppError.badRequest("Informe a senha atual e a nova senha.");
 	}
@@ -378,12 +380,58 @@ export async function changePassword(db: D1Database, id: string, currentPassword
 		throw AppError.badRequest("A senha atual está incorreta.");
 	}
 
+	if (await getAuthAccountByUserAndProvider(db, id, "discord")) {
+		if (typeof confirmationId !== "string" || !confirmationId) {
+			throw AppError.badRequest("Confirme sua identidade com o Discord antes de alterar a senha.");
+		}
+
+		const confirmed = await consumeOAuthConfirmation(db, confirmationId, id, "password", Date.now());
+
+		if (!confirmed) {
+			throw AppError.badRequest("Confirmação do Discord inválida ou expirada.");
+		}
+	}
+
 	const { hash, salt } = await hashPassword(newPassword);
 
 	await updateUserPassword(db, id, hash, salt);
 
 	// Troca de senha invalida todas as sessões do usuário.
 	await revokeAuthSessionsForUser(db, id);
+}
+
+export async function changeEmail(db: D1Database, id: string, email: unknown, confirmationId?: unknown): Promise<User> {
+	if (typeof email !== "string" || !isValidEmail(email.trim())) {
+		throw AppError.badRequest("Informe um e-mail válido.");
+	}
+
+	if (typeof confirmationId !== "string" || !confirmationId) {
+		throw AppError.badRequest("Confirme sua identidade com o Discord antes de alterar o e-mail.");
+	}
+
+	const confirmed = await consumeOAuthConfirmation(db, confirmationId, id, "email", Date.now());
+
+	if (!confirmed) {
+		throw AppError.badRequest("Confirmação do Discord inválida ou expirada.");
+	}
+
+	const normalized = email.trim().toLowerCase();
+	const existing = await getUserByEmail(db, normalized);
+
+	if (existing && existing.id !== id) {
+		throw AppError.conflict("Este e-mail já está em uso.");
+	}
+
+	await updateUserEmail(db, id, normalized);
+	await revokeAuthSessionsForUser(db, id);
+
+	const user = await getUserById(db, id);
+
+	if (!user) {
+		throw AppError.notFound("Usuário não encontrado");
+	}
+
+	return user;
 }
 
 export interface TotpStatus { enabled: boolean; pending: boolean }

@@ -27,11 +27,12 @@ interface FriendsProps {
     onOpenFriend?: (friend: Friend) => void;
 }
 
-type FriendsTab = "available" | "all" | "requests" | "add";
+type FriendsTab = "available" | "all" | "discord" | "requests" | "add";
 
 const TABS: { id: FriendsTab; label: string }[] = [
     { id: "available", label: "Disponível" },
     { id: "all", label: "Todos" },
+    { id: "discord", label: "No Discord" },
     { id: "requests", label: "Pendentes" },
     { id: "add", label: "Adicionar Amigos" },
 ];
@@ -67,6 +68,11 @@ export default function Friends({ activeChannelId, onActiveChannel, onSelectFrie
             return delta !== 0 ? delta : a.displayName.localeCompare(b.displayName);
         }),
         [friends, presences],
+    );
+
+    const discordFriends = useMemo(
+        () => sortedFriends.filter((friend) => Boolean(friend.discord)),
+        [sortedFriends],
     );
 
     const isChatOpen = Boolean(activeChannelId && selectedFriend);
@@ -152,6 +158,34 @@ export default function Friends({ activeChannelId, onActiveChannel, onSelectFrie
                             friends={tab === "available" ? availableFriends : sortedFriends}
                             presences={presences}
                             title={tab === "available" ? "Amigos disponíveis" : "Meus amigos"}
+                            loading={loading}
+                            error={errorFriendsList}
+                            onReload={load}
+                            onRemove={remove}
+                            onChat={handleOpenChat}
+                            onCall={handleCall}
+                        />
+                    )}
+
+                    {tab === "discord" && (
+                        <AcceptedFriendsList
+                            friends={discordFriends}
+                            presences={presences}
+                            title="Amigos no Discord"
+                            loading={loading}
+                            error={errorFriendsList}
+                            onReload={load}
+                            onRemove={remove}
+                            onChat={handleOpenChat}
+                            onCall={handleCall}
+                        />
+                    )}
+
+                    {tab === "discord" && (
+                        <AcceptedFriendsList
+                            friends={discordFriends}
+                            presences={presences}
+                            title="Amigos no Discord"
                             loading={loading}
                             error={errorFriendsList}
                             onReload={load}

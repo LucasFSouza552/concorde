@@ -144,6 +144,19 @@
     flex: none;
 }
 
+.discordBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 7px;
+    border-radius: var(--radius-pill);
+    background: var(--color-primary-soft);
+    color: var(--color-primary);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    flex: none;
+}
+
 .handle,
 .statusLabel,
 .customMessage {

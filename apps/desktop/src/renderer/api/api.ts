@@ -26,7 +26,17 @@ api.interceptors.request.use((config) => {
 });
 
 // Rotas que não devem disparar auto-refresh (o 401 nelas é resposta de negócio).
-const AUTH_ROUTES = ["/auth/login", "/auth/register", "/auth/refresh", "/auth/logout"];
+const AUTH_ROUTES = [
+    "/auth/login",
+    "/auth/register",
+    "/auth/refresh",
+    "/auth/logout",
+    "/auth/discord/login/start",
+    "/auth/discord/link/start",
+    "/auth/discord/callback",
+    "/auth/discord/register",
+    "/auth/me/password/setup"
+];
 
 const REFRESH_ROUTE = "/auth/refresh";
 
@@ -41,10 +51,13 @@ async function refreshAccessToken(): Promise<string | null> {
         const response = await axios.post<LoginTokensResponse>(`${API_BASE_URL}${REFRESH_ROUTE}`, { refreshToken });
 
         saveSession(response.data);
+        window.dispatchEvent(new CustomEvent("concorde:session-refreshed", { detail: response.data }));
 
         return response.data.token;
-    } catch {
-        clearSession();
+    } catch (error) {
+        if (isUnauthorized(error)) {
+            clearSession();
+        }
         return null;
     }
 }

@@ -1,8 +1,10 @@
-import { app, BrowserWindow, Menu, ipcMain, desktopCapturer, Tray, Notification, nativeImage } from 'electron'
+import { app, BrowserWindow, Menu, ipcMain, desktopCapturer, Tray, Notification, nativeImage, shell } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import { spawn, type ChildProcess } from 'node:child_process'
 import fs from 'node:fs';
 import path from 'node:path';
+
+declare const __CONCORDE_APP_USER_MODEL_ID__: string;
 
 type UpdateState = "idle" | "available" | "downloading" | "ready";
 
@@ -12,9 +14,28 @@ interface UpdateStatus {
   percent?: number;
 }
 
+const OAUTH_PROTOCOL = "concorde";
+
 let mainWindow: BrowserWindow | null = null;
+let pendingOAuthUrl: string | null = null;
 /** Último estado do updater, para que telas tardias peguem o valor atual. */
 let lastUpdateStatus: UpdateStatus = { state: "idle" };
+
+function oauthUrlFromArgs(args: string[]): string | null {
+  return args.find((arg) => arg.startsWith(`${OAUTH_PROTOCOL}://`)) ?? null;
+}
+
+function deliverOAuthUrl(url: string) {
+  const window = mainWindow;
+
+  if (!window || window.webContents.isLoading()) {
+    pendingOAuthUrl = url;
+    return;
+  }
+
+  showWindow();
+  window.webContents.send("auth:oauth-callback", url);
+}
 
 function autoLaunchStorePath() {
   return path.join(app.getPath("userData"), "auto-launch.json");
@@ -241,6 +262,8 @@ function createWindow() {
     },
   });
 
+  window.setIcon(trayIconPath());
+
   if (process.env.ELECTRON_RENDERER_URL) {
     window.loadURL(process.env.ELECTRON_RENDERER_URL);
 
@@ -250,6 +273,13 @@ function createWindow() {
       path.join(__dirname, "../renderer/index.html")
     );
   }
+
+  window.webContents.once("did-finish-load", () => {
+    if (!pendingOAuthUrl) return;
+    const url = pendingOAuthUrl;
+    pendingOAuthUrl = null;
+    window.webContents.send("auth:oauth-callback", url);
+  });
 
   mainWindow = window;
   window.on("close", (event) => {
@@ -268,9 +298,14 @@ function createWindow() {
 }
 
 function trayIconPath(): string {
-  return app.isPackaged
-    ? path.join(process.resourcesPath, "concorde.ico")
-    : path.join(app.getAppPath(), "resources", "concorde.ico");
+  const candidates = app.isPackaged
+    ? [path.join(process.resourcesPath, "concorde.ico")]
+    : [
+        path.join(app.getAppPath(), "resources", "concorde.ico"),
+        path.join(app.getAppPath(), "public", "concorde.ico")
+      ];
+
+  return candidates.find((candidate) => fs.existsSync(candidate)) ?? candidates[0];
 }
 
 function showWindow() {
@@ -323,8 +358,16 @@ const isPrimaryInstance = app.requestSingleInstanceLock();
 
 if (!isPrimaryInstance) app.quit();
 
-// AppUserModelID: nomenclatura e notificações nativas do Windows.
-app.setAppUserModelId("com.concorde.desktop");
+// AppUserModelID precisa ser igual ao appId do instalador para o Windows usar o ícone/nome do Concorde.
+app.setAppUserModelId(__CONCORDE_APP_USER_MODEL_ID__);
+
+const isDevApp = (process as NodeJS.Process & { defaultApp?: boolean }).defaultApp === true;
+if (isDevApp) {
+  const appPath = process.argv[1] ? path.resolve(process.argv[1]) : app.getAppPath();
+  if (appPath) app.setAsDefaultProtocolClient(OAUTH_PROTOCOL, process.execPath, [appPath]);
+} else {
+  app.setAsDefaultProtocolClient(OAUTH_PROTOCOL);
+}
 
 /** Bolinha vermelha para o badge (overlay) da barra de tarefas. */
 const badgeDotDataUrl =
@@ -338,8 +381,15 @@ function clearCallNotification() {
   activeCallNotification = null;
 }
 
-app.on("second-instance", () => {
+app.on("second-instance", (_event, argv) => {
   showWindow();
+  const url = oauthUrlFromArgs(argv);
+  if (url) deliverOAuthUrl(url);
+});
+
+app.on("open-url", (event, url) => {
+  event.preventDefault();
+  if (url.startsWith(`${OAUTH_PROTOCOL}://`)) deliverOAuthUrl(url);
 });
 
 app.whenReady().then(() => {
@@ -376,6 +426,8 @@ app.whenReady().then(() => {
 
   Menu.setApplicationMenu(null);
   createWindow();
+  const initialOAuthUrl = oauthUrlFromArgs(process.argv);
+  if (initialOAuthUrl) deliverOAuthUrl(initialOAuthUrl);
   setupAutoUpdater();
   setupTray();
 
@@ -411,6 +463,21 @@ app.whenReady().then(() => {
       isScreen: source.id.startsWith("screen:"),
       minimized: !source.id.startsWith("screen:") && source.thumbnail.isEmpty()
     }));
+  });
+
+  ipcMain.handle("auth:open-external", async (_event, url: unknown) => {
+    if (typeof url !== "string") return { ok: false };
+
+    try {
+      const parsed = new URL(url);
+      if (parsed.protocol !== "https:" || parsed.hostname !== "discord.com" || parsed.pathname !== "/oauth2/authorize") {
+        return { ok: false };
+      }
+      await shell.openExternal(url);
+      return { ok: true };
+    } catch {
+      return { ok: false };
+    }
   });
 
   ipcMain.handle("app:get-version", () => app.getVersion());

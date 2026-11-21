@@ -13,6 +13,11 @@ export interface User {
     /** Fundo personalizado do perfil: degradê de 2 cores (#rrggbb) — null = tema padrão. */
     bannerFrom?: string | null;
     bannerTo?: string | null;
+    /** false = conta criada por provedor externo, sem senha definida. */
+    hasPassword?: boolean;
+    discordShowcase?: boolean;
+    discordVerified?: boolean;
+    discordAutoSync?: boolean;
 }
 
 /** Tokens completos de uma sessão estabelecida. */
@@ -21,6 +26,7 @@ export interface LoginTokensResponse {
     token: string;
     refreshToken: string;
     totpRequired?: false;
+    warning?: string;
 }
 
 /** Login com 2FA ativa e sem código — aguarda o código TOTP do cliente. */
@@ -45,6 +51,81 @@ export interface RegisterData extends Credentials {
     username: string;
 }
 
+export type DiscordOauthPurpose = "login" | "link" | "sync" | "reauth";
+export type DiscordSensitiveAction = "email" | "password";
+export type DiscordEventKind = "linked" | "login" | "sync" | "unlinked";
+
+export interface DiscordOauthStart {
+    url: string;
+    state: string;
+    expiresAt: number;
+}
+
+export interface DiscordAccountInfo {
+    provider: "discord";
+    providerAccountId: string;
+    providerUsername: string | null;
+    providerDisplayName: string | null;
+    providerAvatar: string | null;
+    linkedAt: number;
+    verified: boolean;
+}
+
+export interface DiscordIntegrationStatus {
+    connected: boolean;
+    account: DiscordAccountInfo | null;
+    showcase: boolean;
+    verified: boolean;
+    autoSync: boolean;
+}
+
+/** Dados sugeridos pelo Discord antes da criação da conta (ainda não persistidos). */
+export interface DiscordRegistrationSuggestion {
+    username: string;
+    displayName: string;
+    email: string;
+    avatar: string | null;
+}
+
+export interface DiscordRegistrationRequired {
+    registrationRequired: true;
+    ticket: string;
+    suggestion: DiscordRegistrationSuggestion;
+}
+
+export interface DiscordLinkedResult {
+    status: "linked";
+    account: DiscordAccountInfo;
+}
+
+export interface DiscordSyncedResult {
+    status: "synced";
+    user: User;
+    account: DiscordAccountInfo;
+}
+
+export interface DiscordReauthResult {
+    confirmation: {
+        id: string;
+        action: DiscordSensitiveAction;
+        expiresAt: number;
+    };
+}
+
+export type DiscordCallbackResult =
+    | LoginTokensResponse
+    | DiscordRegistrationRequired
+    | DiscordLinkedResult
+    | DiscordSyncedResult
+    | DiscordReauthResult;
+
+export interface DiscordEvent {
+    id: string;
+    kind: DiscordEventKind;
+    createdAt: number;
+    metadata: string | null;
+}
+
 export type FriendshipStatus = "pending" | "accepted";
 
 export interface Friend {
@@ -52,6 +133,11 @@ export interface Friend {
     username: string;
     displayName: string;
     avatar?: string | null;
+    discord?: {
+        username: string | null;
+        linkedAt: number;
+        verified: boolean;
+    } | null;
 }
 
 export interface UserPresence {

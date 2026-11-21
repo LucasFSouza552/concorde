@@ -5,6 +5,22 @@ import { Env } from "../types/Env";
 import { AppError } from "../utils/AppError";
 import { verifyToken } from "../utils/JWT";
 
+/** Usado no callback OAuth: o login é público, a vinculação valida o usuário no serviço. */
+export async function optionalAuthMiddleware(c: Context<{ Bindings: Env; Variables: { userId?: string } }>, next: Next) {
+	const authorization = c.req.header("Authorization");
+	const [scheme, token] = authorization?.split(" ") ?? [];
+
+	if (scheme === "Bearer" && token) {
+		try {
+			c.set("userId", await verifyToken(token, c.env.JWT_SECRET));
+		} catch {
+			// Token inválido: o serviço rejeita apenas operações que exigem sessão.
+		}
+	}
+
+	await next();
+}
+
 export async function authMiddleware(c: Context<{ Bindings: Env; Variables: { userId: string }; }>, next: Next) {
 	const authorization = c.req.header("Authorization");
 

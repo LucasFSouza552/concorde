@@ -1,5 +1,7 @@
 import { HashRouter } from "react-router-dom";
 
+import DiscordRegistrationModal from "../components/DiscordOAuth/DiscordRegistrationModal";
+import DiscordSensitiveModal from "../components/DiscordOAuth/DiscordSensitiveModal";
 import ToastViewport from "../components/Toast/ToastViewport";
 import UpdateBanner from "../components/UpdateBanner/UpdateBanner";
 import NotificationsBridge from "../components/Notifications/NotificationsBridge";
@@ -8,6 +10,7 @@ import VersionGuard from "../components/VersionGuard/VersionGuard";
 import { ActiveCallProvider } from "../contexts/ActiveCallProvider";
 import { AuthProvider } from "../contexts/AuthContext";
 import { CallInviteProvider } from "../contexts/CallInviteProvider";
+import { DiscordOAuthProvider } from "../contexts/DiscordOAuthContext";
 import { SettingsProvider } from "../contexts/SettingsProvider";
 import { ToastProvider } from "../contexts/ToastProvider";
 import { UserSocketProvider } from "../contexts/UserSocketProvider";
@@ -20,18 +23,22 @@ export default function App() {
       <VersionGuard />
       <HashRouter>
         <AuthProvider>
-          <SettingsProvider>
-            <UserSocketProvider>
-              <ActiveCallProvider>
-                <CallInviteProvider>
-                  <AppRouter />
-                  <UpdateBanner />
-                  <ToastViewport />
-                  <NotificationsBridge />
-                </CallInviteProvider>
-              </ActiveCallProvider>
-            </UserSocketProvider>
-          </SettingsProvider>
+          <DiscordOAuthProvider>
+            <SettingsProvider>
+              <UserSocketProvider>
+                <ActiveCallProvider>
+                  <CallInviteProvider>
+                    <AppRouter />
+                    <DiscordRegistrationModal />
+                    <DiscordSensitiveModal />
+                    <UpdateBanner />
+                    <ToastViewport />
+                    <NotificationsBridge />
+                  </CallInviteProvider>
+                </ActiveCallProvider>
+              </UserSocketProvider>
+            </SettingsProvider>
+          </DiscordOAuthProvider>
         </AuthProvider>
       </HashRouter>
     </ToastProvider>

@@ -1,10 +1,12 @@
 import { useEffect, useState, type ChangeEvent } from "react";
+import { MessageCircle } from "lucide-react";
 
 import { Login } from "../../components/Auth/LoginComponent";
 import { Recover } from "../../components/Auth/RecoverComponent";
 import { Register } from "../../components/Auth/RegisterComponent";
 import { isValidUsernameFormat, sanitizeUsername } from "@concorde/shared";
 import { useAuth } from "../../contexts/AuthContext";
+import { useDiscordOAuth } from "../../hooks/useDiscordOAuth";
 
 import styles from "./AuthPage.module.css";
 
@@ -20,6 +22,7 @@ export default function AuthPage() {
     const [authMode, setAuthMode] = useState<"login" | "register" | "recover">("login");
     const [showPassword, setShowPassword] = useState(false);
     const { error } = useAuth();
+    const { startLogin, cancelFlow, busy: discordBusy, error: discordError } = useDiscordOAuth();
 
     const [form, setForm] = useState<RegisterForm>({
         email: "",
@@ -46,24 +49,27 @@ export default function AuthPage() {
     }
 
     useEffect(() => {
-        if (authMode == "login" || !form.username || isValidUsernameFormat(form.username)) {
-            setErrors(errors => ({ ...errors, username: "" }));
-            return;
-        }
-        setErrors(errors => ({ ...errors, username: "Use letras minúsculas, números, ponto e underline." }));
+        void Promise.resolve().then(() => {
+            if (authMode == "login" || !form.username || isValidUsernameFormat(form.username)) {
+                setErrors(errors => ({ ...errors, username: "" }));
+                return;
+            }
+            setErrors(errors => ({ ...errors, username: "Use letras minúsculas, números, ponto e underline." }));
+        });
     }, [form.username, authMode]);
 
     useEffect(() => {
-        if (authMode == "login" || !form.passwordConfirm || form.password === form.passwordConfirm) {
-            setErrors(errors => ({
-                ...errors,
-                password: ""
-            }));
+        void Promise.resolve().then(() => {
+            if (authMode == "login" || !form.passwordConfirm || form.password === form.passwordConfirm) {
+                setErrors(errors => ({
+                    ...errors,
+                    password: ""
+                }));
 
-            return;
-        }
-        setErrors((errors) => ({ ...errors, password: "As senhas precisam coincidir." }))
-
+                return;
+            }
+            setErrors((errors) => ({ ...errors, password: "As senhas precisam coincidir." }))
+        });
     }, [form.password, form.passwordConfirm, authMode]);
 
     return (
@@ -117,6 +123,34 @@ export default function AuthPage() {
                         handleChange={handleChange}
                         showPassword={showPassword}
                         handleBoolChange={handleBoolChange} />}
+
+                {authMode !== "recover" && (
+                    <div className={styles.discordSection}>
+                        <div className={styles.divider}>
+                            <span>ou</span>
+                        </div>
+                        <button
+                            type="button"
+                            className={styles.discordBtn}
+                            onClick={() => void startLogin()}
+                            disabled={discordBusy}
+                        >
+                            <MessageCircle size={16} aria-hidden="true" />
+                            <span>{discordBusy ? "Aguardando o Discord..." : "Entrar com Discord"}</span>
+                        </button>
+                        {discordBusy && (
+                            <button
+                                type="button"
+                                className={styles.discordCancelBtn}
+                                onClick={cancelFlow}
+                            >
+                                Cancelar autorização
+                            </button>
+                        )}
+                        {discordError && <p className={styles.formError} role="alert">{discordError}</p>}
+                    </div>
+                )}
+
                 <div>
                     {error && <p className={styles.formError} role="alert">{error}</p>}
                     {Object.entries(errors).map(([key, value]) => (

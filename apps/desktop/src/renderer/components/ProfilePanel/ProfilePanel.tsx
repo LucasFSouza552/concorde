@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { ChevronLeft } from "lucide-react";
+import { BadgeCheck, ChevronLeft } from "lucide-react";
 
 import type { UserPresence, UserStatus } from "@concorde/shared";
 import UserAvatar from "../UserAvatar/UserAvatar";
@@ -17,6 +17,7 @@ export interface ProfileUser {
     avatar?: string | null;
     bannerFrom?: string | null;
     bannerTo?: string | null;
+    discordVerified?: boolean;
 }
 
 interface ProfilePanelProps {
@@ -109,6 +110,11 @@ export default function ProfilePanel({ user, onClose, roleLabel, actions }: Prof
                                 style={{ background: STATUS_COLOR[status] }}
                                 title={STATUS_LABEL[status]}
                             />
+                        )}
+                        {user.discordVerified && (
+                            <span className={styles.discordBadge} title="E-mail verificado no Discord">
+                                <BadgeCheck size={16} /> Discord
+                            </span>
                         )}
                     </span>
                     <span className={styles.handle}>@{user.username}</span>

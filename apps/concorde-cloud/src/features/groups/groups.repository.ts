@@ -155,12 +155,14 @@ export interface GroupMemberWithUser {
 	avatar?: string | null;
 	bannerFrom?: string | null;
 	bannerTo?: string | null;
+	discordVerified?: boolean;
 	role: GroupRole;
 	joinedAt: number;
 }
 
 export async function listGroupMembers(db: D1Database, groupId: string): Promise<GroupMemberWithUser[]> {
-	const result = await db.prepare(`SELECT m.userId AS id, u.username, u.displayName, u.avatar, u.bannerFrom, u.bannerTo, m.role, m.joinedAt
+	const result = await db.prepare(`SELECT m.userId AS id, u.username, u.displayName, u.avatar, u.bannerFrom, u.bannerTo,
+		u.discordVerified AS discordVerified, m.role, m.joinedAt
 		FROM group_members m
 		JOIN users u ON u.id = m.userId
 		WHERE m.groupId = ?
@@ -168,7 +170,10 @@ export async function listGroupMembers(db: D1Database, groupId: string): Promise
 		.bind(groupId)
 		.all<GroupMemberWithUser>();
 
-	return result.results;
+	return result.results.map((member) => ({
+		...member,
+		discordVerified: Boolean(member.discordVerified)
+	}));
 }
 
 /** True se os dois usuários compartilham ao menos um grupo (consulta direta, LIMIT 1). */

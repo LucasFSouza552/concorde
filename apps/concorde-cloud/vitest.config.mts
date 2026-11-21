@@ -11,7 +11,11 @@ export default defineConfig(async () => {
 				miniflare: {
 					bindings: {
 						TEST_MIGRATIONS: migrations,
-						RATE_LIMIT_DISABLED: "1"
+						RATE_LIMIT_DISABLED: "1",
+						DISCORD_CLIENT_ID: "test-client",
+						DISCORD_CLIENT_SECRET: "test-secret",
+						DISCORD_REDIRECT_URI: "concorde://oauth/discord",
+						DISCORD_API_BASE_URL: "https://discord.test/api"
 					}
 				}
 			}),

@@ -9,6 +9,7 @@ export interface GroupMemberItem {
     avatar?: string | null;
     bannerFrom?: string | null;
     bannerTo?: string | null;
+    discordVerified?: boolean;
     role: string;
     joinedAt: number;
 }
@@ -51,7 +52,7 @@ export function useGroupMembers(groupId: string | null) {
     }, [groupId]);
 
     useEffect(() => {
-        void load();
+        void Promise.resolve().then(() => load());
     }, [groupId, load]);
 
     return { members, loading, error, load };

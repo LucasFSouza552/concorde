@@ -4,6 +4,7 @@ import { BadgeCheck, Check, Clock, Eye, EyeOff, ImagePlus, KeyRound, Lock, LogOu
 import type { User } from "@concorde/shared";
 
 import { useAuth } from "../../contexts/AuthContext";
+import { useDiscordOAuth } from "../../hooks/useDiscordOAuth";
 import { useToast } from "../../contexts/ToastProvider";
 import { api, getErrorMessage } from "../../api/api";
 import UserAvatar from "../UserAvatar/UserAvatar";
@@ -31,6 +32,7 @@ function formatDate(timestamp: number) {
 
 export default function AccountSettings() {
     const { user, updateUser, logout } = useAuth();
+    const { requestSensitiveAction, busy: oauthBusy, error: oauthError } = useDiscordOAuth();
     const { push } = useToast();
 
     const [name, setName] = useState(user?.displayName ?? "");
@@ -412,6 +414,32 @@ export default function AccountSettings() {
                 <div className={styles.sectionCard}>
                     <div className={styles.sectionHead}>
                         <span className={`${styles.sectionIcon} ${styles.sectionIconAlt}`} aria-hidden="true">
+                            <ShieldCheck size={16} />
+                        </span>
+                        <div className={styles.sectionHeadText}>
+                            <p className={styles.sectionTitle}>E-mail</p>
+                            <p className={styles.sectionHint}>{user?.email ?? "Não informado"}</p>
+                        </div>
+                    </div>
+
+                    {user?.discordVerified && (
+                        <button
+                            type="button"
+                            className={styles.actionBtn}
+                            onClick={() => void requestSensitiveAction("email")}
+                            disabled={oauthBusy}
+                        >
+                            <ShieldCheck size={15} />
+                            {oauthBusy ? "Aguardando o Discord..." : "Alterar com Discord"}
+                        </button>
+                    )}
+                </div>
+
+                {oauthError && <p className={styles.errorChip} role="alert">{oauthError}</p>}
+
+                <div className={styles.sectionCard}>
+                    <div className={styles.sectionHead}>
+                        <span className={`${styles.sectionIcon} ${styles.sectionIconAlt}`} aria-hidden="true">
                             <KeyRound size={16} />
                         </span>
                         <div className={styles.sectionHeadText}>
@@ -419,6 +447,18 @@ export default function AccountSettings() {
                             <p className={styles.sectionHint}>Troque de vez em quando. Mínimo de 6 caracteres.</p>
                         </div>
                     </div>
+
+                    {user?.discordVerified && (
+                        <button
+                            type="button"
+                            className={styles.actionBtn}
+                            onClick={() => void requestSensitiveAction("password")}
+                            disabled={oauthBusy}
+                        >
+                            <KeyRound size={15} />
+                            {oauthBusy ? "Aguardando o Discord..." : "Alterar com Discord"}
+                        </button>
+                    )}
 
                     <form onSubmit={(event) => { event.preventDefault(); void savePassword(); }}>
                         <div className={styles.formStack}>
@@ -477,7 +517,7 @@ export default function AccountSettings() {
                             <button
                                 type="submit"
                                 className={styles.actionBtn}
-                                disabled={passwordBusy || !currentPassword || !newPassword || !confirmPassword}
+                                    disabled={passwordBusy || Boolean(user?.discordVerified) || !currentPassword || !newPassword || !confirmPassword}
                             >
                                 <Check size={15} />
                                 {passwordBusy ? "Salvando..." : "Salvar nova senha"}

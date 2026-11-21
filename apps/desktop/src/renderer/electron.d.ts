@@ -40,6 +40,10 @@ declare global {
                 notifyCancel: () => Promise<{ ok: boolean }>
                 setBadge: (visible: boolean) => Promise<{ ok: boolean }>
             }
+            auth: {
+                openExternal: (url: string) => Promise<{ ok: boolean }>
+                onCallback: (callback: (url: string) => void) => () => void
+            }
             windows: {
                 getPid: (sourceId: string) => Promise<number | null>
             }

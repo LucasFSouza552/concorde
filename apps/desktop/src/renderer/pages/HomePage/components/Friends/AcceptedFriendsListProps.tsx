@@ -65,6 +65,7 @@ export default function AcceptedFriendsList({ friends, presences, title = "Meus 
                         displayName={friend.displayName}
                         username={friend.username}
                         status={presences?.get(friend.id)?.status}
+                        discordVerified={Boolean(friend.discord?.verified)}
                     />
                     <button
                         type="button"

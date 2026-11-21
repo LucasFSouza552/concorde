@@ -104,3 +104,69 @@
     font-size: var(--fs-md);
     text-align: center;
 }
+
+.discordSection {
+    width: 100%;
+    margin-top: 8px;
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+    color: var(--color-text-muted);
+    font-size: var(--fs-sm);
+}
+
+.divider::before,
+.divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--color-border);
+}
+
+.discordBtn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-surface-hover);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--fs-base);
+    font-weight: 700;
+    cursor: pointer;
+    transition: background-color var(--dur) var(--ease-out);
+}
+
+.discordBtn:hover:not(:disabled) {
+    background: var(--color-surface-active);
+}
+
+.discordBtn:disabled {
+    opacity: 0.45;
+    cursor: default;
+}
+
+.discordCancelBtn {
+    display: block;
+    margin: 8px auto 0;
+    padding: 2px 4px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.discordCancelBtn:hover {
+    color: var(--color-text);
+}
