@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Trash2 } from "lucide-react";
 
 import type { Friend } from "@concorde/shared";
@@ -66,11 +66,13 @@ export default function MessageList({ channelId, friend, messages, loading, erro
                     const displayName = isMine
                         ? (user?.displayName ?? "?")
                         : friend.displayName;
+                    const avatarSrc = isMine ? user?.avatar : friend.avatar;
+                    const avatarStyle: CSSProperties = avatarSrc ? { backgroundImage: `url(${avatarSrc})` } : {};
 
                     return (
                         <div key={message.id} className={`${styles.messageRow} ${message.pending ? styles.messagePending : ""}`}>
-                            <span className={styles.messageAvatar}>
-                                {displayName.trim().charAt(0).toUpperCase() || "?"}
+                            <span className={styles.messageAvatar} style={avatarStyle}>
+                                {avatarSrc ? "" : displayName.trim().charAt(0).toUpperCase() || "?"}
                             </span>
                             <div className={styles.messageBody}>
                                 <div className={styles.messageHeader}>

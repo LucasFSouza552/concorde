@@ -3,6 +3,7 @@ import { BadgeCheck, Check, Clock, Eye, EyeOff, ImagePlus, KeyRound, Lock, LogOu
 
 import type { User } from "@concorde/shared";
 
+import DiscordIcon from "../DiscordIcon/DiscordIcon";
 import { useAuth } from "../../contexts/AuthContext";
 import { useDiscordOAuth } from "../../hooks/useDiscordOAuth";
 import { useToast } from "../../contexts/ToastProvider";
@@ -18,13 +19,79 @@ const MAX_DISPLAY_NAME_LENGTH = 32;
 const DEFAULT_BANNER_FROM = "#5865f2";
 const DEFAULT_BANNER_TO = "#8b5cf6";
 
-/** Paleta curada para a cor primária/secundária do fundo (estilo do app). */
-const COLOR_PALETTE = [
-    "#5865f2", "#3b82f6", "#0ea5e9", "#06b6d4",
-    "#14b8a6", "#22c55e", "#84cc16", "#eab308",
-    "#f59e0b", "#f97316", "#ef4444", "#f43f5e",
-    "#ec4899", "#d946ef", "#a855f7", "#8b5cf6"
-];
+function normalizeHexColor(value: string): string | null {
+    const raw = value.trim().replace(/^#/, "");
+    if (/^[0-9a-f]{6}$/i.test(raw)) return `#${raw.toLowerCase()}`;
+    if (/^[0-9a-f]{3}$/i.test(raw)) {
+        return `#${raw.split("").map((char) => char + char).join("").toLowerCase()}`;
+    }
+    return null;
+}
+
+interface ColorFieldProps {
+    label: string;
+    value: string;
+    disabled?: boolean;
+    onChange: (value: string) => void;
+}
+
+function ColorField({ label, value, disabled = false, onChange }: ColorFieldProps) {
+    const [draft, setDraft] = useState(value);
+    const pickerRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        setDraft(value);
+    }, [value]);
+
+    useEffect(() => {
+        const picker = pickerRef.current;
+        if (!picker) return;
+
+        picker.value = value;
+
+        function handlePickerChange(event: Event) {
+            const next = (event.currentTarget as HTMLInputElement).value.toLowerCase();
+            if (next !== value) onChange(next);
+        }
+
+        picker.addEventListener("change", handlePickerChange);
+        return () => picker.removeEventListener("change", handlePickerChange);
+    }, [value, onChange]);
+
+    function handleDraft(next: string) {
+        setDraft(next);
+        const normalized = normalizeHexColor(next);
+        if (normalized) onChange(normalized);
+    }
+
+    return (
+        <div className={styles.customizeGroup}>
+            <span className={styles.customizeLabel}>{label}</span>
+            <div className={styles.colorRow}>
+                <input
+                    ref={pickerRef}
+                    type="color"
+                    className={styles.colorInput}
+                    defaultValue={value}
+                    disabled={disabled}
+                    title="Abrir seletor de cores"
+                    aria-label={`${label}: seletor de cor`}
+                />
+                <input
+                    type="text"
+                    className={styles.hexInput}
+                    value={draft}
+                    disabled={disabled}
+                    spellCheck={false}
+                    maxLength={7}
+                    aria-label={`${label}: código hexadecimal`}
+                    onChange={(event) => handleDraft(event.target.value)}
+                    onBlur={() => setDraft(value)}
+                />
+            </div>
+        </div>
+    );
+}
 
 function formatDate(timestamp: number) {
     return new Date(timestamp).toLocaleDateString("pt-BR");
@@ -123,12 +190,12 @@ export default function AccountSettings() {
     }
 
     // Fundo do perfil (cor primária + secundária): só vai ao banco quando confirmar.
-    const [pendingFrom, setPendingFrom] = useState(user?.bannerFrom ?? DEFAULT_BANNER_FROM);
-    const [pendingTo, setPendingTo] = useState(user?.bannerTo ?? DEFAULT_BANNER_TO);
+    const [pendingFrom, setPendingFrom] = useState(() => normalizeHexColor(user?.bannerFrom ?? "") ?? DEFAULT_BANNER_FROM);
+    const [pendingTo, setPendingTo] = useState(() => normalizeHexColor(user?.bannerTo ?? "") ?? DEFAULT_BANNER_TO);
 
     const bannerDirty =
-        (user?.bannerFrom ?? null) !== (pendingFrom as string | null) ||
-        (user?.bannerTo ?? null) !== (pendingTo as string | null);
+        (normalizeHexColor(user?.bannerFrom ?? "") ?? DEFAULT_BANNER_FROM) !== pendingFrom ||
+        (normalizeHexColor(user?.bannerTo ?? "") ?? DEFAULT_BANNER_TO) !== pendingTo;
 
     async function applyBanner() {
         if (appearanceBusy || !bannerDirty) return;
@@ -295,41 +362,18 @@ export default function AccountSettings() {
                     </div>
 
                     <div className={styles.customizeSection}>
-                        <div className={styles.customizeGroup}>
-                            <span className={styles.customizeLabel}>Cor primária</span>
-                            <div className={styles.swatchGrid}>
-                                {COLOR_PALETTE.map((color) => (
-                                    <button
-                                        key={color}
-                                        type="button"
-                                        className={`${styles.swatchBtn} ${pendingFrom === color ? styles.swatchSelected : ""}`}
-                                        style={{ background: color }}
-                                        title={color}
-                                        aria-label={`Cor primária: ${color}`}
-                                        disabled={appearanceBusy}
-                                        onClick={() => setPendingFrom(color)}
-                                    />
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className={styles.customizeGroup}>
-                            <span className={styles.customizeLabel}>Cor secundária</span>
-                            <div className={styles.swatchGrid}>
-                                {COLOR_PALETTE.map((color) => (
-                                    <button
-                                        key={color}
-                                        type="button"
-                                        className={`${styles.swatchBtn} ${pendingTo === color ? styles.swatchSelected : ""}`}
-                                        style={{ background: color }}
-                                        title={color}
-                                        aria-label={`Cor secundária: ${color}`}
-                                        disabled={appearanceBusy}
-                                        onClick={() => setPendingTo(color)}
-                                    />
-                                ))}
-                            </div>
-                        </div>
+                        <ColorField
+                            label="Cor primária"
+                            value={pendingFrom}
+                            disabled={appearanceBusy}
+                            onChange={setPendingFrom}
+                        />
+                        <ColorField
+                            label="Cor secundária"
+                            value={pendingTo}
+                            disabled={appearanceBusy}
+                            onChange={setPendingTo}
+                        />
 
                         <div className={styles.customizeActions}>
                             <button
@@ -429,7 +473,7 @@ export default function AccountSettings() {
                             onClick={() => void requestSensitiveAction("email")}
                             disabled={oauthBusy}
                         >
-                            <ShieldCheck size={15} />
+                            <DiscordIcon size={15} />
                             {oauthBusy ? "Aguardando o Discord..." : "Alterar com Discord"}
                         </button>
                     )}
@@ -455,7 +499,7 @@ export default function AccountSettings() {
                             onClick={() => void requestSensitiveAction("password")}
                             disabled={oauthBusy}
                         >
-                            <KeyRound size={15} />
+                            <DiscordIcon size={15} />
                             {oauthBusy ? "Aguardando o Discord..." : "Alterar com Discord"}
                         </button>
                     )}

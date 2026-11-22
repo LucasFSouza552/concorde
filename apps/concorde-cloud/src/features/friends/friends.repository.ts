@@ -1,7 +1,7 @@
-import { Friend, Friendship, FriendshipStatus, SendFriendRequestResult } from "@concorde/shared";
+import { Friend, FriendRelationshipState, Friendship, FriendshipStatus } from "@concorde/shared";
 
 export async function findUserByUsername(db: D1Database, username: string): Promise<Friend | null> {
-	return db.prepare(`SELECT id, username, displayName FROM users WHERE username = ? COLLATE NOCASE`)
+	return db.prepare(`SELECT id, username, displayName, avatar FROM users WHERE username = ? COLLATE NOCASE`)
 		.bind(username)
 		.first<Friend>();
 }
@@ -34,6 +34,33 @@ export async function findFriendship(
 	).first<Friendship>();
 }
 
+export async function findRelationship(
+	db: D1Database,
+	userId: string,
+	friendId: string
+): Promise<FriendRelationshipState> {
+	const { results } = await db.prepare(`
+        SELECT userId, friendId, status
+        FROM friendships
+        WHERE (userId = ? AND friendId = ?) OR (userId = ? AND friendId = ?)
+    `).bind(userId, friendId, friendId, userId).all<Friendship>();
+
+	let pendingOut = false;
+	let pendingIn = false;
+
+	for (const row of results ?? []) {
+		if (row.status === "accepted") return "friend";
+		if (row.status !== "pending") continue;
+
+		if (row.userId === userId) pendingOut = true;
+		if (row.friendId === userId) pendingIn = true;
+	}
+
+	if (pendingIn) return "pending-in";
+	if (pendingOut) return "pending-out";
+	return "none";
+}
+
 export async function sendRequest(db: D1Database, userId: string, friendId: string): Promise<void> {
 	await db.prepare(`INSERT INTO friendships (userId, friendId, status, createdAt) VALUES (?, ?, 'pending', ?)`)
 		.bind(userId, friendId, Date.now())
@@ -60,13 +87,14 @@ export async function acceptRequest(db: D1Database, userId: string, friendId: st
 }
 
 export async function declineRequest(db: D1Database, userId: string, friendId: string): Promise<boolean> {
-	const request = await getFriendship(db, friendId, userId);
+	const request = await getFriendship(db, friendId, userId)
+		?? await getFriendship(db, userId, friendId);
 
 	if (!request || request.status !== "pending") return false;
 
 	await db
-		.prepare(`DELETE FROM friendships WHERE userId = ? AND friendId = ?`)
-		.bind(friendId, userId)
+		.prepare(`DELETE FROM friendships WHERE (userId = ? AND friendId = ?) OR (userId = ? AND friendId = ?)`)
+		.bind(friendId, userId, userId, friendId)
 		.run();
 
 	return true;
@@ -118,6 +146,30 @@ export async function findFriendsByStatus(db: D1Database, userId: string, status
 		.all<FriendWithDiscordRow>();
 
 	return (results ?? []).map(normalizeFriend);
+}
+
+export async function findMutualFriendIds(
+	db: D1Database,
+	viewerId: string,
+	targetId: string
+): Promise<string[]> {
+	const { results } = await db.prepare(`
+        SELECT DISTINCT mine.friendId AS id
+        FROM friendships mine
+        INNER JOIN friendships theirs
+          ON theirs.userId = ?
+         AND theirs.friendId = mine.friendId
+         AND theirs.status = 'accepted'
+        JOIN users u ON u.id = mine.friendId
+        WHERE mine.userId = ?
+          AND mine.status = 'accepted'
+          AND mine.friendId <> ?
+          AND mine.friendId <> ?
+        ORDER BY u.displayName`)
+		.bind(targetId, viewerId, viewerId, targetId)
+		.all<{ id: string }>();
+
+	return (results ?? []).map((row) => row.id);
 }
 
 export async function findIncomingRequests(db: D1Database, userId: string): Promise<Friend[]> {

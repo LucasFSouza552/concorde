@@ -1,13 +1,16 @@
 {
 	"name": "@concorde/concorde-cloud",
-	"version": "0.1.6",
-	"private": true,
+  "version": "0.1.6",
+  "private": true,
+  "type": "module",
+
 	"scripts": {
 		"deploy": "wrangler deploy",
 		"dev": "wrangler dev",
 		"dev:remote": "wrangler dev --remote",
 		"start": "wrangler dev",
 		"test": "vitest",
+		"lint": "eslint .",
 		"cf-typegen": "wrangler types"
 	},
 	"dependencies": {
@@ -17,8 +20,12 @@
 	},
 	"devDependencies": {
 		"@cloudflare/vitest-plugin": "^1.0.0",
+		"@eslint/js": "^10.0.1",
 		"@types/node": "^26.6.3",
+		"eslint": "^10.10.0",
+		"globals": "^17.12.0",
 		"typescript": "^5.5.2",
+		"typescript-eslint": "^8.69.0",
 		"vitest": "~4.1.0",
 		"wrangler": "^4.144.0"
 	}

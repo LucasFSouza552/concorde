@@ -60,6 +60,9 @@
     place-items: center;
     border-radius: 50%;
     background: var(--gradient-brand);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
     font-size: var(--fs-base);
     font-weight: 700;
 }
@@ -106,8 +109,15 @@
 .discordBadge {
     display: inline-flex;
     align-items: center;
+    gap: 4px;
     margin-left: 6px;
-    color: var(--color-primary);
+    padding: 1px 6px;
+    border-radius: var(--radius-pill);
+    background: var(--color-discord-soft);
+    color: var(--color-discord);
+    font-size: var(--fs-xs);
+    font-weight: 700;
+    line-height: 1.4;
     vertical-align: middle;
 }
 
@@ -179,6 +189,10 @@
 
 .tabBtn {
     flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
     padding: 10px 12px;
     border: 1px solid transparent;
     border-radius: var(--radius-pill);
@@ -204,6 +218,10 @@
 .tabBtn:focus-visible {
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
+}
+
+.discordIconAccent {
+    color: var(--color-discord);
 }
 
 .tabBadge {
@@ -435,6 +453,8 @@
 
 .menuItem {
     display: flex;
+    align-items: center;
+    gap: 8px;
     width: 100%;
     padding: 8px 12px;
     border: none;

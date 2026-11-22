@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { ArrowRight, BadgeCheck, Clock3, KeyRound, Link2, MessageCircle, RefreshCw, Sparkles, Unlink, UserRound } from "lucide-react";
+import { ArrowRight, BadgeCheck, Clock3, KeyRound, RefreshCw, Sparkles, Unlink, UserRound } from "lucide-react";
 import type { DiscordEvent, DiscordIntegrationStatus } from "@concorde/shared";
 
+import DiscordIcon from "../DiscordIcon/DiscordIcon";
 import { getErrorMessage } from "../../api/api";
 import {
     applyDiscordProfile,
@@ -174,9 +175,10 @@ export default function IntegrationsSettings() {
             <div className={styles.panelStack}>
                 <div className={styles.sectionCard}>
                     <div className={styles.sectionHead}>
-                        <span className={`${styles.sectionIcon} ${styles.sectionIconAlt}`} aria-hidden="true">
-                            <MessageCircle size={16} />
+                        <span className={`${styles.sectionIcon} ${styles.discordIcon}`} aria-hidden="true">
+                            <DiscordIcon size={16} />
                         </span>
+
                         <div className={styles.sectionHeadText}>
                             <p className={styles.sectionTitle}>
                                 Discord
@@ -212,7 +214,7 @@ export default function IntegrationsSettings() {
                                         {status.account.providerAvatar ? (
                                             <img src={status.account.providerAvatar} alt="" />
                                         ) : (
-                                            <MessageCircle size={18} />
+                                            <DiscordIcon size={18} />
                                         )}
                                     </span>
                                     <div className={styles.connectionText}>
@@ -258,7 +260,8 @@ export default function IntegrationsSettings() {
                                                 {status.account.providerAvatar ? (
                                                     <img src={status.account.providerAvatar} alt="" />
                                                 ) : (
-                                                    <MessageCircle size={16} />
+                            <DiscordIcon size={16} />
+
                                                 )}
                                             </span>
                                             <span className={styles.previewText}>
@@ -342,7 +345,7 @@ export default function IntegrationsSettings() {
                                     onClick={() => void startLink()}
                                     disabled={oauthBusy || loading}
                                 >
-                                    <Link2 size={15} />
+                                    <DiscordIcon size={15} />
                                     {oauthBusy ? "Aguardando o Discord..." : "Vincular Discord"}
                                 </button>
                             </div>

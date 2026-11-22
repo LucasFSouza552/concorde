@@ -11,6 +11,7 @@ const ROOM_RENEWAL_INTERVAL_MS = 60 * 60_000;
 const ROOM_EMPTY_GRACE_MS = 60_000;
 /** Timeout para chamadas 1:1 aguardando atendimento. */
 const CALL_RING_TIMEOUT_MS = 30_000;
+const PEER_LEFT_GRACE_MS = 2500;
 
 interface CallPeer extends Peer {
 	/** true somente depois do join com identidade verificada. */
@@ -28,6 +29,9 @@ interface PersistedCallState {
 export class CallSession {
 	private clients = new Map<WebSocket, CallPeer>();
 	private state = new Map<string, { sharing: boolean; muted: boolean; deafened: boolean }>();
+	private watchers = new Map<string, Set<string>>();
+	private leaveTimers = new Map<string, ReturnType<typeof setTimeout>>();
+	private signalingEpoch = 0;
 
 	private roomId: string | null = null;
 
@@ -53,7 +57,17 @@ export class CallSession {
 				this.ringStartedAt = stored.ringStartedAt;
 				this.decided = stored.decided;
 			}
-		} catch {}
+			const epoch = await this.ctx.storage.get<number>('signalingEpoch');
+			if (typeof epoch === 'number') this.signalingEpoch = epoch;
+		} catch (error) { void error; }
+	}
+
+	private async bumpSignalingEpoch(): Promise<number> {
+		this.signalingEpoch += 1;
+		try {
+			await this.ctx.storage.put('signalingEpoch', this.signalingEpoch);
+		} catch (error) { void error; }
+		return this.signalingEpoch;
 	}
 
 	private async persistState(): Promise<void> {
@@ -63,7 +77,7 @@ export class CallSession {
 				ringStartedAt: this.ringStartedAt,
 				decided: this.decided
 			});
-		} catch {}
+		} catch (error) { void error; }
 	}
 
 	private async expireRingingCall(): Promise<void> {
@@ -78,15 +92,17 @@ export class CallSession {
 		for (const client of this.clients.keys()) {
 			try {
 				client.close(4000, 'Chamada expirada');
-			} catch {}
+			} catch (error) { void error; }
 		}
 
 		if (this.roomId) {
 			try {
 				await deleteCallRoom(this.env.concorde_users, this.roomId);
-			} catch {}
+			} catch (error) { void error; }
 		}
 
+		for (const timer of this.leaveTimers.values()) clearTimeout(timer);
+		this.leaveTimers.clear();
 		this.clients.clear();
 	}
 
@@ -103,7 +119,7 @@ export class CallSession {
 			if (this.roomId) {
 				try {
 					await touchCallRoom(this.env.concorde_users, this.roomId, Date.now());
-				} catch {}
+				} catch (error) { void error; }
 			}
 			await this.ctx.storage.setAlarm(Date.now() + ROOM_RENEWAL_INTERVAL_MS);
 		}
@@ -188,11 +204,17 @@ export class CallSession {
 					break;
 				}
 				case 'screen-watch': {
+					const from = this.clients.get(server)?.userId ?? '';
+					const current = this.watchers.get(message.target) ?? new Set<string>();
+					if (message.watching) current.add(from);
+					else current.delete(from);
+					if (current.size === 0) this.watchers.delete(message.target);
+					else this.watchers.set(message.target, current);
 					this.broadcast(server, {
 						type: 'screen-watch',
 						target: message.target,
 						watching: message.watching,
-						from: this.clients.get(server)?.userId ?? ''
+						from
 					});
 					break;
 				}
@@ -203,11 +225,20 @@ export class CallSession {
 			const peer = this.clients.get(server);
 			this.clients.delete(server);
 
-			if (peer?.joined) {
-				if (!this.findClient(peer.userId)) {
+			if (peer?.joined && !this.findClient(peer.userId)) {
+				const timer = setTimeout(() => {
+					this.leaveTimers.delete(peer.userId);
+					if (this.findClient(peer.userId)) return;
+
 					this.state.delete(peer.userId);
-				}
-				this.broadcast(server, { type: 'peer-left', userId: peer.userId });
+					this.watchers.delete(peer.userId);
+					for (const [target, ids] of this.watchers) {
+						ids.delete(peer.userId);
+						if (ids.size === 0) this.watchers.delete(target);
+					}
+					this.broadcast(server, { type: 'peer-left', userId: peer.userId });
+				}, PEER_LEFT_GRACE_MS);
+				this.leaveTimers.set(peer.userId, timer);
 			}
 
 			if (this.clients.size === 0 && this.roomId) {
@@ -215,7 +246,7 @@ export class CallSession {
 			}
 		});
 
-		server.send(JSON.stringify({ type: 'connected' }));
+		server.send(JSON.stringify({ type: 'connected', epoch: this.signalingEpoch }));
 
 		return new Response(null, { status: 101, webSocket: client });
 	}
@@ -277,20 +308,37 @@ export class CallSession {
 
 		if (staleSocket) {
 			this.clients.delete(staleSocket);
-			this.broadcast(server, { type: 'peer-left', userId: verified.userId });
+		}
+
+		const pendingLeave = this.leaveTimers.get(verified.userId);
+		if (pendingLeave) {
+			clearTimeout(pendingLeave);
+			this.leaveTimers.delete(verified.userId);
 		}
 
 		this.state.delete(verified.userId);
+		await this.bumpSignalingEpoch();
 
-		server.send(JSON.stringify({ type: 'peers', peers: this.getPeers() }));
+		this.send(server, { type: 'peers', peers: this.getPeers() });
 
 		for (const [userId, current] of this.state) {
 			if (userId === verified.userId || !userId) continue;
 			if (current.sharing) {
-				server.send(JSON.stringify({ type: 'screen-share', sharing: true, from: userId }));
+				this.send(server, { type: 'screen-share', sharing: true, from: userId });
 			}
 			if (current.muted || current.deafened) {
-				server.send(JSON.stringify({ type: 'mute-state', muted: current.muted, deafened: current.deafened, from: userId }));
+				this.send(server, { type: 'mute-state', muted: current.muted, deafened: current.deafened, from: userId });
+			}
+		}
+
+		for (const [target, ids] of this.watchers) {
+			if (target === verified.userId) {
+				for (const from of ids) {
+					this.send(server, { type: 'screen-watch', target, watching: true, from });
+				}
+			}
+			if (ids.has(verified.userId)) {
+				this.broadcast(server, { type: 'screen-watch', target, watching: true, from: verified.userId });
 			}
 		}
 
@@ -331,9 +379,10 @@ export class CallSession {
 			return false;
 		}
 
-		let allowed = false;
+		let allowed: boolean;
 
 		if (room.kind === 'dm') {
+
 			allowed = await isCallRoomParticipant(db, groupId, userId);
 		} else if (room.concordeGroupId) {
 			allowed = (await findGroupMember(db, room.concordeGroupId, userId)) !== null;
@@ -367,7 +416,7 @@ export class CallSession {
 			if (this.roomId) {
 				try {
 					await touchCallRoom(this.env.concorde_users, this.roomId, Date.now());
-				} catch {}
+				} catch (error) { void error; }
 			}
 
 			await this.ctx.storage.setAlarm(Date.now() + ROOM_RENEWAL_INTERVAL_MS);
@@ -377,7 +426,7 @@ export class CallSession {
 		if (this.roomId) {
 			try {
 				await deleteCallRoom(this.env.concorde_users, this.roomId);
-			} catch {}
+			} catch (error) { void error; }
 		}
 	}
 
@@ -387,11 +436,16 @@ export class CallSession {
 			.map(({ userId, username }) => ({ userId, username }));
 	}
 
+	private send(socket: WebSocket, message: ServerMessage): void {
+		socket.send(JSON.stringify({ ...message, epoch: this.signalingEpoch }));
+	}
+
 	private broadcast(sender: WebSocket, message: ServerMessage) {
+		const stamped = { ...message, epoch: this.signalingEpoch };
 		for (const client of this.clients.keys()) {
 			if (client === sender) continue;
 			try {
-				client.send(JSON.stringify(message));
+				client.send(JSON.stringify(stamped));
 			} catch (error) {
 				console.error('Falha no broadcast da call:', error);
 			}
@@ -402,7 +456,7 @@ export class CallSession {
 		const from = this.clients.get(server)?.userId ?? '';
 		const target = this.findClient(message.to);
 		if (!target) return;
-		target.send(JSON.stringify({ ...message, from } satisfies ServerMessage));
+		this.send(target, { ...message, from } satisfies ServerMessage);
 	}
 
 	private findClient(userId: string): WebSocket | undefined {

@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 
 import Page from "../../../../components/Page/Page";
+import DiscordIcon from "../../../../components/DiscordIcon/DiscordIcon";
 import type { Friend, UserStatus } from "@concorde/shared";
 import AcceptedFriendsList from "./AcceptedFriendsListProps";
 import AddFriendCard from "./AddFriendCard";
 import ChatView from "./ChatView/ChatView";
 import IncomingRequestsList from "./IncomingRequestsList";
 import { useCallInviteState } from "../../../../contexts/CallInviteProvider";
+import { useProfile } from "../../../../contexts/ProfileProvider";
 import { useToast } from "../../../../contexts/ToastProvider";
 
 import { api, getErrorMessage } from "../../../../api/api";
@@ -48,12 +50,25 @@ function isAvailable(status: UserStatus | undefined) {
     return status !== undefined && status !== "offline" && status !== "invisible";
 }
 
+function profileOf(friend: Friend) {
+    return {
+        id: friend.id,
+        displayName: friend.displayName,
+        username: friend.username,
+        avatar: friend.avatar,
+        discordVerified: friend.discord?.verified,
+        discordLinked: Boolean(friend.discord),
+        discordUsername: friend.discord?.username,
+    };
+}
+
 export default function Friends({ activeChannelId, onActiveChannel, onSelectFriend, selectedFriend, hidden = false, onOpenFriend }: FriendsProps) {
-    const { friends, loading, load, remove, error: errorFriendsList } = useFriendsList();
+    const { friends, loading, refresh: load, remove, error: errorFriendsList } = useFriendsList();
     const { query, add, setQuery, state } = useFriendRequest();
     const { accept, decline, requests, loadRequests, loading: loadingRequests, error: errorRequests } = useIncomingRequests();
     const [tab, setTab] = useState<FriendsTab>("all");
     const { dial } = useCallInviteState();
+    const { openProfile, closeProfile } = useProfile();
 
     const presences = useFriendsPresence(friends);
 
@@ -107,6 +122,18 @@ export default function Friends({ activeChannelId, onActiveChannel, onSelectFrie
         })();
     }
 
+    function openFriendProfile(friend: Friend) {
+        openProfile(profileOf(friend), {
+            actions: {
+                onMessage: (profileUser) => {
+                    const target = friends.find((entry) => entry.id === profileUser.id) ?? friend;
+                    closeProfile();
+                    handleOpenChat(target);
+                },
+            },
+        });
+    }
+
     function handleCloseChat() {
         onActiveChannel(null);
         onSelectFriend(null);
@@ -145,6 +172,7 @@ export default function Friends({ activeChannelId, onActiveChannel, onSelectFrie
                                 className={`${styles.tabBtn} ${tab === entry.id ? styles.tabBtnActive : ""}`}
                                 onClick={() => setTab(entry.id)}
                             >
+                                {entry.id === "discord" && <DiscordIcon size={15} className={styles.discordIconAccent} />}
                                 {entry.label}
                                 {entry.id === "requests" && requests.length > 0 && (
                                     <span className={styles.tabBadge}>{requests.length}</span>
@@ -164,6 +192,7 @@ export default function Friends({ activeChannelId, onActiveChannel, onSelectFrie
                             onRemove={remove}
                             onChat={handleOpenChat}
                             onCall={handleCall}
+                            onProfile={openFriendProfile}
                         />
                     )}
 
@@ -171,27 +200,14 @@ export default function Friends({ activeChannelId, onActiveChannel, onSelectFrie
                         <AcceptedFriendsList
                             friends={discordFriends}
                             presences={presences}
-                            title="Amigos no Discord"
+                            title={<><DiscordIcon size={14} className={styles.discordIconAccent} /> Amigos no Discord</>}
                             loading={loading}
                             error={errorFriendsList}
                             onReload={load}
                             onRemove={remove}
                             onChat={handleOpenChat}
                             onCall={handleCall}
-                        />
-                    )}
-
-                    {tab === "discord" && (
-                        <AcceptedFriendsList
-                            friends={discordFriends}
-                            presences={presences}
-                            title="Amigos no Discord"
-                            loading={loading}
-                            error={errorFriendsList}
-                            onReload={load}
-                            onRemove={remove}
-                            onChat={handleOpenChat}
-                            onCall={handleCall}
+                            onProfile={openFriendProfile}
                         />
                     )}
 

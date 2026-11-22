@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Crown, LogOut, MoreVertical, Phone, PhoneIncoming, Plus, RefreshCw, Search, Shield, User, UserPlus, Users, Volume2 } from "lucide-react";
 
-import ProfilePanel from "../../../../components/ProfilePanel/ProfilePanel";
 import { SkeletonList } from "../../../../components/Skeleton/Skeleton";
 import UserAvatar from "../../../../components/UserAvatar/UserAvatar";
 import { roleLabels, type Friend, type GroupRole, type PresenceBatchResponse } from "@concorde/shared";
 import { useAuth } from "../../../../contexts/AuthContext";
+import { useProfile } from "../../../../contexts/ProfileProvider";
 import { useToast } from "../../../../contexts/ToastProvider";
 import { useUserSocketEvent } from "../../../../contexts/UserSocketProvider";
 
@@ -28,7 +28,7 @@ interface GroupDetailProps {
     callLabel?: string;
     onCall?: () => void;
     /** Presentes na chamada ativa do grupo (card com avatares + entrar). */
-    callParticipants?: { id: string; displayName: string }[];
+    callParticipants?: { id: string; displayName: string; avatar?: string | null }[];
 }
 
 function roleIcon(role: string) {
@@ -54,10 +54,10 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
     const [pendingRemove, setPendingRemove] = useState<string | null>(null);
     // Menu de contexto (botão direito) sobre um membro: perfil / adicionar amigo.
     const [memberMenu, setMemberMenu] = useState<{ x: number; y: number; member: GroupMemberItem } | null>(null);
-        const [profile, setProfile] = useState<GroupMemberItem | null>(null);
     const menuRef = useRef<HTMLDivElement | null>(null);
     const openItemRef = useRef<HTMLDivElement | null>(null);
     const lastEvent = useUserSocketEvent();
+    const { openProfile } = useProfile();
     const { push } = useToast();
     const canManage = myRole === "owner" || myRole === "admin";
 
@@ -135,17 +135,16 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
         return () => window.removeEventListener("keydown", handleKey);
     }, [openMenu]);
 
-    // Escape fecha o menu de contexto e o cartão de perfil.
+    // Escape fecha o menu de contexto.
     useEffect(() => {
-        if (!memberMenu && !profile) return;
+        if (!memberMenu) return;
         function handleKey(event: KeyboardEvent) {
             if (event.key !== "Escape") return;
             setMemberMenu(null);
-            setProfile(null);
         }
         window.addEventListener("keydown", handleKey);
         return () => window.removeEventListener("keydown", handleKey);
-    }, [memberMenu, profile]);
+    }, [memberMenu]);
 
     useEffect(() => {
         if (addOpen && friends.length === 0) void loadFriends();
@@ -211,6 +210,12 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
         } catch (error) {
             push(getErrorMessage(error), "error");
         }
+    }
+
+    function showProfile(member: GroupMemberItem) {
+        openProfile(member, {
+            roleLabel: roleLabels[member.role as GroupRole] ?? member.role,
+        });
     }
 
     function openMemberMenu(event: React.MouseEvent, member: GroupMemberItem) {
@@ -343,9 +348,14 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                 <div className={styles.roomCard}>
                     <div className={styles.roomAvatars} aria-hidden="true">
                         {callParticipants.slice(0, 4).map((participant) => (
-                            <span key={participant.id} className={styles.roomAvatar}>
-                                {participant.displayName.trim().charAt(0).toUpperCase() || "?"}
-                            </span>
+                            <UserAvatar
+                                key={participant.id}
+                                name={participant.displayName}
+                                avatar={participant.avatar}
+                                size={30}
+                                round
+                                className={styles.roomAvatar}
+                            />
                         ))}
                         {callParticipants.length > 4 && (
                             <span className={`${styles.roomAvatar} ${styles.roomAvatarMore}`}>
@@ -551,7 +561,7 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                                 type="button"
                                 role="menuitem"
                                 className={styles.gMenuItem}
-                                onClick={() => { setProfile(memberMenu.member); setMemberMenu(null); }}
+                                onClick={() => { showProfile(memberMenu.member); setMemberMenu(null); }}
                             >
                                 <User size={14} aria-hidden="true" />
                                 Ver perfil
@@ -569,30 +579,6 @@ export default function GroupDetail({ groupId, name, myRole, onBack, membersVisi
                             )}
                         </div>
                     </>
-                );
-            })()}
-
-            {/* Painel de perfil (lateral esquerda) de qualquer pessoa do grupo */}
-            {profile && (() => {
-                const isSelf = profile.id === user?.id;
-                const isFriend = friendIds.has(profile.id);
-                return (
-                    <ProfilePanel
-                        key={profile.id}
-                        user={profile}
-                        onClose={() => setProfile(null)}
-                        roleLabel={roleLabels[profile.role as GroupRole] ?? profile.role}
-                        actions={!isSelf && !isFriend ? (
-                            <button
-                                type="button"
-                                className={styles.joinBtn}
-                                onClick={() => void sendFriendRequest(profile)}
-                            >
-                                <UserPlus size={14} aria-hidden="true" />
-                                Adicionar amigo
-                            </button>
-                        ) : undefined}
-                    />
                 );
             })()}
         </div>

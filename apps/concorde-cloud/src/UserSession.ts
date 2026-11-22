@@ -220,7 +220,7 @@ export class UserSession {
 	}
 
 	private async notifyAudience(userId: string, message: UserSocketServerMessage): Promise<void> {
-		let audience: { id: string }[] = [];
+		let audience: { id: string }[];
 
 		try {
 			const [friends, coMembers] = await Promise.all([
@@ -321,7 +321,7 @@ export class UserSession {
 		// Consultante externo recebe a forma "não está em chamada".
 		// Falha de registro → falha fechada (esconde), sem derrubar a API.
 		if (groupId && concordeGroupId === null && callerId !== targetId) {
-			let participant = false;
+			let participant: boolean;
 
 			try {
 				participant = await isCallRoomParticipant(this.env.concorde_users, groupId, callerId);

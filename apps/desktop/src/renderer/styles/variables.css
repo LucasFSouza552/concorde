@@ -20,6 +20,8 @@
     --color-primary-hover: #ff007f;
     --color-primary-ink: #ffffff;
     --color-primary-soft: rgba(255, 20, 147, 0.12);
+    --color-discord: #5865f2;
+    --color-discord-soft: rgba(88, 101, 242, 0.16);
 
     /* Status */
     --color-success: #39ff14;

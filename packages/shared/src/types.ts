@@ -18,6 +18,8 @@ export interface User {
     discordShowcase?: boolean;
     discordVerified?: boolean;
     discordAutoSync?: boolean;
+    discordLinked?: boolean;
+    discordUsername?: string | null;
 }
 
 /** Tokens completos de uma sessão estabelecida. */
@@ -162,6 +164,16 @@ export interface Friendship {
 }
 
 export type SendFriendRequestResult = "sent" | "already-friends" | "pending" | "self";
+
+export type FriendRelationshipState = "self" | "friend" | "pending-out" | "pending-in" | "none";
+
+export interface FriendRelationshipResponse {
+    state: FriendRelationshipState;
+}
+
+export interface MutualFriendsResponse {
+    ids: string[];
+}
 
 export type UserSocketClientMessage =
     | { type: "auth"; token: string }

@@ -35,7 +35,7 @@ interface SideBarProps {
 export default function SideBar({ activeFriendId, onOpenFriend, onOpenGroup, onJoinCall, onGroupDeleted }: SideBarProps) {
     const { requests, accept, decline, loadRequests, loading: loadingRequests, error: errorRequests } = useIncomingRequests();
     const { groups, load: reloadGroups } = useGroupsList();
-    const { friends, load: reloadFriends } = useFriendsList();
+    const { friends, refresh: reloadFriends } = useFriendsList();
     const { calls: activeCalls } = useActiveCalls(groups, friends);
     const presences = useFriendsPresence(friends);
     const { dial } = useCallInviteState();

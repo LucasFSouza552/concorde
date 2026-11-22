@@ -4,6 +4,7 @@ import { ChevronLeft, Phone } from "lucide-react";
 import type { Friend } from "@concorde/shared";
 import { useActiveCall } from "../../../../../contexts/ActiveCallProvider";
 import { useCallInviteState } from "../../../../../contexts/CallInviteProvider";
+import { useProfile } from "../../../../../contexts/ProfileProvider";
 import { useToast } from "../../../../../contexts/ToastProvider";
 import UserIdentity from '../UserIdentity';
 import CallArea from "./CallArea";
@@ -41,6 +42,7 @@ export default function ChatView({ channelId, friend, onBack, showHeader = true,
     const { messages, loading, error: errorMessages, send, sending, cooling, remove } = useChannelMessages(channelId);
     const { dial, outgoing, joinGroupCall, joinedGroup } = useCallInviteState();
     const { groupId, peers } = useActiveCall();
+    const { openProfile } = useProfile();
     const { push } = useToast();
     const presences = usePresenceSnapshot();
     const peerPresence = presences.get(friend.id) ?? null;
@@ -100,7 +102,30 @@ export default function ChatView({ channelId, friend, onBack, showHeader = true,
                             <ChevronLeft />
                         </button>
                     )}
-                    <UserIdentity displayName={friend.displayName} username={friend.username} large />
+                    <button
+                        type="button"
+                        className={styles.profileButton}
+                        title={`Ver perfil de ${friend.displayName}`}
+                        aria-label={`Ver perfil de ${friend.displayName}`}
+                        onClick={() => openProfile({
+                            id: friend.id,
+                            displayName: friend.displayName,
+                            username: friend.username,
+                            avatar: friend.avatar,
+                            discordVerified: friend.discord?.verified,
+                            discordLinked: Boolean(friend.discord),
+                            discordUsername: friend.discord?.username,
+                        })}
+                    >
+                        <UserIdentity
+                            displayName={friend.displayName}
+                            username={friend.username}
+                            avatar={friend.avatar}
+                            discordVerified={Boolean(friend.discord?.verified)}
+                            discordLinked={Boolean(friend.discord)}
+                            large
+                        />
+                    </button>
 
                     {!callVisible && !inCallWithFriend && (
                         <button

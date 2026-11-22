@@ -5,6 +5,7 @@ import { changeEmailWithDiscord, changePasswordWithDiscord } from "../../api/dis
 import { useAuth } from "../../contexts/AuthContext";
 import { useDiscordOAuth } from "../../hooks/useDiscordOAuth";
 import { useToast } from "../../contexts/ToastProvider";
+import DiscordIcon from "../DiscordIcon/DiscordIcon";
 import Modal from "../Modal/Modal";
 
 import styles from "./DiscordSensitiveModal.module.css";
@@ -82,9 +83,12 @@ function SensitiveForm({
 
     return (
         <>
-            <p className={styles.description}>
-                Sua identidade foi confirmada pelo Discord. Conclua a alteração abaixo.
-            </p>
+            <div className={styles.discordIntro}>
+                <DiscordIcon size={22} />
+                <p className={styles.description}>
+                    Sua identidade foi confirmada pelo Discord. Conclua a alteração abaixo.
+                </p>
+            </div>
 
             <form onSubmit={handleSubmit}>
                 {action === "email" ? (

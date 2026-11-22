@@ -1,5 +1,3 @@
-import { Env } from "../../types/Env";
-
 export interface ClientVersion {
 	id: string;
 	username: string;

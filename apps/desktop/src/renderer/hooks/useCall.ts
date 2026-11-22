@@ -4,7 +4,7 @@ import type { ClientMessage, ForwardedDirectMessage, Peer, ScreenQuality } from 
 import { createCallSocket, type CallSocket, type CallStatus } from "./CallSocket";
 import { startWindowAudio, stopWindowAudio } from "./screenProcessAudio";
 import { useLocalMedia } from "./useLocalMedia";
-import { createWebRTCManager } from "./WebRTCManager";
+import { createWebRTCManager, type PeerStats } from "./WebRTCManager";
 import { playSound } from "../audio/sounds";
 import { useToast } from "../contexts/ToastProvider";
 
@@ -31,6 +31,7 @@ interface UseCallResult {
     remoteScreenAudioStreams: Record<string, MediaStream>;
 
     peerRtt: Record<string, number | null>;
+    peerStats: Record<string, PeerStats>;
 
     screenStream: MediaStream | null;
     startScreenShare: (sourceId?: string, quality?: ScreenQuality, includeAudio?: boolean) => Promise<void>;
@@ -50,6 +51,9 @@ export function useCall(groupId: string | null): UseCallResult {
     const [remoteStreams, setRemoteStreams] = useState<Record<string, MediaStream>>({});
 
     const [peerRtt, setPeerRtt] = useState<Record<string, number | null>>({});
+    const [peerStats, setPeerStats] = useState<Record<string, PeerStats>>({});
+    const watchingShareIdsRef = useRef<Set<string>>(new Set());
+    const signalErrorNotifiedRef = useRef(false);
 
     const managerRef = useRef<ReturnType<typeof createWebRTCManager> | null>(null);
     const localMedia = useLocalMedia(groupId !== null);
@@ -60,6 +64,10 @@ export function useCall(groupId: string | null): UseCallResult {
     const startingShareRef = useRef(false);
     const [remoteScreenStreams, setRemoteScreenStreams] = useState<Record<string, MediaStream>>({});
     const [remoteScreenAudioStreams, setRemoteScreenAudioStreams] = useState<Record<string, MediaStream>>({});
+
+    useEffect(() => {
+        watchingShareIdsRef.current = watchingShareIds;
+    }, [watchingShareIds]);
 
     if (!managerRef.current) {
         const session = getSession();
@@ -76,6 +84,9 @@ export function useCall(groupId: string | null): UseCallResult {
                 setRemoteScreenAudioStreams((current) => ({ ...current, [peerId]: stream })),
             onPeerRtt: (peerId, rttMs) => {
                 setPeerRtt((current) => ({ ...current, [peerId]: rttMs }));
+            },
+            onPeerStats: (peerId, stats) => {
+                setPeerStats((current) => ({ ...current, [peerId]: stats }));
             },
             getScreenStream: () => screenStreamRef.current,
             shouldOffer: (peerId) => (session?.user.id ?? "") < peerId,
@@ -103,6 +114,23 @@ export function useCall(groupId: string | null): UseCallResult {
             username: session.user.displayName,
 
             onStatus: setStatus,
+
+            onReconnected: () => {
+                if (screenStreamRef.current) {
+                    send({ type: "screen-share", sharing: true });
+                }
+                watchingShareIdsRef.current.forEach((peerId) => {
+                    send({ type: "screen-watch", target: peerId, watching: true });
+                });
+            },
+
+            onSignalError: () => {
+                if (signalErrorNotifiedRef.current) return;
+                signalErrorNotifiedRef.current = true;
+                pushToast("Algumas mensagens de sinalização expiraram; a chamada foi sincronizada.", "info");
+            },
+
+            getGeneration: () => webrtc.getGeneration(),
 
             onPeers: (incoming) => {
                 setPeers(incoming);
@@ -173,6 +201,13 @@ export function useCall(groupId: string | null): UseCallResult {
                     return next;
                 });
 
+                setPeerStats((current) => {
+                    if (!(peerId in current)) return current;
+                    const next = { ...current };
+                    delete next[peerId];
+                    return next;
+                });
+
                 playSound("leave");
             },
             onDirect: function (message: ForwardedDirectMessage): void {
@@ -182,13 +217,13 @@ export function useCall(groupId: string | null): UseCallResult {
 
                 switch (message.type) {
                     case "offer":
-                        webrtc.handleOffer(from, message.sdp);
+                        webrtc.handleOffer(from, message.sdp, message.generation ?? 0);
                         break;
                     case "answer":
-                        webrtc.handleAnswer(from, message.sdp);
+                        webrtc.handleAnswer(from, message.sdp, message.generation ?? 0);
                         break;
                     case "ice-candidate":
-                        webrtc.handleCandidate(from, message.candidate);
+                        webrtc.handleCandidate(from, message.candidate, message.generation ?? 0);
                         break;
                     case "mute-state":
                         setPeerMuted((current) => ({
@@ -234,6 +269,8 @@ export function useCall(groupId: string | null): UseCallResult {
         return () => {
             setWatchingShareIds(new Set());
             setShareViewers([]);
+            setPeerStats({});
+            signalErrorNotifiedRef.current = false;
             stopScreenShare();
             socketRef.current?.close();
             socketRef.current = null;
@@ -335,10 +372,9 @@ export function useCall(groupId: string | null): UseCallResult {
             });
         }
 
-        let stream: MediaStream;
         let audioTrack: MediaStreamTrack | null = null;
 
-        stream = await captureScreen(false);
+        const stream = await captureScreen(false);
 
         if (wantAudio) {
             try {
@@ -366,8 +402,8 @@ export function useCall(groupId: string | null): UseCallResult {
 
         try {
             videoTrack.contentHint = "detail";
-        } catch {
-
+        } catch (error) {
+            void error;
         }
 
         videoTrack.onended = () => {
@@ -395,6 +431,6 @@ export function useCall(groupId: string | null): UseCallResult {
         setShareViewers([]);
     }
 
-    return { status, peers, send, localStream: localMedia.localStream, remoteStreams, switchMicrophone, peerMuted, peerSharing, watchingShareIds, watchShare, unwatchShare, shareViewers, remoteScreenStreams, remoteScreenAudioStreams, peerRtt, screenStream, startScreenShare, stopScreenShare };
+    return { status, peers, send, localStream: localMedia.localStream, remoteStreams, switchMicrophone, peerMuted, peerSharing, watchingShareIds, watchShare, unwatchShare, shareViewers, remoteScreenStreams, remoteScreenAudioStreams, peerRtt, peerStats, screenStream, startScreenShare, stopScreenShare };
 
 }

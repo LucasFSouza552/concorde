@@ -7,7 +7,7 @@ export interface NewGroup {
 	createdAt: number;
 }
 
-export interface GroupRecord extends NewGroup { }
+export type GroupRecord = NewGroup;
 
 export interface GroupMemberRecord {
 	groupId: string;
@@ -156,13 +156,20 @@ export interface GroupMemberWithUser {
 	bannerFrom?: string | null;
 	bannerTo?: string | null;
 	discordVerified?: boolean;
+	discordLinked?: boolean;
+	discordUsername?: string | null;
 	role: GroupRole;
 	joinedAt: number;
 }
 
 export async function listGroupMembers(db: D1Database, groupId: string): Promise<GroupMemberWithUser[]> {
 	const result = await db.prepare(`SELECT m.userId AS id, u.username, u.displayName, u.avatar, u.bannerFrom, u.bannerTo,
-		u.discordVerified AS discordVerified, m.role, m.joinedAt
+		u.discordVerified AS discordVerified,
+		EXISTS(SELECT 1 FROM auth_accounts a WHERE a.userId = u.id AND a.provider = 'discord') AS discordLinked,
+		CASE WHEN u.discordShowcase = 1 THEN (
+			SELECT a.providerUsername FROM auth_accounts a WHERE a.userId = u.id AND a.provider = 'discord' LIMIT 1
+		) ELSE NULL END AS discordUsername,
+		m.role, m.joinedAt
 		FROM group_members m
 		JOIN users u ON u.id = m.userId
 		WHERE m.groupId = ?
@@ -172,7 +179,9 @@ export async function listGroupMembers(db: D1Database, groupId: string): Promise
 
 	return result.results.map((member) => ({
 		...member,
-		discordVerified: Boolean(member.discordVerified)
+		discordVerified: Boolean(member.discordVerified),
+		discordLinked: Boolean(member.discordLinked),
+		discordUsername: member.discordUsername ?? null
 	}));
 }
 

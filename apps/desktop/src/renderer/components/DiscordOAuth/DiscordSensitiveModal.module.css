@@ -1,5 +1,18 @@
+.discordIntro {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.discordIntro svg {
+    flex: none;
+    margin-top: 1px;
+    color: var(--color-discord);
+}
+
 .description {
-    margin: 0 0 16px;
+    margin: 0;
     font-size: var(--fs-sm);
     color: var(--color-text-muted);
     line-height: 1.5;
@@ -8,8 +21,8 @@
 .field {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    margin-bottom: 12px;
+    gap: 8px;
+    margin-bottom: 14px;
 }
 
 .label {
@@ -43,8 +56,8 @@
 .actions {
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
-    margin-top: 16px;
+    gap: 10px;
+    margin-top: 20px;
 }
 
 .secondaryBtn,

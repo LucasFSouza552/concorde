@@ -1,5 +1,5 @@
-import { Friend, SendFriendRequestResult, UserSocketServerMessage } from "@concorde/shared";
-import { findUserByUsername, findFriendsByStatus, sendRequest as sendRequestRepo, acceptRequest as acceptRequestRepo, declineRequest as declineRequestRepo, removeFriend as removeFriendRepo, findFriendship, findIncomingRequests } from "./friends.repository";
+import { Friend, FriendRelationshipState, SendFriendRequestResult, UserSocketServerMessage } from "@concorde/shared";
+import { findUserByUsername, findFriendsByStatus, sendRequest as sendRequestRepo, acceptRequest as acceptRequestRepo, declineRequest as declineRequestRepo, removeFriend as removeFriendRepo, findFriendship, findRelationship, findIncomingRequests, findMutualFriendIds } from "./friends.repository";
 import { getUserById } from "../auth/auth.repository";
 import { deliverToUser } from "../calls/calls.service";
 import { Env } from "../../types/Env";
@@ -28,6 +28,35 @@ export async function listRequests(db: D1Database, userId: string): Promise<Frie
 	return findIncomingRequests(db, userId);
 }
 
+export async function getRelationship(
+	db: D1Database,
+	userId: string,
+	targetId: string
+): Promise<FriendRelationshipState> {
+	if (userId === targetId) return "self";
+
+	const target = await getUserById(db, targetId);
+	if (!target) throw AppError.notFound("Usuário não encontrado");
+
+	return findRelationship(db, userId, targetId);
+}
+
+export async function listMutualFriendIds(
+	db: D1Database,
+	userId: string,
+	targetId: string
+): Promise<string[]> {
+	if (userId === targetId) return [];
+
+	const target = await getUserById(db, targetId);
+	if (!target) throw AppError.notFound("Usuário não encontrado");
+
+	const relationship = await findRelationship(db, userId, targetId);
+	if (target.friendsOnly && relationship !== "friend") return [];
+
+	return findMutualFriendIds(db, userId, targetId);
+}
+
 type FriendEvent = Extract<UserSocketServerMessage, { type: "friends-changed" }>;
 const FRIENDS_CHANGED: FriendEvent = { type: "friends-changed" };
 
@@ -48,13 +77,9 @@ export async function sendRequest(db: D1Database, env: Env, userId: string, user
 		return "self";
 	}
 
-	const existing = await findFriendship(db, userId, target.id);
-	if (existing?.status === "accepted") return "already-friends";
-	if (existing?.status === "pending") return "pending";
-
-	const reverse = await findFriendship(db, target.id, userId);
-	if (reverse?.status === "accepted") return "already-friends";
-	if (reverse?.status === "pending") return "pending";
+	const relationship = await findRelationship(db, userId, target.id);
+	if (relationship === "friend") return "already-friends";
+	if (relationship === "pending-out" || relationship === "pending-in") return "pending";
 
 	await sendRequestRepo(db, userId, target.id);
 	await notifyFriendsChanged(env, [target.id]);
@@ -71,12 +96,14 @@ export async function acceptRequest(db: D1Database, env: Env, userId: string, fr
 	await notifyFriendsChanged(env, [userId, friendId]);
 }
 
-export async function declineRequest(db: D1Database, userId: string, friendId: string): Promise<void> {
+export async function declineRequest(db: D1Database, env: Env, userId: string, friendId: string): Promise<void> {
 	const declined = await declineRequestRepo(db, userId, friendId);
 
 	if (!declined) {
 		throw AppError.notFound("Pedido não encontrado.");
 	}
+
+	await notifyFriendsChanged(env, [userId, friendId]);
 }
 
 export async function removeFriend(db: D1Database, env: Env, userId: string, friendId: string): Promise<void> {

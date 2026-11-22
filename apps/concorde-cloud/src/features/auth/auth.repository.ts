@@ -1,4 +1,4 @@
-import { RegisterData, User } from "@concorde/shared";
+import { User } from "@concorde/shared";
 import { CreateUserData, UserRecord } from "./auth.type";
 
 export async function createUser(db: D1Database, data: CreateUserData) {

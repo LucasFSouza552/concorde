@@ -34,8 +34,8 @@ import { consumeOAuthConfirmation, getAuthAccountByUserAndProvider } from "./dis
 
 const MAX_DISPLAY_NAME_LENGTH = 32;
 const MAX_PASSWORD_LENGTH = 128;
-/** dataURL de avatar: ~150KB de imagem em base64. */
-const MAX_AVATAR_LENGTH = 200_000;
+/** dataURL de avatar: ~150KB de imagem em base64 + prefixo. */
+const MAX_AVATAR_LENGTH = 220_000;
 const COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/;
 const AVATAR_PATTERN = /^data:image\/(png|jpeg|webp);base64,/;
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
@@ -164,12 +164,14 @@ export async function loginUser(db: D1Database, secret: string, data: Credential
 	const tokens = await issueSession(db, secret, user.id, userAgent);
 
 	return {
-		user: await toApiUser(user),
+		user: await toApiUser(db, user),
 		...tokens
 	};
 }
 
-export async function toApiUser(user: UserRecord): Promise<User> {
+export async function toApiUser(db: D1Database, user: UserRecord): Promise<User> {
+	const discord = await getAuthAccountByUserAndProvider(db, user.id, "discord");
+
 	return {
 		id: user.id,
 		username: user.username,
@@ -183,7 +185,9 @@ export async function toApiUser(user: UserRecord): Promise<User> {
 		hasPassword: user.hasPassword !== false,
 		discordShowcase: Boolean(user.discordShowcase),
 		discordVerified: Boolean(user.discordVerified),
-		discordAutoSync: Boolean(user.discordAutoSync)
+		discordAutoSync: Boolean(user.discordAutoSync),
+		discordLinked: Boolean(discord),
+		discordUsername: discord?.providerUsername ?? null
 	};
 }
 
@@ -231,7 +235,7 @@ export async function refreshSession(db: D1Database, secret: string, refreshToke
 	await rotateAuthSession(db, session.id, await sha256Hex(nextSecret), now + REFRESH_TTL_MS);
 
 	return {
-		user: await toApiUser(user),
+		user: await toApiUser(db, user),
 		token: await createToken(user.id, secret),
 		refreshToken: `${session.id}.${nextSecret}`
 	};
@@ -254,13 +258,13 @@ export async function logoutSession(db: D1Database, userId: string | null, refre
 }
 
 export async function getCurrentUser(db: D1Database, id: string): Promise<User> {
-	const user = await getUserById(db, id);
+	const user = await getUserRecordById(db, id);
 
 	if (!user) {
 		throw AppError.notFound("Usuário não encontrado");
 	}
 
-	return user;
+	return toApiUser(db, user);
 }
 
 export async function changeProfile(

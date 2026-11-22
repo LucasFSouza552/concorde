@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { DiscordRegistrationSuggestion } from "@concorde/shared";
 
 import { useDiscordOAuth } from "../../hooks/useDiscordOAuth";
+import DiscordIcon from "../DiscordIcon/DiscordIcon";
 import Modal from "../Modal/Modal";
 
 import styles from "./DiscordRegistrationModal.module.css";
@@ -50,9 +51,12 @@ function RegistrationForm({
 
     return (
         <>
-            <p className={styles.description}>
-                Sua conta Discord será usada para entrar no Concorde. Confira os dados e escolha seu nome de usuário.
-            </p>
+            <div className={styles.discordIntro}>
+                <DiscordIcon size={22} />
+                <p className={styles.description}>
+                    Sua conta Discord será usada para entrar no Concorde. Confira os dados e escolha seu nome de usuário.
+                </p>
+            </div>
 
             <div className={styles.preview}>
                 {suggestion.avatar ? (

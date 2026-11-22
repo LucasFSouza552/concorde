@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
-import type { DiscordSensitiveAction, LoginTokensResponse } from "@concorde/shared";
+import type { DiscordSensitiveAction, LoginTokensResponse, User } from "@concorde/shared";
 
-import { getErrorMessage } from "../api/api";
+import { api, getErrorMessage } from "../api/api";
 import {
     exchangeDiscordCode,
     registerWithDiscord,
@@ -137,6 +137,13 @@ export function DiscordOAuthProvider({ children }: { children: ReactNode }) {
             resetFlow();
             setRevision((value) => value + 1);
             push("Discord vinculado à sua conta.", "success");
+
+            try {
+                const { data } = await api.get<User>("/auth/me");
+                updateUser(data);
+            } catch {
+                push("Discord vinculado, mas não foi possível atualizar a foto agora.", "error");
+            }
         } catch (cause) {
             fail(getErrorMessage(cause) ?? "Não foi possível concluir a autorização com o Discord.");
         }

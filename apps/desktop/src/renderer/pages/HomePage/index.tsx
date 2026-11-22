@@ -132,10 +132,12 @@ export default function HomePage() {
         api.post<{ channel: { id: string } }>("/channels/dm", { toUserId: peer.userId })
             .then(({ data }) => {
                 if (cancelled) return;
+                const friend = friends.find((item) => item.id === peer.userId);
                 openChat({
                     id: peer.userId,
-                    username: peer.displayName,
-                    displayName: peer.displayName
+                    username: friend?.username ?? peer.displayName,
+                    displayName: friend?.displayName ?? peer.displayName,
+                    avatar: friend?.avatar
                 }, data.channel.id);
             }).catch(() => { })
         return () => {
@@ -178,7 +180,7 @@ export default function HomePage() {
 
         return openCallChat(peer);
 
-    }, [groupId, peers, outgoing]);
+    }, [groupId, peers, outgoing, friends]);
 
     // A tela de chamada abre junto com a chamada e pode ser "voltada" pelo
     // botão de voltar (ou retomada pelo menu de atividade) sem desligar o áudio.
@@ -188,7 +190,6 @@ export default function HomePage() {
 
     useEffect(() => {
         if (groupId) {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setCallViewOpen(true);
             return;
         }

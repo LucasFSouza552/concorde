@@ -129,8 +129,12 @@ function base64FromBytes(bytes: Uint8Array): string {
 	return btoa(binary);
 }
 
+function hasInvalidControlCharacter(value: string): boolean {
+	return [...value].some((char) => (char.codePointAt(0) ?? 0) <= 0x1f || /\s/.test(char));
+}
+
 function validateCallbackInput(code: unknown, state: unknown, iss: unknown): { code: string; state: string } {
-	if (typeof code !== "string" || code.length < 1 || code.length > 256 || /[\s\x00-\x1f]/.test(code)) {
+	if (typeof code !== "string" || code.length < 1 || code.length > 256 || hasInvalidControlCharacter(code)) {
 		throw AppError.badRequest("Código de autorização inválido.");
 	}
 
@@ -319,10 +323,11 @@ async function applyProfileFromAccount(db: D1Database, userId: string, account: 
 	const displayName = account.providerDisplayName ?? account.providerUsername;
 	if (!displayName) throw AppError.badRequest("Não foi possível aplicar o nome do Discord.");
 
-	return changeProfile(db, userId, {
-		displayName,
-		avatar: account.providerAvatar
-	});
+	const profile: { displayName: string; avatar?: string } = { displayName };
+	// Discord sem foto não deve apagar a foto definida no Concorde.
+	if (account.providerAvatar) profile.avatar = account.providerAvatar;
+
+	return changeProfile(db, userId, profile);
 }
 
 async function linkIdentity(db: D1Database, userId: string, identity: DiscordIdentity): Promise<DiscordLinkedResult> {
@@ -379,7 +384,7 @@ async function loginOrRegister(
 		const shouldApply = Boolean(user.discordAutoSync);
 		const profileChanged = shouldApply && (
 			user.displayName !== identity.displayName ||
-			(user.avatar ?? null) !== identity.avatar
+			(Boolean(identity.avatar) && (user.avatar ?? null) !== identity.avatar)
 		);
 		let warning: string | undefined;
 
@@ -414,7 +419,7 @@ async function loginOrRegister(
 		const fresh = await getUserRecordById(db, user.id) ?? user;
 		const tokens = await issueSession(db, env.JWT_SECRET, user.id, userAgent);
 
-		return { user: await toApiUser(fresh), ...tokens, ...(warning ? { warning } : {}) };
+		return { user: await toApiUser(db, fresh), ...tokens, ...(warning ? { warning } : {}) };
 	}
 
 	if (!identity.email || !identity.emailVerified) {
@@ -462,10 +467,10 @@ async function syncDiscordProfile(
 
 	await setDiscordAutoSync(db, userId, true);
 
-	const user = await changeProfile(db, userId, {
-		displayName: identity.displayName,
-		avatar: identity.avatar
-	});
+	const profile: { displayName: string; avatar?: string } = { displayName: identity.displayName };
+	if (identity.avatar) profile.avatar = identity.avatar;
+
+	const user = await changeProfile(db, userId, profile);
 
 	await touchAuthAccount(db, account.id, {
 		providerUsername: identity.username,
@@ -575,11 +580,15 @@ export async function completeDiscordRegistration(
 		passwordSalt: randomHex(16)
 	});
 
+	if (registration.avatar) {
+		await changeProfile(db, user.id, { avatar: registration.avatar });
+	}
+
 	await createAuthAccount(db, {
 		userId: user.id,
 		provider: PROVIDER,
 		providerAccountId: registration.providerAccountId,
-		providerUsername: username,
+		providerUsername: registration.username,
 		providerDisplayName: registration.displayName,
 		providerAvatar: registration.avatar,
 		verified: true
@@ -595,7 +604,7 @@ export async function completeDiscordRegistration(
 	const tokens = await issueSession(db, env.JWT_SECRET, user.id, userAgent);
 
 	return {
-		user: { ...await toApiUser(fresh), avatar: registration.avatar, hasPassword: false },
+		user: { ...await toApiUser(db, fresh), hasPassword: false },
 		...tokens
 	};
 }

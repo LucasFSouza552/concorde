@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Headphones, HeadphoneOff, Mic, MicOff, PhoneOff, Plus, ScreenShare, ScreenShareOff, Settings } from "lucide-react";
 
 import type { Friend, GroupRole } from "@concorde/shared";
 import { useActiveCall } from "../../contexts/ActiveCallProvider";
 import { useAuth } from "../../contexts/AuthContext";
+import { useProfile } from "../../contexts/ProfileProvider";
 import { useUI } from "../../contexts/UIContext";
 import { useUserSocketSend } from "../../contexts/UserSocketProvider";
 import IconBtn from "../IconBtn/IconBtn";
@@ -42,6 +43,7 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
     const { micMuted, deafened, toggleMic, toggleDeafen, groupId, screenStream, stopScreenShare } = useActiveCall();
     const { hangUp } = useCallInviteState();
     const { user } = useAuth();
+    const { openProfile } = useProfile();
     const { setSidebarOpen } = useUI();
     const send = useUserSocketSend();
     const status = useOwnStatus();
@@ -85,6 +87,11 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
         return () => window.removeEventListener("keydown", handleKey);
     }, [statusMenuOpen]);
 
+    function showOwnProfile() {
+        if (!user) return;
+        openProfile(user, { actions: { onEdit: () => setSettingsOpen(true) } });
+    }
+
     function handleKeyOnTab(event: React.KeyboardEvent<HTMLDivElement>) {
         if (event.key !== "Enter" && event.key !== " ") return;
         event.preventDefault();
@@ -95,7 +102,16 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
         <footer className={styles.footer} aria-label="Perfil e conversas recentes">
             <div className={styles.profile}>
                 <div className={styles.avatarWrap}>
-                    <UserAvatar name={user?.displayName ?? "?"} avatar={user?.avatar} size={50} />
+                    <button
+                        type="button"
+                        className={styles.avatarButton}
+                        title="Ver meu perfil"
+                        aria-label="Ver meu perfil"
+                        disabled={!user}
+                        onClick={showOwnProfile}
+                    >
+                        <UserAvatar name={user?.displayName ?? "?"} avatar={user?.avatar} size={50} />
+                    </button>
                     <button
                         type="button"
                         className={styles.statusDot}
@@ -127,12 +143,18 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
                         ))}
                     </div>
                 )}
-                <div className={styles.identity}>
+                <button
+                    type="button"
+                    className={`${styles.identity} ${styles.profileIdentity}`}
+                    title="Ver meu perfil"
+                    disabled={!user}
+                    onClick={() => { if (user) openProfile(user); }}
+                >
                     <span className={styles.username} title={user?.displayName}>
                         {user?.displayName}
                     </span>
                     <span className={styles.userHandle}>@{user?.username}</span>
-                </div>
+                </button>
             </div>
 
             <span className={styles.divider} aria-hidden="true" />
@@ -165,6 +187,8 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
                 ) : (
                     tabs.map((tab) => {
                         const active = tab.key === activeTabKey;
+                        const avatarSrc = tab.friend?.avatar;
+                        const avatarStyle: CSSProperties = avatarSrc ? { backgroundImage: `url(${avatarSrc})` } : {};
                         return (
                             <div
                                 key={tab.key}
@@ -176,8 +200,8 @@ export default function UserDock({ tabs, activeTabKey, onActivateTab, onCloseTab
                                 onClick={() => onActivateTab(tab)}
                                 onKeyDown={handleKeyOnTab}
                             >
-                                <span className={styles.tabAvatar} aria-hidden="true">
-                                    {tab.title.trim().charAt(0).toUpperCase()}
+                                <span className={styles.tabAvatar} style={avatarStyle} aria-hidden="true">
+                                    {avatarSrc ? "" : tab.title.trim().charAt(0).toUpperCase()}
                                     {tabHasCall(tab) && <span className={styles.tabCallDot} />}
                                 </span>
                                 <span className={styles.tabTitle}>{tab.title}</span>

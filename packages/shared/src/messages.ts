@@ -1,6 +1,7 @@
 
 export interface Message {
     type: string;
+    epoch?: number;
 }
 
 export interface JoinMessage extends Message {
@@ -14,10 +15,11 @@ export interface ChatMessage extends Message {
     content: string;
 }
 
-export interface DirectMessage {
+export interface DirectMessage extends Message {
     type: "offer" | "answer" | "ice-candidate";
     to: string;
     from?: string;
+    generation?: number;
 }
 
 // 
@@ -98,17 +100,17 @@ export interface Peer {
     username: string;
 }
 
-export interface PeerJoinedMessage {
+export interface PeerJoinedMessage extends Message {
     type: "peer-joined";
     peer: Peer;
 }
 
-export interface PeerLeftMessage {
+export interface PeerLeftMessage extends Message {
     type: "peer-left";
     userId: string;
 }
 
-export interface PeersMessage {
+export interface PeersMessage extends Message {
     type: "peers";
     peers: Peer[];
 }

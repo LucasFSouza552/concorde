@@ -66,7 +66,7 @@ export default function GroupPage({ groupId, name, role, onBack }: GroupPageProp
                 const participants = roomGroupId
                     ? members
                         .filter((member) => data.presences[member.id]?.groupId === roomGroupId)
-                        .map((member) => ({ id: member.id, displayName: member.displayName }))
+                        .map((member) => ({ id: member.id, displayName: member.displayName, avatar: member.avatar }))
                     : [];
 
                 setActiveRoom(roomGroupId

@@ -13,10 +13,7 @@ import {
 	listGroupMembers as listGroupMembersRepo
 } from "./groups.repository";
 import { getUserById } from "../auth/auth.repository";
-import {
-	findUserByUsername,
-	findFriendship
-} from "../friends/friends.repository";
+import { findUserByUsername } from "../friends/friends.repository";
 import { requireFriendship } from "../friends/friends.service";
 import { deliverToUser } from "../calls/calls.service";
 import { Env } from "../../types/Env";

@@ -144,17 +144,18 @@ export function useLocalMedia(active: boolean): UseLocalMediaResult {
                     return;
                 }
 
-                const gated = await gateTrack(clean, stream);
+                const cleanStream = new MediaStream([clean]);
+                const gated = await gateTrack(clean, cleanStream);
                 if (cancelled) {
                     teardownGate();
                     clean.stop();
                     return;
                 }
 
-                const cleanStream = new MediaStream([gated ?? clean]);
+                const finalStream = new MediaStream([gated ?? clean]);
 
-                localStreamRef.current = cleanStream;
-                setLocalStream(cleanStream);
+                localStreamRef.current = finalStream;
+                setLocalStream(finalStream);
                 rawStreamRef.current = stream;
             } catch (error) {
                 console.warn(getErrorMessage(error));

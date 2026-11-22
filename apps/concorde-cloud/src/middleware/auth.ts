@@ -38,7 +38,7 @@ export async function authMiddleware(c: Context<{ Bindings: Env; Variables: { us
 
 	try {
 		userId = await verifyToken(token, c.env.JWT_SECRET);
-	} catch (error) {
+	} catch {
 		throw AppError.unauthorized("Token inválido ou expirado");
 	}
 

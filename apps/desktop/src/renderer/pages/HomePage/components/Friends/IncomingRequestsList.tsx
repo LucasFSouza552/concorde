@@ -37,7 +37,13 @@ export default function IncomingRequestsList({ requests, loading, error, onAccep
 
             {!loading && !error && requests.map((friend) => (
                 <div key={friend.id} className={styles.row}>
-                    <UserIdentity displayName={friend.displayName} username={friend.username} />
+                    <UserIdentity
+                        displayName={friend.displayName}
+                        username={friend.username}
+                        avatar={friend.avatar}
+                        discordVerified={Boolean(friend.discord?.verified)}
+                        discordLinked={Boolean(friend.discord)}
+                    />
 
                     <div className={styles.actions}>
                         <button

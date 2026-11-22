@@ -145,7 +145,6 @@ export function useActiveCalls(groups: GroupWithRole[], friends: Friend[]): Acti
             ? { status: lastEvent.status }
             : { inCall: lastEvent.groupId !== null, groupId: lastEvent.groupId ?? null, concordeGroupId: lastEvent.concordeGroupId ?? null };
 
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setPresences((current) => {
             const next = new Map(current);
             next.set(lastEvent.userId, { ...current.get(lastEvent.userId), ...patch });

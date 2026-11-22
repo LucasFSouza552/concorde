@@ -24,7 +24,7 @@ export function useFriendRequest() {
         } catch (error) {
             const message = getErrorMessage(error);
             setState({ status: "error", message });
-            throw new Error(message);
+            throw new Error(message, { cause: error });
 
         }
     }, [query]);

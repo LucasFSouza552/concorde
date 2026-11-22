@@ -68,7 +68,7 @@ export function useChannelMessages(channelId: string | null) {
         if (lastEvent.channelId !== channelId) return;
 
         const { messageId } = lastEvent;
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+
         setMessages((current) => current.filter((item) => item.id !== messageId));
     }, [lastEvent, channelId]);
 

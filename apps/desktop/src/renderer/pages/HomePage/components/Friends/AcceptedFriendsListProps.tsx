@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from "react";
-import { EllipsisVertical, MessageCircle, Phone, RotateCcw } from "lucide-react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+
+import { EllipsisVertical, MessageCircle, Phone, RotateCcw, UserRound } from "lucide-react";
+
 
 import InlineError from "../../../../components/InlineError/InlineError";
 import { SkeletonList } from "../../../../components/Skeleton/Skeleton";
@@ -12,16 +14,19 @@ import styles from "./Friends.module.css";
 interface AcceptedFriendsListProps {
     friends: Friend[];
     presences?: Map<string, FriendPresence>;
-    title?: string;
+    title?: ReactNode;
+
     loading: boolean;
     error: string | null;
     onRemove: (friendId: string) => void;
     onReload: () => void;
     onChat: (friend: Friend) => void;
     onCall: (friend: Friend) => void;
+    onProfile?: (friend: Friend) => void;
 }
 
-export default function AcceptedFriendsList({ friends, presences, title = "Meus amigos", loading, error, onRemove, onReload, onChat, onCall }: AcceptedFriendsListProps) {
+export default function AcceptedFriendsList({ friends, presences, title = "Meus amigos", loading, error, onRemove, onReload, onChat, onCall, onProfile }: AcceptedFriendsListProps) {
+
     const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
     const menuRef = useRef<HTMLDivElement | null>(null);
 
@@ -60,12 +65,24 @@ export default function AcceptedFriendsList({ friends, presences, title = "Meus 
             )}
 
             {!loading && !error && friends.map((friend) => (
-                <div key={friend.id} className={styles.row} onClick={() => onChat(friend)}>
+                <div
+                    key={friend.id}
+                    className={styles.row}
+                    onClick={() => onChat(friend)}
+                    onContextMenu={(event) => {
+                        event.preventDefault();
+                        setMenuOpenId(null);
+                        onProfile?.(friend);
+                    }}
+                >
+
                     <UserIdentity
                         displayName={friend.displayName}
                         username={friend.username}
+                        avatar={friend.avatar}
                         status={presences?.get(friend.id)?.status}
                         discordVerified={Boolean(friend.discord?.verified)}
+                        discordLinked={Boolean(friend.discord)}
                     />
                     <button
                         type="button"
@@ -108,12 +125,22 @@ export default function AcceptedFriendsList({ friends, presences, title = "Meus 
 
                         {menuOpenId === friend.id && (
                             <div role="menu" className={styles.menu}>
+                                {onProfile && (
+                                    <button type="button" role="menuitem" className={styles.menuItem} onClick={() => {
+                                        setMenuOpenId(null);
+                                        onProfile(friend);
+                                    }}>
+                                        <UserRound size={14} aria-hidden="true" />
+                                        Ver perfil
+                                    </button>
+                                )}
                                 <button type="button" role="menuitem" className={styles.menuItem} onClick={() => {
                                     setMenuOpenId(null);
                                     onRemove(friend.id);
                                 }}>Desfazer Amizade</button>
                             </div>
                         )}
+
 
                     </div>
                 </div >

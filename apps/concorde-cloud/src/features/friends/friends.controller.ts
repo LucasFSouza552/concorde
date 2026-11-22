@@ -1,7 +1,7 @@
 import { Context } from "hono";
 
 import { isValidUsername } from "@concorde/shared";
-import { acceptRequest, declineRequest, listFriends, listRequests, removeFriend, searchUsers, sendRequest } from "./friends.service";
+import { acceptRequest, declineRequest, getRelationship, listFriends, listMutualFriendIds, listRequests, removeFriend, searchUsers, sendRequest } from "./friends.service";
 import { Env } from "../../types/Env";
 
 import { AppError } from "../../utils/AppError";
@@ -18,6 +18,24 @@ export async function listRequestController(c: AppContext) {
 	const userId = c.get("userId");
 	const requests = await listRequests(c.env.concorde_users, userId);
 	return c.json({ requests }, 200);
+}
+
+export async function relationshipController(c: AppContext) {
+	const userId = c.get("userId");
+	const targetId = c.req.param("userId");
+	if (!targetId) throw AppError.badRequest("O ID do usuário é obrigatório");
+
+	const state = await getRelationship(c.env.concorde_users, userId, targetId);
+	return c.json({ state }, 200);
+}
+
+export async function mutualFriendsController(c: AppContext) {
+	const userId = c.get("userId");
+	const targetId = c.req.param("userId");
+	if (!targetId) throw AppError.badRequest("O ID do usuário é obrigatório");
+
+	const ids = await listMutualFriendIds(c.env.concorde_users, userId, targetId);
+	return c.json({ ids }, 200);
 }
 
 export async function searchUsersController(c: AppContext) {
@@ -63,7 +81,7 @@ export async function declineRequestController(c: AppContext) {
 
 	if (!friendId) throw AppError.badRequest("O ID do amigo é obrigatório");
 
-	await declineRequest(c.env.concorde_users, userId, friendId);
+	await declineRequest(c.env.concorde_users, c.env, userId, friendId);
 	return c.json({ status: "removed" }, 200);
 }
 

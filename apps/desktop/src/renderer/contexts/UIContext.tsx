@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components -- store de módulo: hook + provider no mesmo arquivo (padrão já usado em useFriend/ownStatus) */
 
 import { createContext, useContext, useState, type ReactNode } from "react";
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link2, Mic, ShieldCheck, SlidersHorizontal, User, X } from "lucide-react";
+import { Mic, ShieldCheck, SlidersHorizontal, User, X } from "lucide-react";
 
+import DiscordIcon from "../DiscordIcon/DiscordIcon";
 import AccountSettings from "./AccountSettings";
 import AppPreferences from "./AppPreferences";
 import AudioSettings from "./AudioSettings";
@@ -54,7 +55,8 @@ export default function SettingsModal({ onClose }: { onClose: () => void }) {
                         <button type="button" className={`${styles.navBtn} ${tab === "account" ? styles.navSelected : ""}`} aria-current={tab === "account" ? "page" : undefined} onClick={() => setTab("account")}><User size={16} /> Conta</button>
                         <button type="button" className={`${styles.navBtn} ${tab === "audio" ? styles.navSelected : ""}`} aria-current={tab === "audio" ? "page" : undefined} onClick={() => setTab("audio")}><Mic size={16} /> Áudio</button>
                         <button type="button" className={`${styles.navBtn} ${tab === "security" ? styles.navSelected : ""}`} aria-current={tab === "security" ? "page" : undefined} onClick={() => setTab("security")}><ShieldCheck size={16} /> Segurança</button>
-                        <button type="button" className={`${styles.navBtn} ${tab === "integrations" ? styles.navSelected : ""}`} aria-current={tab === "integrations" ? "page" : undefined} onClick={() => setTab("integrations")}><Link2 size={16} /> Integrações</button>
+                        <button type="button" className={`${styles.navBtn} ${tab === "integrations" ? styles.navSelected : ""}`} aria-current={tab === "integrations" ? "page" : undefined} onClick={() => setTab("integrations")}><DiscordIcon size={16} /> Integrações
+</button>
                         <button type="button" className={`${styles.navBtn} ${tab === "preferences" ? styles.navSelected : ""}`} aria-current={tab === "preferences" ? "page" : undefined} onClick={() => setTab("preferences")}><SlidersHorizontal size={16} /> Preferências</button>
                     </nav>
 

@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 
-import { acceptRequestController, declineRequestController, listFriendsController, listRequestController, removeFriendController, searchUsersController, sendRequestController } from "./friends.controller";
+import { acceptRequestController, declineRequestController, listFriendsController, listRequestController, mutualFriendsController, relationshipController, removeFriendController, searchUsersController, sendRequestController } from "./friends.controller";
 import { authMiddleware } from "../../middleware/auth";
 import { Env } from "../../types/Env";
 
@@ -11,6 +11,10 @@ friends.use("*", authMiddleware);
 friends.get("/", listFriendsController);
 
 friends.get("/requests", listRequestController);
+
+friends.get("/relationship/:userId", relationshipController);
+
+friends.get("/mutual/:userId", mutualFriendsController);
 
 friends.get("/search", searchUsersController);
 

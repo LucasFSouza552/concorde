@@ -1,5 +1,3 @@
-import { Env } from "../../types/Env";
-
 export interface CallRoom {
 	groupId: string;
 	kind: "dm" | "group";

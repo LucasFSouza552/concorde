@@ -9,6 +9,7 @@ export interface ChannelMember {
 	id: string;
 	username: string;
 	displayName: string;
+	avatar?: string | null;
 }
 
 export async function findDMchannel(db: D1Database, dmKey: string) {
@@ -84,7 +85,7 @@ export async function insertMessage(db: D1Database, message: NewMessage) {
 
 export async function listChannelMembers(db: D1Database, channelId: string): Promise<ChannelMember[]> {
 	const { results } = await db.prepare(
-		`SELECT u.id, u.username, u.displayName
+		`SELECT u.id, u.username, u.displayName, u.avatar
      FROM channel_users cu
      JOIN users u ON u.id = cu.userId
      WHERE cu.channelId = ?
@@ -98,7 +99,7 @@ export async function listChannelMembers(db: D1Database, channelId: string): Pro
 
 export async function listGroupChannelMembers(db: D1Database, groupId: string) {
 	const { results } = await db.prepare(
-		`SELECT u.id, u.username, u.displayName
+		`SELECT u.id, u.username, u.displayName, u.avatar
      FROM group_members gm
      JOIN users u ON u.id = gm.userId
      WHERE gm.groupId = ?

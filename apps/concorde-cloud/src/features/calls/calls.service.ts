@@ -1,12 +1,11 @@
 import { CallInvite, UserSocketServerMessage } from "@concorde/shared";
 import { Env } from "../../types/Env";
 import { getUserById } from "../auth/auth.repository";
-import { findFriendship } from "../friends/friends.repository";
 import { requireFriendship } from "../friends/friends.service";
 import { findGroupMember } from "../groups/groups.repository";
 
 import { AppError } from "../../utils/AppError";
-import { createCallRoom, getCallRoom, isCallRoomParticipant, touchCallRoom } from "./calls.repository";
+import { createCallRoom } from "./calls.repository";
 
 export const CALL_INVITE_TTL_MS = 30_000;
 export const GROUP_CALL_MAX_MEMBERS = 6;

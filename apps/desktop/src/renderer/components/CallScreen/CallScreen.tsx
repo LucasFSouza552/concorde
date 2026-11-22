@@ -132,6 +132,10 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
                         focused={focusedId === LOCAL_ID}
                         onToggleFocus={() => toggleFocus(LOCAL_ID)}
                         viewers={screenStream ? myShareViewers : []}
+                        shareInfo={screenStream ? {
+                            kind: "viewers",
+                            label: `Assistindo: ${myShareViewers.length > 0 ? myShareViewers.join(", ") : "ninguém"}`
+                        } : undefined}
                     />
                 ),
             },
@@ -151,6 +155,10 @@ export default function CallScreen({ layout = "panel", controls = true, chatAvai
                         rtt={peerRtt[peer.userId] ?? null}
                         focused={focusedId === peer.userId}
                         onToggleFocus={() => toggleFocus(peer.userId)}
+                        shareInfo={peerSharing[peer.userId] && watchingShareIds.has(peer.userId) ? {
+                            kind: "broadcaster",
+                            label: `Transmitindo: ${peer.username}`
+                        } : undefined}
                     />
                 ),
             })),

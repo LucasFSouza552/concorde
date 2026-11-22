@@ -15,7 +15,6 @@ import {
 } from "./channels.repository";
 import { Env } from "../../types/Env";
 import { getUserById } from "../auth/auth.repository";
-import { findFriendship } from "../friends/friends.repository";
 import { requireFriendship } from "../friends/friends.service";
 import { findGroupById, findGroupMember } from "../groups/groups.repository";
 

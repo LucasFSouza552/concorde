@@ -1,10 +1,15 @@
 import { useEffect, useState } from "react";
 import type { KeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import { Eye, HeadphoneOff, MicOff } from "lucide-react";
+import { Eye, HeadphoneOff, MicOff, ScreenShare } from "lucide-react";
 
 import { ScreenVideo } from "./ScreenVideo";
 
 import styles from "./CallScreen.module.css";
+
+export interface ShareOverlayInfo {
+    label: string;
+    kind: "broadcaster" | "viewers";
+}
 
 interface ParticipantTileProps {
     name: string;
@@ -24,9 +29,10 @@ interface ParticipantTileProps {
 
     /** Quem assiste à minha transmissão (nomes) — só no tile local. */
     viewers?: string[];
+    shareInfo?: ShareOverlayInfo;
 }
 
-export default function ParticipantTile({ name, muted, deafened = false, isLocal = false, speaking = false, ringing = false, screenStream, focused = false, onToggleFocus, onContextMenu, isSharing = false, onWatchShare, rtt, viewers = [] }: ParticipantTileProps) {
+export default function ParticipantTile({ name, muted, deafened = false, isLocal = false, speaking = false, ringing = false, screenStream, focused = false, onToggleFocus, onContextMenu, isSharing = false, onWatchShare, rtt, viewers = [], shareInfo }: ParticipantTileProps) {
     const initial = name.trim().charAt(0).toUpperCase() || "?";
     const clickable = onToggleFocus !== undefined;
     const [windowActive, setWindowActive] = useState(true);
@@ -63,6 +69,12 @@ export default function ParticipantTile({ name, muted, deafened = false, isLocal
                 },
             } : {})}
         >
+            {screenStream && shareInfo && (
+                <div className={styles.shareOverlay} title={shareInfo.label}>
+                    {shareInfo.kind === "broadcaster" ? <ScreenShare size={14} /> : <Eye size={14} />}
+                    <span>{shareInfo.label}</span>
+                </div>
+            )}
             {isLocal && viewers.length > 0 && (
                 <div className={styles.viewersBadge} title={viewers.join(", ")}>
                     <Eye size={14} />

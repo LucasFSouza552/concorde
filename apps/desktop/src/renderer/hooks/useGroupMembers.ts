@@ -10,6 +10,8 @@ export interface GroupMemberItem {
     bannerFrom?: string | null;
     bannerTo?: string | null;
     discordVerified?: boolean;
+    discordLinked?: boolean;
+    discordUsername?: string | null;
     role: string;
     joinedAt: number;
 }

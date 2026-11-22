@@ -4,6 +4,7 @@ import type { Peer, ScreenQuality } from "@concorde/shared";
 import { playSound } from "../audio/sounds";
 
 import type { CallStatus } from "../hooks/CallSocket";
+import type { PeerStats } from "../hooks/WebRTCManager";
 import { useCall } from "../hooks/useCall";
 import { useSpeakingIndicators } from "../hooks/useSpeakingIndicators";
 
@@ -20,6 +21,7 @@ interface ActiveCallContextData {
     shareViewers: string[];
     /** Latência por-par em ms (null enquanto não medida). */
     peerRtt: Record<string, number | null>;
+    peerStats: Record<string, PeerStats>;
     localStream: MediaStream | null;
     remoteStreams: Record<string, MediaStream>;
     speakingMap: Record<string, boolean>;
@@ -120,6 +122,7 @@ export function ActiveCallProvider({ children }: { children: ReactNode }) {
                 unwatchShare: call.unwatchShare,
                 shareViewers: call.shareViewers,
                 peerRtt: call.peerRtt,
+                peerStats: call.peerStats,
 
                 screenStream: call.screenStream,
                 remoteScreenStreams: call.remoteScreenStreams,

@@ -56,7 +56,9 @@ export function RemoteAudio({ stream, muted, volume }: RemoteAudioProps) {
             try {
                 source.disconnect();
                 gain.disconnect();
-            } catch { }
+            } catch (error) {
+                void error;
+            }
             gainRef.current = null;
             void ctx.close().catch(() => { });
             if (ctxRef.current === ctx) ctxRef.current = null;

@@ -29,7 +29,7 @@ function readSettings(): AudioSettings {
         const raw = localStorage.getItem(STORAGE_KEY);
         if (raw) return { ...DEFAULTS, ...(JSON.parse(raw) as Partial<AudioSettings>) };
     } catch {
-
+        return { ...DEFAULTS };
     }
     return { ...DEFAULTS };
 }

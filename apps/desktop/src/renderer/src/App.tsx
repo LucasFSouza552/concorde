@@ -11,6 +11,7 @@ import { ActiveCallProvider } from "../contexts/ActiveCallProvider";
 import { AuthProvider } from "../contexts/AuthContext";
 import { CallInviteProvider } from "../contexts/CallInviteProvider";
 import { DiscordOAuthProvider } from "../contexts/DiscordOAuthContext";
+import { ProfileProvider } from "../contexts/ProfileProvider";
 import { SettingsProvider } from "../contexts/SettingsProvider";
 import { ToastProvider } from "../contexts/ToastProvider";
 import { UserSocketProvider } from "../contexts/UserSocketProvider";
@@ -26,16 +27,18 @@ export default function App() {
           <DiscordOAuthProvider>
             <SettingsProvider>
               <UserSocketProvider>
-                <ActiveCallProvider>
-                  <CallInviteProvider>
-                    <AppRouter />
-                    <DiscordRegistrationModal />
-                    <DiscordSensitiveModal />
-                    <UpdateBanner />
-                    <ToastViewport />
-                    <NotificationsBridge />
-                  </CallInviteProvider>
-                </ActiveCallProvider>
+                <ProfileProvider>
+                  <ActiveCallProvider>
+                    <CallInviteProvider>
+                      <AppRouter />
+                      <DiscordRegistrationModal />
+                      <DiscordSensitiveModal />
+                      <UpdateBanner />
+                      <ToastViewport />
+                      <NotificationsBridge />
+                    </CallInviteProvider>
+                  </ActiveCallProvider>
+                </ProfileProvider>
               </UserSocketProvider>
             </SettingsProvider>
           </DiscordOAuthProvider>

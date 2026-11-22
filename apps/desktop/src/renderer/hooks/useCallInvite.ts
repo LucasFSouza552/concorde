@@ -35,7 +35,10 @@ export function useCallInvite() {
     const sendUserMessage = useUserSocketSend();
 
     const peersRef = useRef(peers);
-    peersRef.current = peers;
+
+    useEffect(() => {
+        peersRef.current = peers;
+    }, [peers]);
 
     function joinGroupCall(callGroupId: string, concordeGroupId: string | null) {
         join(callGroupId);
@@ -283,7 +286,7 @@ export function useCallInvite() {
 
         // DM: o chamado já apareceu na chamada — não está mais "recebendo ligação".
         if (outgoing.status === "dialing") {
-            if (peerIds.has(outgoing.toUserId)) setOutgoing({ status: "idle" }); // eslint-disable-line react-hooks/set-state-in-effect
+            if (peerIds.has(outgoing.toUserId)) setOutgoing({ status: "idle" });
             return;
         }
 
@@ -299,7 +302,7 @@ export function useCallInvite() {
     // limpa o banner de convite que ainda estiver pendente dessa mesma chamada.
     useEffect(() => {
         if (!groupId) return;
-        if (incoming && incoming.groupId === groupId) setIncoming(null); // eslint-disable-line react-hooks/set-state-in-effect
+        if (incoming && incoming.groupId === groupId) setIncoming(null);
         if (waiting && waiting.groupId === groupId) setWaiting(null);
     }, [groupId, incoming, waiting]);
 

@@ -26,6 +26,7 @@ function mockDiscord(identity: {
 	email: string | null;
 	verified?: boolean;
 	displayName?: string;
+	avatarHash?: string | null;
 }) {
 	globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
 		const url = typeof input === "string" ? input : input.toString();
@@ -45,7 +46,13 @@ function mockDiscord(identity: {
 				global_name: identity.displayName ?? `${identity.username} Name`,
 				email: identity.email,
 				verified: identity.verified ?? true,
-				avatar: null
+				avatar: identity.avatarHash ?? null
+			});
+		}
+
+		if (url.startsWith("https://cdn.discordapp.com/avatars/")) {
+			return new Response(new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]), {
+				headers: { "Content-Type": "image/png" }
 			});
 		}
 
@@ -62,7 +69,7 @@ const bearer = (token: string) => ({ Authorization: `Bearer ${token}` });
 async function me(token: string) {
 	const response = await SELF.fetch("https://example.com/auth/me", { headers: bearer(token) });
 	expect(response.status).toBe(200);
-	return response.json<{ displayName: string; discordAutoSync?: boolean }>();
+	return response.json<{ displayName: string; discordAutoSync?: boolean; avatar?: string | null; discordLinked?: boolean; discordUsername?: string | null }>();
 }
 
 async function syncEvents(token: string) {
@@ -185,6 +192,9 @@ describe("Discord OAuth", () => {
 		const status = await integration.json<{ connected: boolean; account: { providerAccountId: string } | null }>();
 		expect(status.connected).toBe(true);
 		expect(status.account?.providerAccountId).toBe(discordId);
+		const profile = await me(session.token);
+		expect(profile.discordLinked).toBe(true);
+		expect(profile.discordUsername).toBe(`discord${RUN}`);
 
 		const blockedUnlink = await SELF.fetch("https://example.com/auth/me/discord", {
 			method: "DELETE",
@@ -209,6 +219,9 @@ describe("Discord OAuth", () => {
 			headers: bearer(session.token)
 		});
 		expect((await after.json<{ connected: boolean }>()).connected).toBe(false);
+		const afterProfile = await me(session.token);
+		expect(afterProfile.discordLinked).toBe(false);
+		expect(afterProfile.discordUsername).toBeNull();
 	});
 
 	it("vincula e desvincula Discord em conta com senha", async () => {
@@ -376,6 +389,70 @@ describe("Discord OAuth", () => {
 		expect(failedApply.warning).toContain("Login concluído");
 		expect((await me(user.token)).displayName).toBe(changedName);
 		expect(await syncEvents(user.token)).toBe(syncsBeforeFailure);
+	});
+
+	it("mantém a foto do Concorde quando o Discord não tem foto", async () => {
+		const avatar = "data:image/png;base64,YXZhdGFyLWN1c3RvbWl6YWRv";
+		const user = await registerUser("keepavatar");
+
+		const patched = await SELF.fetch("https://example.com/auth/me", {
+			method: "PATCH",
+			headers: { "Content-Type": "application/json", ...bearer(user.token) },
+			body: JSON.stringify({ avatar })
+		});
+		expect(patched.status).toBe(200);
+		expect((await me(user.token)).avatar).toBe(avatar);
+
+		const discordId = String(800000000000000000 + RUN % 100000000);
+		mockDiscord({
+			id: discordId,
+			username: `keep${RUN}`,
+			email: `${unique("keepavatar")}@concorde.test`
+		});
+
+		const { state } = await (await startOAuth("link", user.token)).json<DiscordStart>();
+		expect((await callback("authorization-code", state, user.token)).status).toBe(200);
+		expect((await me(user.token)).avatar).toBe(avatar);
+	});
+
+	it("persiste a foto do Discord ao criar a conta", async () => {
+		const discordId = String(900000000000000000 + RUN % 100000000);
+		mockDiscord({
+			id: discordId,
+			username: `avatar${RUN}`,
+			email: `${unique("discordavatar")}@concorde.test`,
+			avatarHash: "a".repeat(32)
+		});
+
+		const { state } = await (await startOAuth("login")).json<DiscordStart>();
+		const callbackResponse = await callback("authorization-code", state);
+		expect(callbackResponse.status).toBe(200);
+
+		const pending = await callbackResponse.json<{
+			registrationRequired: true;
+			ticket: string;
+			suggestion: { avatar: string | null };
+		}>();
+		expect(pending.registrationRequired).toBe(true);
+		expect(pending.suggestion.avatar).toMatch(/^data:image\/png;base64,/);
+
+		const registeredResponse = await SELF.fetch("https://example.com/auth/discord/register", {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				ticket: pending.ticket,
+				username: `avataruser${RUN}`,
+				displayName: "Avatar Discord"
+			})
+		});
+		expect(registeredResponse.status).toBe(201);
+
+		const session = await registeredResponse.json<{
+			token: string;
+			user: { avatar?: string | null };
+		}>();
+		expect(session.user.avatar).toBe(pending.suggestion.avatar);
+		expect((await me(session.token)).avatar).toBe(pending.suggestion.avatar);
 	});
 
 	it("confirma ações sensíveis com o Discord uma única vez", async () => {

@@ -1,6 +1,5 @@
 import { Context } from "hono";
 
-import { AppError } from "../../utils/AppError";
 import { Env } from "../../types/Env";
 
 import { changeEmail, changeProfile, changePassword, confirmTotpEnrollment, disableTotp, enrollTotp, getTotpStatus, getCurrentUser, listUserSessionsForApi, loginUser, logoutSession, refreshSession, registerUser, requestPasswordReset, resetPasswordWithCode, revokeUserSessionById } from "./auth.service";

@@ -1,6 +1,5 @@
 import { useEffect, useState, type ChangeEvent } from "react";
-import { MessageCircle } from "lucide-react";
-
+import DiscordIcon from "../../components/DiscordIcon/DiscordIcon";
 import { Login } from "../../components/Auth/LoginComponent";
 import { Recover } from "../../components/Auth/RecoverComponent";
 import { Register } from "../../components/Auth/RegisterComponent";
@@ -135,7 +134,7 @@ export default function AuthPage() {
                             onClick={() => void startLogin()}
                             disabled={discordBusy}
                         >
-                            <MessageCircle size={16} aria-hidden="true" />
+                            <DiscordIcon size={16} />
                             <span>{discordBusy ? "Aguardando o Discord..." : "Entrar com Discord"}</span>
                         </button>
                         {discordBusy && (
