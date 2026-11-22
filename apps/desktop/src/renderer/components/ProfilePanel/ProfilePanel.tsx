@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BadgeCheck, CalendarDays, Check, ChevronRight, Copy, Globe2, MessageCircle, MoreHorizontal, UserMinus, UserPlus, X, XCircle } from "lucide-react";
+import { CalendarDays, Check, ChevronRight, Copy, Globe2, MessageCircle, MoreHorizontal, UserMinus, UserPlus, X, XCircle } from "lucide-react";
 
 import UserIdentity from "../../pages/HomePage/components/Friends/UserIdentity";
 import type { Friend, UserPresence, UserStatus } from "@concorde/shared";
@@ -242,7 +242,6 @@ export default function ProfilePanel({ user, onClose, roleLabel, actions, extra 
                                 title={user.discordVerified ? "Conta verificada no Discord" : "Conta vinculada ao Discord"}
                             >
                                 <DiscordIcon size={14} />
-                                {user.discordVerified && <BadgeCheck size={11} />}
                                 Discord
                             </span>
                         )}

@@ -1,7 +1,5 @@
 import type { CSSProperties } from "react";
-import { BadgeCheck } from "lucide-react";
 
-import DiscordIcon from "../../../../components/DiscordIcon/DiscordIcon";
 import type { UserStatus } from "@concorde/shared";
 
 import { STATUS_COLOR, STATUS_LABEL } from "../../../../utils/status";
@@ -18,10 +16,9 @@ interface UserIdentityProps {
     discordLinked?: boolean;
 }
 
-export default function UserIdentity({ displayName, username, avatar, large = false, status, discordVerified, discordLinked }: UserIdentityProps) {
+export default function UserIdentity({ displayName, username, avatar, large = false, status }: UserIdentityProps) {
     const initial = displayName.trim().charAt(0).toUpperCase() || "?";
     const avatarStyle: CSSProperties = avatar ? { backgroundImage: `url(${avatar})` } : {};
-    const linked = Boolean(discordLinked || discordVerified);
 
     return (
         <>
@@ -37,19 +34,7 @@ export default function UserIdentity({ displayName, username, avatar, large = fa
                 )}
             </span>
             <span className={styles.identity}>
-                <strong className={large ? styles.nameLarge : ""}>
-                    {displayName}
-                    {linked && (
-                        <span
-                            className={styles.discordBadge}
-                            title={discordVerified ? "Conta verificada no Discord" : "Conta vinculada ao Discord"}
-                        >
-                            <DiscordIcon size={13} />
-                            {discordVerified && <BadgeCheck size={10} />}
-                            Discord
-                        </span>
-                    )}
-                </strong>
+                <strong className={large ? styles.nameLarge : ""}>{displayName}</strong>
                 <small>@{username}</small>
             </span>
         </>
